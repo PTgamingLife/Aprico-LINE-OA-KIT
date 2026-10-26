@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
+import { emptySetup, validateSetup, requirementIssues, safeContactUrl, passwordsMatch } from '../../../src/build-model.ts';
 
 const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
 const channelId = '2012197506';
@@ -18,8 +19,8 @@ Deno.serve(async(req:Request)=>{
     while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>100000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
     const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
-    if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId});
-    if(!['list','save'].includes(b.action))return response({error:'不支援的操作'},400);
+    if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL')),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
+    if(!['list','save','build_status','unlock_build','save_build_setup','check_build'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
     if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
@@ -31,6 +32,43 @@ Deno.serve(async(req:Request)=>{
       const {data,error}=await db.from('line_oa_kit_designs').select('id,config,revision,updated_at').eq('line_subject',identity.sub).order('updated_at',{ascending:false}).limit(50);
       if(error)return response({error:'讀取失敗，請稍後重試'},503);
       return response({projects:data,displayName:typeof identity.name==='string'?identity.name:'LINE 會員'});
+    }
+    if(['build_status','unlock_build','save_build_setup','check_build'].includes(b.action)){
+      if(typeof b.projectId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.projectId))return response({error:'請先選擇並保存專案'},400);
+      const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
+      if(projectError)return response({error:'讀取專案失敗'},503);
+      if(!project)return response({error:'專案不存在或沒有存取權'},404);
+      let {data:access,error:accessError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
+      if(accessError)return response({error:'讀取開通狀態失敗'},503);
+      if(b.action==='build_status')return response({unlocked:Boolean(access),access,contactUrl:safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL'))});
+      if(b.action==='unlock_build'){
+        if(access)return response({unlocked:true,access});
+        const expected=Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD')||'';
+        if(!expected)return response({error:'開通密碼尚未設定，請聯絡專員'},503);
+        if(typeof b.password!=='string'||!b.password||b.password.length>256)return response({error:'請輸入開通密碼'},400);
+        const {data:allowed,error:limitError}=await db.rpc('line_oa_kit_consume_unlock_attempt',{p_subject:identity.sub});
+        if(limitError)return response({error:'目前無法驗證，請稍後再試'},503);
+        if(allowed!==true)return response({error:'嘗試次數已達上限，請於 15 分鐘後重試'},429);
+        if(!await passwordsMatch(b.password,expected))return response({error:'開通密碼不正確，請確認後重試'},403);
+        // Ignore duplicates to preserve any existing setup and entitlement during retries.
+        const {error:grantError}=await db.from('line_oa_kit_build_access').upsert({project_id:project.id,line_subject:identity.sub,grant_method:'manual_password'},{onConflict:'project_id',ignoreDuplicates:true});
+        if(grantError)return response({error:'開通失敗，請稍後再試'},503);
+        const {data:granted,error:readError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).single();
+        if(readError)return response({error:'讀取開通狀態失敗，請重新整理'},503);
+        return response({unlocked:true,access:granted});
+      }
+      if(!access)return response({error:'請先使用專員提供的密碼開通此專案'},403);
+      if(b.action==='save_build_setup'){
+        let setup;try{setup=validateSetup(b.setup);}catch{return response({error:'設定欄位格式不正確'},400);}
+        if(!Number.isSafeInteger(b.setupRevision)||b.setupRevision<0)return response({error:'版本格式不正確'},400);
+        const {data:updated,error:updateError}=await db.from('line_oa_kit_build_access').update({setup,setup_revision:b.setupRevision+1,updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub).eq('setup_revision',b.setupRevision).select('granted_at,grant_method,setup,setup_revision,updated_at').maybeSingle();
+        if(updateError)return response({error:'保存建置設定失敗'},503);
+        if(!updated)return response({error:'設定已在其他分頁變更，請重新載入確認'},409);
+        return response({access:updated});
+      }
+      const setup=access.setup_revision>0?validateSetup(access.setup):emptySetup();
+      const issues=requirementIssues(validateDraft(project.config),setup);
+      return response({requirementsReady:issues.length===0,issues,deploymentReady:false,nextSteps:['完成 GitHub 專案部署授權','完成 Supabase 專案部署授權','平台 AI 建置服務串接完成後，確認預估額度再執行'],message:issues.length?'請先補齊需求與平台資訊':'需求檢查完成；部署授權與自動建置服務尚待串接，尚未執行部署'});
     }
     let config;try{config=validateDraft(b.config);}catch{return response({error:'請檢查欄位內容與長度'},400);}
     if(typeof b.id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.id)||!Number.isSafeInteger(b.revision)||b.revision<0)return response({error:'專案版本不正確'},400);

@@ -1,0 +1,8 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {emptySetup,validateSetup,requirementIssues,passwordsMatch,safeContactUrl} from '../src/build-model.ts';
+import {emptyDraft} from '../src/model.ts';
+test('password comparison and absent configured password',async()=>{assert.equal(await passwordsMatch('correct','correct'),true);assert.equal(await passwordsMatch('incorrect','correct'),false);assert.equal(await passwordsMatch('',''),false);});
+test('setup discards caller grant claims and secrets',()=>{const d=validateSetup({...emptySetup(),unlocked:true,password:'never-save'});assert.equal('unlocked' in d,false);assert.equal('password' in d,false);});
+test('reject malformed targets and ensure health AI is required',()=>{const d=emptyDraft();d.name='project';d.oaName='brand';d.cells.forEach(c=>{c.label='entry';c.content='description';});const s={...emptySetup(),audience:'客戶',purpose:'預約',scenario:'手機',success:'預約完成',failure:'重新選擇',human:'聯絡客服',githubRepo:'https://github.com/owner/repo',supabaseUrl:'https://abcdefghijklmnopqrst.supabase.co',messagingChannelId:'2010626491'};assert.deepEqual(requirementIssues(d,s),[]);d.cells[0].template='health';assert(requirementIssues(d,s).some(x=>x.includes('AI')));assert(requirementIssues(d,{...s,githubRepo:'https://evil.test/owner/repo'}).some(x=>x.includes('GitHub')));});
+test('contact links only accept intended LINE destinations',()=>{assert.equal(safeContactUrl('javascript:alert(1)'),'');assert.equal(safeContactUrl('https://line.me.evil.test/'),'');assert.equal(safeContactUrl('https://line.me/ti/p/example'),'https://line.me/ti/p/example');});
