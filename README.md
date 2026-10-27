@@ -38,6 +38,16 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 
 ## 一次性授權自動部署（第一版）
 
+### 新手帳號與網址教學
+
+建置設定第 3 步改為六張小教學：GitHub 註冊、建立 Repository、從網址列複製 Repository URL、Supabase 註冊、建立專案、從 Connect 取得 Project URL。每張包含可對照欄位／按鈕的手機介面位置圖（明示不是實際截圖）、紅框箭頭、三項短指示、官方入口與來源。Repository 建立頁另有 GitHub 官方截圖。不是只列出流程名稱。
+
+`githubRepo` 與 `supabaseUrl` 輸入框放在各自的「網址教學」頁。捷徑切換不清空上層建置設定，兩個網址格式正確後才可按「保存網址並繼續」。此按鈕使用原本的本人專案保存與版本機制，不建立新的資料副本。誤貼帳號首頁、GitHub Pages、.git、Supabase 後台／連線字串／Key 時會有明確提示。已有帳號可跳過註冊／建立步驟，不強迫重建。
+
+核對日期 2026-10-27；官方流程：[GitHub 註冊](https://docs.github.com/en/account-and-profile/how-tos/account-management/creating-an-account-on-github)、[建立 Repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/quickstart-for-repositories)、[Supabase 註冊](https://supabase.com/dashboard/sign-up)、[建立 Supabase 專案](https://supabase.com/docs/guides/getting-started/quickstarts/nextjs)、[Connect 取得 URL](https://supabase.com/docs/guides/getting-started/api-keys)。帳號驗證、條款、付款／升級仍由使用者自行決定與操作，教學不收取其帳號密碼或資料庫密碼。
+
+26 項測試通過；本機手機 390px 已驗證六頁、官方圖片載入、錯誤網址提示、切換保留兩個網址與保存回呼。本次沒有更動 Supabase schema／Edge 金鑰，也沒有呼叫付費 AI。
+
 手機版六頁教學：GitHub → Supabase → LINE Secret／Token → 只讀核對 → 同意公開部署 → 網址與實機驗收。每頁都有本站繪製的手機示意圖、紅框箭頭；LINE／Supabase 步驟另提供官方範例截圖與來源，清楚標示不是手機實機截圖。最後一頁亦有圖片。外部圖片失效時保留本地 SVG 與文字，不假造平台截圖。
 
 必要授權：
