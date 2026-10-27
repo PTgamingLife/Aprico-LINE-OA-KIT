@@ -5,6 +5,8 @@ import {runBuildJob} from '../_shared/run-build-job.ts';
 
 const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
 const channelId = '2012197506';
+// Public support destination, not a credential. An Edge setting can override it.
+const contactUrl = ()=>safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL'))||'https://line.me/ti/p/ZC-w2BuPoi';
 Deno.serve(async(req:Request)=>{
   const requestOrigin=req.headers.get('origin');
   const origin=requestOrigin&&allowedOrigins.has(requestOrigin)?requestOrigin:'https://facialmonitor-line-kit.ptchen321.chatgpt.site';
@@ -20,7 +22,7 @@ Deno.serve(async(req:Request)=>{
     while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>100000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
     const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
-    if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL')),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
+    if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
     if(!['list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
@@ -41,7 +43,7 @@ Deno.serve(async(req:Request)=>{
       if(!project)return response({error:'專案不存在或沒有存取權'},404);
       let {data:access,error:accessError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
       if(accessError)return response({error:'讀取開通狀態失敗'},503);
-      if(b.action==='build_status')return response({unlocked:Boolean(access),access,contactUrl:safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL'))});
+      if(b.action==='build_status')return response({unlocked:Boolean(access),access,contactUrl:contactUrl()});
       if(b.action==='unlock_build'){
         if(access)return response({unlocked:true,access});
         const expected=Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD')||'';

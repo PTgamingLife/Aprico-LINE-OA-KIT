@@ -23,7 +23,7 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 只在 heart-cards 的 Supabase Edge Secrets 設定以下值，不要提交到 GitHub、表單或聊天：
 
 - `LINE_OA_KIT_BUILD_PASSWORD`：目前共用的專員開通密碼。每個專案輸入成功後在資料庫保存開通權益；輪替密碼不會撤銷已開通專案。每個 LINE 使用者最多嘗試五次／15 分鐘。這不是付款驗證，正式收款仍需訂單與回呼機制。
-- `LINE_OA_KIT_CONTACT_URL`：專員公開 LINE 連結（line.me、www.line.me 或 lin.ee 的 HTTPS 網址）。
+- `LINE_OA_KIT_CONTACT_URL`：可覆寫專員公開 LINE 連結（line.me、www.line.me 或 lin.ee 的 HTTPS 網址）；未設定時使用管理者指定的公開連結 https://line.me/ti/p/ZC-w2BuPoi ，此網址不是金鑰。
 - `LINE_OA_KIT_BUILD_OPENAI_API_KEY`：平台網站草稿產生用 OpenAI 金鑰，不是客戶 OA 的營運 AI 金鑰。
 
 依序部署 `supabase/build-access.sql`、`supabase/build-jobs.sql`（遠端已套用，不要重複執行），再部署 `line-oa-kit-studio` 與其相對依賴。函式自行驗證 LINE ID token，故 gateway verify_jwt=false。所有設計、權益、工作、預算表均 RLS deny-all 瀏覽器角色；只由服務端驗證本人後存取，不能加寬鬆 policy 解決權限問題。
