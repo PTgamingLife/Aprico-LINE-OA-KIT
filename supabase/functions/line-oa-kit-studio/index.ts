@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
 import { emptySetup, validateSetup, requirementIssues, safeContactUrl, passwordsMatch } from '../../../src/build-model.ts';
+import {runBuildJob} from '../_shared/run-build-job.ts';
 
 const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
 const channelId = '2012197506';
@@ -20,7 +21,7 @@ Deno.serve(async(req:Request)=>{
     const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
     if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL')),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
-    if(!['list','save','build_status','unlock_build','save_build_setup','check_build'].includes(b.action))return response({error:'不支援的操作'},400);
+    if(!['list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
     if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
@@ -33,9 +34,9 @@ Deno.serve(async(req:Request)=>{
       if(error)return response({error:'讀取失敗，請稍後重試'},503);
       return response({projects:data,displayName:typeof identity.name==='string'?identity.name:'LINE 會員'});
     }
-    if(['build_status','unlock_build','save_build_setup','check_build'].includes(b.action)){
+    if(['build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job'].includes(b.action)){
       if(typeof b.projectId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.projectId))return response({error:'請先選擇並保存專案'},400);
-      const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
+      const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config,revision').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
       if(projectError)return response({error:'讀取專案失敗'},503);
       if(!project)return response({error:'專案不存在或沒有存取權'},404);
       let {data:access,error:accessError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
@@ -58,6 +59,17 @@ Deno.serve(async(req:Request)=>{
         return response({unlocked:true,access:granted});
       }
       if(!access)return response({error:'請先使用專員提供的密碼開通此專案'},403);
+      if(b.action==='build_jobs'||b.action==='build_job'){
+        // A stopped worker must never be silently retried with another paid request.
+        await db.from('line_oa_kit_build_jobs').update({status:'interrupted',error_code:'worker_interrupted',updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub).in('status',['queued','running']).lt('created_at',new Date(Date.now()-300000).toISOString());
+        if(b.action==='build_job'){
+          if(typeof b.jobId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.jobId))return response({error:'工作編號不正確'},400);
+          const {data:job,error}=await db.from('line_oa_kit_build_jobs').select('id,status,artifact,usage,error_code,cost_usd,created_at,updated_at,design_revision,setup_revision').eq('id',b.jobId).eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
+          if(error)return response({error:'讀取工作失敗'},503);if(!job)return response({error:'工作不存在'},404);return response({job});
+        }
+        const {data:jobs,error}=await db.from('line_oa_kit_build_jobs').select('id,status,usage,error_code,cost_usd,created_at,design_revision,setup_revision').eq('project_id',project.id).eq('line_subject',identity.sub).order('created_at',{ascending:false}).limit(10);
+        if(error)return response({error:'讀取工作紀錄失敗'},503);return response({jobs});
+      }
       if(b.action==='save_build_setup'){
         let setup;try{setup=validateSetup(b.setup);}catch{return response({error:'設定欄位格式不正確'},400);}
         if(!Number.isSafeInteger(b.setupRevision)||b.setupRevision<0)return response({error:'版本格式不正確'},400);
@@ -68,7 +80,18 @@ Deno.serve(async(req:Request)=>{
       }
       const setup=access.setup_revision>0?validateSetup(access.setup):emptySetup();
       const issues=requirementIssues(validateDraft(project.config),setup);
-      return response({requirementsReady:issues.length===0,issues,deploymentReady:false,nextSteps:['完成 GitHub 專案部署授權','完成 Supabase 專案部署授權','平台 AI 建置服務串接完成後，確認預估額度再執行'],message:issues.length?'請先補齊需求與平台資訊':'需求檢查完成；部署授權與自動建置服務尚待串接，尚未執行部署'});
+      if(b.action==='generate_source'){
+        if(b.confirmGenerate!==true)return response({error:'請先確認本次 AI 網站草稿產生'},400);
+        if(issues.length)return response({error:'請先補齊建置需求',issues},400);
+        const apiKey=Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')||'';if(!apiKey)return response({error:'平台 AI 建置金鑰尚未設定'},503);
+        const snapshot={design:project.config,setup};if(JSON.stringify(snapshot).length>24000)return response({error:'需求內容過長，請精簡後再試'},400);
+        const {data:started,error}=await db.rpc('line_oa_kit_begin_build',{p_project:project.id,p_subject:identity.sub,p_design_revision:project.revision,p_setup_revision:access.setup_revision});
+        if(error)return response({error:'無法建立工作，請稍後再試'},503);
+        if(started.error)return response({error:started.error==='pilot_budget_exhausted'?'平台試行額度已用完，請聯絡專員':started.error==='revision_conflict'?'需求已變更，請重新載入':'請先開通專案'},409);
+        if(started.created)EdgeRuntime.waitUntil(runBuildJob(db,started.job_id,apiKey));
+        return response({jobId:started.job_id,status:started.status,reused:!started.created},202);
+      }
+      return response({requirementsReady:issues.length===0,issues,generationAvailable:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')),deploymentReady:false,nextSteps:['完成 GitHub 專案部署授權','完成 Supabase 專案部署授權','網站草稿產生後仍須測試、授權與部署'],message:issues.length?'請先補齊需求與平台資訊':'需求檢查完成，可以先產生網站草稿；尚未執行部署'});
     }
     let config;try{config=validateDraft(b.config);}catch{return response({error:'請檢查欄位內容與長度'},400);}
     if(typeof b.id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.id)||!Number.isSafeInteger(b.revision)||b.revision<0)return response({error:'專案版本不正確'},400);
