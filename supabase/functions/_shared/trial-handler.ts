@@ -22,7 +22,7 @@ export async function trialAction(b:any,db:any,subject:string,response:(body:any
   const current=await call(`/v2/bot/user/${subject}/richmenu`,'GET',undefined,false,true);if(current&&current.richMenuId!==started.oldMenu)throw Error('trial_existing_personal_menu');
   // Existing assistant endpoint is preserved. Postbacks require its verified readiness.
   let menu=started.oldMenu,version=started.oldVersion;
-  if(!started.cached){version=operation;const made=await call('/v2/bot/richmenu','POST',trialMenu(started.config,operation,chat));menu=made.richMenuId;if(typeof menu!=='string'||!/^richmenu-[a-f0-9]{32}$/.test(menu))throw Error('trial_invalid_menu');created=menu;await call(`/v2/bot/richmenu/${menu}/content`,'POST',image,true);}
+  if(!started.cached){version=operation;const made=await call('/v2/bot/richmenu','POST',trialMenu(started.config,operation,chat));menu=made.richMenuId;if(typeof menu!=='string'||!/^richmenu-[a-f0-9]{32}$/.test(menu))throw Error('trial_invalid_menu');created=menu;await call(`/v2/bot/richmenu/${menu}/content`,'POST',image,b.image.startsWith('data:image/jpeg;')?'image/jpeg':true);}
   const{data:renewed,error:renewError}=await db.from('line_oa_kit_trials').update({lease_until:new Date(Date.now()+60000).toISOString()}).eq('line_subject',subject).eq('operation_id',operation).select('line_subject').maybeSingle();if(renewError||!renewed)throw Error('trial_busy');
   // Mark link outcome uncertain before the network request: never delete a possibly live menu.
   linked=true;await call(`/v2/bot/user/${subject}/richmenu/${menu}`,'POST');

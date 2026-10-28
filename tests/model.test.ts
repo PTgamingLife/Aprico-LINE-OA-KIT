@@ -1,6 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyDraft,validateDraft} from '../src/model.ts';
+import {prints,printUrl} from '../src/backgrounds.ts';
+import {jpegSize,backgroundBytes} from '../src/image-format.ts';
+import {decodeMenuImage} from '../src/trial-model.ts';
+function jpeg(w:number,h:number){return Uint8Array.from([255,216,255,224,0,16,...Array(14).fill(0),255,192,0,17,8,h>>8,h&255,w>>8,w&255,3,1,17,0,2,17,0,3,17,0,255,217]);}
+test('eight safe prints and legacy draft defaults survive theme and grid changes',()=>{assert.equal(prints.length,8);assert.equal(new Set(prints.map(p=>p.key)).size,8);for(const p of prints){const d=emptyDraft();d.pattern=p.key;d.grid=8;d.theme=5;assert.equal(validateDraft(d).pattern,p.key);assert.match(printUrl(p.key),/^data:image\/svg\+xml/);}const{pattern,backgroundImage,...old}=emptyDraft();assert.equal(validateDraft(old).pattern,'none');assert.equal(validateDraft(old).backgroundImage,'');assert.throws(()=>validateDraft({...old,pattern:'remote-url'}));});
+test('uploaded backgrounds accept bounded JPEG only, never remote or SVG sources',()=>{const bytes=jpeg(960,640),data='data:image/jpeg;base64,'+Buffer.from(bytes).toString('base64');assert.deepEqual(jpegSize(bytes),{width:960,height:640});assert.ok(backgroundBytes(data));const d=validateDraft({...emptyDraft(),pattern:'image',backgroundImage:data});assert.equal(d.backgroundImage,data);for(const bad of ['https://example.com/image.jpg','data:image/svg+xml;base64,AAAA',data+'x'])assert.throws(()=>backgroundBytes(bad));assert.throws(()=>validateDraft({...emptyDraft(),pattern:'image'}));assert.throws(()=>backgroundBytes('data:image/jpeg;base64,'+Buffer.from(jpeg(1200,810)).toString('base64')));});
+test('LINE image decoder checks JPEG dimensions and the upload size cap',()=>{const url='data:image/jpeg;base64,'+Buffer.from(jpeg(1200,810)).toString('base64');assert.ok(decodeMenuImage(url));assert.throws(()=>decodeMenuImage('data:image/jpeg;base64,'+Buffer.from(jpeg(960,640)).toString('base64')));assert.throws(()=>decodeMenuImage('data:image/png;base64,'+'A'.repeat(1200000)));});
 test('grid and theme changes preserve every hidden cell',()=>{const d=emptyDraft();d.cells[7].content='保留我的功能';d.grid=4;d.theme=7;assert.equal(validateDraft(d).cells[7].content,'保留我的功能');});
 test('only approved fields cross the save boundary',()=>{const d=validateDraft({...emptyDraft(),owner:'other-member',paid:true});assert.equal('owner' in d,false);assert.equal('paid' in d,false);});
 test('reject malformed grid and oversized labels',()=>{assert.throws(()=>validateDraft({...emptyDraft(),grid:5}));const d=emptyDraft();d.cells[0].label='x'.repeat(31);assert.throws(()=>validateDraft(d));});

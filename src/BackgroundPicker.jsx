@@ -1,0 +1,8 @@
+import React from 'react';
+import {prints,printStyle} from './backgrounds.ts';
+import {compressBackground} from './background-upload.js';
+import './backgrounds.css';
+export default function BackgroundPicker({draft,onChange,busy,onBusy,notice}){
+ async function upload(event){const input=event.target,file=input.files?.[0];if(!file)return;onBusy(true);notice('正在壓縮背景圖片…');try{const image=await compressBackground(file);onChange({pattern:'image',backgroundImage:image});notice('背景圖片已套用；請保存設計。');}catch(e){notice(e.message||'圖片讀取失敗，請換一張圖片。',true);}finally{input.value='';onBusy(false);}}
+ return <section className="card print-card"><h2>再加一點印花質感</h2><p>與上方配色搭配，立即預覽在選單上的效果。</p><button className="plain-print" disabled={busy} aria-pressed={draft.pattern==='none'} onClick={()=>onChange({pattern:'none'})}>不使用印花 · 純色</button><div className="print-options" aria-label="選擇背景印花">{prints.map(p=><button disabled={busy} key={p.key} aria-pressed={draft.pattern===p.key} onClick={()=>onChange({pattern:p.key})}><span className="print-swatch" style={printStyle(p.key)}/><span>{p.name}</span></button>)}</div><div className="upload-background"><h3>用自己的圖片當背景</h3><label>上傳背景圖片<input disabled={busy} type="file" accept="image/jpeg,image/png,image/webp" onChange={upload}/></label>{draft.backgroundImage&&<><img src={draft.backgroundImage} alt="你上傳的背景圖片預覽"/><div className="background-actions"><button disabled={busy} aria-pressed={draft.pattern==='image'} onClick={()=>onChange({pattern:'image'})}>使用這張背景</button><button disabled={busy} onClick={()=>onChange({backgroundImage:'',...(draft.pattern==='image'?{pattern:'none'}:{})})}>移除圖片</button></div></>}<small>支援 JPG／PNG／WebP，原圖上限 12 MB。自動壓縮、移除原圖定位等中繼資料並置中裁切；保存後隨你的會員專案保留，不送交 AI。請使用有權使用的圖片。</small></div></section>;
+}

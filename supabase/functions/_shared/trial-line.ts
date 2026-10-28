@@ -1,9 +1,9 @@
 const WEBHOOK='https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-trial-webhook';
 const ASSISTANT='https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-assistant';
 export function trialLine(token:string,fetcher:typeof fetch=fetch){
- return async(path:string,method='GET',body?:unknown,image=false,missing=false)=>{
+ return async(path:string,method='GET',body?:unknown,image:boolean|'image/jpeg'=false,missing=false)=>{
   if(!path.startsWith('/v2/bot/')||path.includes('..')||path.includes('://'))throw Error('trial_invalid_line_path');
-  const r=await fetcher((image?'https://api-data.line.me':'https://api.line.me')+path,{method,headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':image?'image/png':'application/json'}:{})},body:body?(image?body as Uint8Array:JSON.stringify(body)):undefined,redirect:'error',signal:AbortSignal.timeout(12000)});
+  const r=await fetcher((image?'https://api-data.line.me':'https://api.line.me')+path,{method,headers:{Authorization:`Bearer ${token}`,...(body?{'Content-Type':image?(image==='image/jpeg'?'image/jpeg':'image/png'):'application/json'}:{})},body:body?(image?body as Uint8Array:JSON.stringify(body)):undefined,redirect:'error',signal:AbortSignal.timeout(12000)});
   if(missing&&r.status===404)return null;if(!r.ok)throw Error(`trial_line_${r.status}`);const text=await r.text();return text?JSON.parse(text):{};
  };
 }

@@ -2,6 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
 import { emptySetup, validateSetup, requirementIssues, safeContactUrl, passwordsMatch } from '../../../src/build-model.ts';
 import {runBuildJob} from '../_shared/run-build-job.ts';
+import {textBuildSpec} from '../_shared/source-builder.ts';
 import {deploymentAction} from '../_shared/deploy-handler.ts';
 import {trialAction} from '../_shared/trial-handler.ts';
 import {previewPlatform} from '../_shared/trial-line.ts';
@@ -22,7 +23,7 @@ Deno.serve(async(req:Request)=>{
     // Bound the stream before parsing; never log bodies or LINE credentials.
     const reader=req.body?.getReader();if(!reader)return response({error:'缺少內容'},400);
     const chunks:Uint8Array[]=[];let size=0;
-    while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>400000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
+    while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>1500000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
     const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
     if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
@@ -92,7 +93,7 @@ Deno.serve(async(req:Request)=>{
         if(b.confirmGenerate!==true)return response({error:'請先確認本次 AI 網站草稿產生'},400);
         if(issues.length)return response({error:'請先補齊建置需求',issues},400);
         const apiKey=Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')||'';if(!apiKey)return response({error:'平台 AI 建置金鑰尚未設定'},503);
-        const snapshot={design:project.config,setup};if(JSON.stringify(snapshot).length>24000)return response({error:'需求內容過長，請精簡後再試'},400);
+        const snapshot={design:project.config,setup};if(JSON.stringify(textBuildSpec(snapshot)).length>24000)return response({error:'需求內容過長，請精簡後再試'},400);
         const {data:started,error}=await db.rpc('line_oa_kit_begin_build',{p_project:project.id,p_subject:identity.sub,p_design_revision:project.revision,p_setup_revision:access.setup_revision});
         if(error)return response({error:'無法建立工作，請稍後再試'},503);
         if(started.error)return response({error:started.error==='pilot_budget_exhausted'?'平台試行額度已用完，請聯絡專員':started.error==='revision_conflict'?'需求已變更，請重新載入':'請先開通專案'},409);
