@@ -9,7 +9,7 @@ export async function exitTrial(db:any,subject:string,token:string){
  finally{await db.from('line_oa_kit_trials').update({operation_id:null,lease_until:null}).eq('line_subject',subject).eq('operation_id',op);}
 }
 export async function trialAction(b:any,db:any,subject:string,response:(body:any,status?:number)=>Response){
- const token=Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',secret=Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||'';let operation:string|undefined,created:string|undefined,linked=false;
+ const token=Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',secret=Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||'';let operation:string|undefined,created:string|undefined,linked=false,previous:any;
  try{
   if(b.action==='trial_exit'){await exitTrial(db,subject,token);return response({active:false});}
   if(b.action==='trial_config'){
@@ -17,7 +17,7 @@ export async function trialAction(b:any,db:any,subject:string,response:(body:any
   }
   const image=decodeMenuImage(b.image),platform=await previewPlatform(token,secret);if(!platform.available&&platform.reason!=='trial_existing_webhook')throw Error(platform.reason);
   const call=trialLine(token);await call(`/v2/bot/profile/${subject}`); // Require an actual friend in the same Provider.
-  const{data:started,error}=await db.rpc('line_oa_kit_begin_trial',{p_subject:subject,p_project:b.projectId,p_revision:b.revision});if(error)throw Error('trial_database');if(started.error)throw Error(started.error);operation=started.operation;
+  const{data:started,error}=await db.rpc('line_oa_kit_begin_trial',{p_subject:subject,p_project:b.projectId,p_revision:b.revision});if(error)throw Error('trial_database');if(started.error)throw Error(started.error);operation=started.operation;previous=started;
   const current=await call(`/v2/bot/user/${subject}/richmenu`,'GET',undefined,false,true);if(current&&current.richMenuId!==started.oldMenu)throw Error('trial_existing_personal_menu');
   // URI-only trial deliberately leaves the platform's existing webhook untouched.
   let menu=started.oldMenu,version=started.oldVersion;
@@ -30,6 +30,10 @@ export async function trialAction(b:any,db:any,subject:string,response:(body:any
   if(created&&started.oldMenu&&started.oldMenu!==menu){try{const old=await call(`/v2/bot/richmenu/${started.oldMenu}`);if(old.name==='Aprico personal trial '+started.oldVersion)await call(`/v2/bot/richmenu/${started.oldMenu}`,'DELETE');}catch{/* Old owned menu cleanup is best-effort, never touch a default menu. */}}
   return response({active:true,version,webhookActive:false,message:'個人試用選單已套用，只對你顯示。關閉網頁回到 Aprico 聊天室，點選各格開啟功能展示。固定訊息目前以展示頁呈現，不改動原本 Webhook。'});
  }catch(e){
+  // A failed final database write must not strand a newly linked menu. Only
+  // compensate while this operation still owns the lease and LINE still
+  // points at our exact target. Never unlink another operation's menu.
+  if(linked&&operation&&previous){try{const{data:own}=await db.from('line_oa_kit_trials').select('operation_id').eq('line_subject',subject).eq('operation_id',operation).maybeSingle();if(own){const call=trialLine(token),actual=await call(`/v2/bot/user/${subject}/richmenu`,'GET',undefined,false,true),target=created||previous.oldMenu;if(actual?.richMenuId===target){if(previous.oldActive&&previous.oldMenu)await call(`/v2/bot/user/${subject}/richmenu/${previous.oldMenu}`,'POST');else await call(`/v2/bot/user/${subject}/richmenu`,'DELETE');linked=false;}}}catch{/* Uncertain LINE state is retained, never delete a possibly live menu. */}}
   if(created&&!linked){try{await trialLine(token)(`/v2/bot/richmenu/${created}`,'DELETE');}catch{}}
   const code=e instanceof Error&&/^trial_[a-z0-9_]+$/.test(e.message)?e.message:'trial_request_failed';return response({error:errorText[code]||'設計已保存，但 LINE 試用未完成，請稍後重試或聯絡專員。',code},code==='trial_rate_limit'||code==='trial_platform_limit'?429:409);
  }finally{if(operation)await db.from('line_oa_kit_trials').update({operation_id:null,lease_until:null,pending_project:null,pending_revision:null,pending_config:null}).eq('line_subject',subject).eq('operation_id',operation);}
