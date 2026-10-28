@@ -79,7 +79,9 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 
 底部「返回建置中心」會解除本人個人選單，恢復原本預設選單。頁面也提供結束試用按鈕。每人新設計最多每分鐘更新一次、平台試行每小時最多建立 30 份；相同設計重用既有選單。新選單成功後只清理資料庫記錄且名稱完全吻合的舊試用選單。
 
-平台現有 Webhook 未經確認，不會被覆寫。此版所有格子均使用 URI 展示頁；聊天室直接回覆需要先確認既有 Webhook 的整合方式。已準備簽章驗證的 trial-webhook，但未將 LINE endpoint 切換過去。沒有廣播、push 或付費 AI 呼叫。
+平台 Webhook 沿用使用者確認的 `line-assistant`，不切換 endpoint。原小A群組助教的訊息處理保留；只有經平台簽章驗證、啟用試用的一對一使用者走個人回覆，並阻止進入付費 AI。訊息格以 postback 直接回覆，App 格維持 LIFF 展示。輸入「結束試用」可恢復原選單。非試用訊息仍須通過原助教簽章才交給原流程。
+
+追加執行 `supabase/trial-chat.sql` 後，選單快取區分 URI 與 chat-v1 模式，避免重用舊展示頁選單。已啟用 URI 試用的使用者，須再次按「保存並在 LINE 試用」升級。只有固定的 line-assistant endpoint、已開啟 webhook 且部署健康檢查就緒時，才建立聊天室 postback；否則保留 URI 展示。沒有廣播、push 或本次新增的付費 AI 呼叫。
 
 資料表與 RPC 見 `supabase/trials.sql`，RLS／權限限制為 service_role only；前端不得提供 owner ID。試用設定由已驗證 LINE ID token 限本人讀取，沒有公開設計查詢入口。新增模型、簽章、既有 Webhook 保護、HTTPS 及回覆版本等測試；本機假帳號測試不代表真實 LINE 手機實測完成。
 

@@ -17,18 +17,19 @@ export async function trialAction(b:any,db:any,subject:string,response:(body:any
   }
   const image=decodeMenuImage(b.image),platform=await previewPlatform(token,secret);if(!platform.available&&platform.reason!=='trial_existing_webhook')throw Error(platform.reason);
   const call=trialLine(token);await call(`/v2/bot/profile/${subject}`); // Require an actual friend in the same Provider.
-  const{data:started,error}=await db.rpc('line_oa_kit_begin_trial',{p_subject:subject,p_project:b.projectId,p_revision:b.revision});if(error)throw Error('trial_database');if(started.error)throw Error(started.error);operation=started.operation;previous=started;
+  const chat=platform.chatRepliesAvailable===true;
+  const{data:started,error}=await db.rpc('line_oa_kit_begin_trial_v2',{p_subject:subject,p_project:b.projectId,p_revision:b.revision,p_mode:chat?'chat-v1':'uri'});if(error)throw Error('trial_database');if(started.error)throw Error(started.error);operation=started.operation;previous=started;
   const current=await call(`/v2/bot/user/${subject}/richmenu`,'GET',undefined,false,true);if(current&&current.richMenuId!==started.oldMenu)throw Error('trial_existing_personal_menu');
-  // URI-only trial deliberately leaves the platform's existing webhook untouched.
+  // Existing assistant endpoint is preserved. Postbacks require its verified readiness.
   let menu=started.oldMenu,version=started.oldVersion;
-  if(!started.cached){version=operation;const made=await call('/v2/bot/richmenu','POST',trialMenu(started.config,operation));menu=made.richMenuId;if(typeof menu!=='string'||!/^richmenu-[a-f0-9]{32}$/.test(menu))throw Error('trial_invalid_menu');created=menu;await call(`/v2/bot/richmenu/${menu}/content`,'POST',image,true);}
+  if(!started.cached){version=operation;const made=await call('/v2/bot/richmenu','POST',trialMenu(started.config,operation,chat));menu=made.richMenuId;if(typeof menu!=='string'||!/^richmenu-[a-f0-9]{32}$/.test(menu))throw Error('trial_invalid_menu');created=menu;await call(`/v2/bot/richmenu/${menu}/content`,'POST',image,true);}
   const{data:renewed,error:renewError}=await db.from('line_oa_kit_trials').update({lease_until:new Date(Date.now()+60000).toISOString()}).eq('line_subject',subject).eq('operation_id',operation).select('line_subject').maybeSingle();if(renewError||!renewed)throw Error('trial_busy');
   // Mark link outcome uncertain before the network request: never delete a possibly live menu.
   linked=true;await call(`/v2/bot/user/${subject}/richmenu/${menu}`,'POST');
   const actual=await call(`/v2/bot/user/${subject}/richmenu`);if(actual.richMenuId!==menu)throw Error('trial_link_verify_failed');
-  const{data:finished,error:finishError}=await db.rpc('line_oa_kit_finish_trial',{p_subject:subject,p_operation:operation,p_menu:menu,p_version:version});if(finishError||finished!==true)throw Error('trial_database');
+  const{data:finished,error:finishError}=await db.rpc('line_oa_kit_finish_trial_v2',{p_subject:subject,p_operation:operation,p_menu:menu,p_version:version});if(finishError||finished!==true)throw Error('trial_database');
   if(created&&started.oldMenu&&started.oldMenu!==menu){try{const old=await call(`/v2/bot/richmenu/${started.oldMenu}`);if(old.name==='Aprico personal trial '+started.oldVersion)await call(`/v2/bot/richmenu/${started.oldMenu}`,'DELETE');}catch{/* Old owned menu cleanup is best-effort, never touch a default menu. */}}
-  return response({active:true,version,webhookActive:false,message:'個人試用選單已套用，只對你顯示。關閉網頁回到 Aprico 聊天室，點選各格開啟功能展示。固定訊息目前以展示頁呈現，不改動原本 Webhook。'});
+  return response({active:true,version,webhookActive:chat,message:chat?'個人試用已套用。回到 Aprico 聊天室：訊息格直接回覆你的內容，App 格開啟展示；輸入「結束試用」可恢復原選單。':'個人試用選單已套用，只對你顯示。關閉網頁回到 Aprico 聊天室，點選各格開啟功能展示。固定訊息暫以展示頁呈現，不改動原本 Webhook。'});
  }catch(e){
   // A failed final database write must not strand a newly linked menu. Only
   // compensate while this operation still owns the lease and LINE still
