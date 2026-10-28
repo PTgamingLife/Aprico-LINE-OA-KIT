@@ -3,6 +3,8 @@ import { validateDraft } from '../../../src/model.ts';
 import { emptySetup, validateSetup, requirementIssues, safeContactUrl, passwordsMatch } from '../../../src/build-model.ts';
 import {runBuildJob} from '../_shared/run-build-job.ts';
 import {deploymentAction} from '../_shared/deploy-handler.ts';
+import {trialAction} from '../_shared/trial-handler.ts';
+import {previewPlatform} from '../_shared/trial-line.ts';
 
 const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
 const channelId = '2012197506';
@@ -20,11 +22,12 @@ Deno.serve(async(req:Request)=>{
     // Bound the stream before parsing; never log bodies or LINE credentials.
     const reader=req.body?.getReader();if(!reader)return response({error:'缺少內容'},400);
     const chunks:Uint8Array[]=[];let size=0;
-    while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>100000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
+    while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>400000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
     const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
     if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
-    if(!['list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action))return response({error:'不支援的操作'},400);
+    if(b.action==='trial_info'){try{return response(await previewPlatform(Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||''));}catch{return response({available:false,reason:'trial_platform_unavailable'});}}
+    if(!['trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
     if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
@@ -32,6 +35,7 @@ Deno.serve(async(req:Request)=>{
     if(identity.aud!==channelId||identity.iss!=='https://access.line.me'||typeof identity.sub!=='string'||!/^U[0-9a-f]{32}$/.test(identity.sub)||!Number.isFinite(identity.exp)||identity.exp*1000<=Date.now())return response({error:'登入憑證不符'},401);
     const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
     // Every query is scoped to the server-verified LINE subject, never a client owner ID.
+    if(['trial_apply','trial_config','trial_exit'].includes(b.action))return await trialAction(b,db,identity.sub,response);
     if(b.action==='list'){
       const {data,error}=await db.from('line_oa_kit_designs').select('id,config,revision,updated_at').eq('line_subject',identity.sub).order('updated_at',{ascending:false}).limit(50);
       if(error)return response({error:'讀取失敗，請稍後重試'},503);

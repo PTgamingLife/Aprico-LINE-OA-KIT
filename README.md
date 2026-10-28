@@ -71,3 +71,15 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 驗證：22 項本機測試（含 HMAC 真實簽章檢查、模擬 GitHub／Supabase／LINE API），SQL 回滾測試（本人、同工作去重、版本衝突）與手機 390px 六頁操作已檢查。尚未使用真實客戶 Token 完成整套外部部署；第一次真實建置仍需操作者在自己帳號實測。這一輪未呼叫付費 AI。
 
 官方參考：[Supabase 背景工作](https://supabase.com/docs/guides/functions/background-tasks)、[OpenAI 結構化輸出](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=responses)、[模型定價](https://developers.openai.com/api/docs/models/gpt-4.1-mini)。
+# 個人 LINE 試用（2026-10-28）
+
+設計頁的「保存並在 LINE 試用」先保存會員專案，再產生 1200×810 莫蘭迪選單 PNG，使用 Messaging API 綁定到伺服器驗證過的本人 LINE ID。4／6／8 格均可；只改此人在 Aprico 聊天室的個人選單，不改全體預設選單、不改客戶正式 OA。
+
+每格以 Full LIFF 開啟本人專用展示：固定訊息聊天氣泡、外部 HTTPS 連結確認、App 表單送出示意、刮刮樂揭曉展示、健康檢測流程展示。半頁是 Full LIFF 裡的樣式示意，不冒稱已設定 Tall／Compact。AI／健康分析／真實發獎／任意自訂後端不在免費試用範圍。聊天室上方名稱仍為 Aprico。
+
+底部「返回建置中心」會解除本人個人選單，恢復原本預設選單。頁面也提供結束試用按鈕。每人新設計最多每分鐘更新一次、平台試行每小時最多建立 30 份；相同設計重用既有選單。新選單成功後只清理資料庫記錄且名稱完全吻合的舊試用選單。
+
+平台現有 Webhook 未經確認，不會被覆寫。此版所有格子均使用 URI 展示頁；聊天室直接回覆需要先確認既有 Webhook 的整合方式。已準備簽章驗證的 trial-webhook，但未將 LINE endpoint 切換過去。沒有廣播、push 或付費 AI 呼叫。
+
+資料表與 RPC 見 `supabase/trials.sql`，RLS／權限限制為 service_role only；前端不得提供 owner ID。試用設定由已驗證 LINE ID token 限本人讀取，沒有公開設計查詢入口。新增模型、簽章、既有 Webhook 保護、HTTPS 及回覆版本等測試；本機假帳號測試不代表真實 LINE 手機實測完成。
+
