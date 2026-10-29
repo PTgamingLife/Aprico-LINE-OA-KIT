@@ -4,7 +4,7 @@
 
 `games.html` 提供 More 踩地雷、極光下樓梯、貓咪躲紙箱三款手機遊戲。來源為使用者提供封包，runtime 放在 `public/games/`，原封包的 SQL、原始大圖與素材製作工具不公開、不執行。此版本不載入 LINE SDK、不收集 LINE 個資、不啟用雲端排行榜；進度／最佳成績僅存本機，封鎖瀏覽器儲存或清除資料會遺失。遊戲不發放真實獎品。
 
-六格官方選單定義在 `src/center-menu.ts`，必須先取得正確 AI 教學網址才可產生正式設定；`scripts/render-center-menu.ps1` 可產生 1200×810 配圖。此提交只發布遊戲與準備好的選單程式，不代表 LINE 官方預設選單已切換為六格，也不會更改個人試用選單。
+六格官方選單定義在 `src/center-menu.ts`，`scripts/render-center-menu.ps1` 可產生 1200×810 配圖。2026-10-30 經使用者確認教學網址後，已透過一次性受保護入口套用 Aprico（@228srwlt）的全體預設六格選單：設計、建置、案例準備中、聯絡專員、[Claude 新同事訓練所](https://claude-training-hub.ptchen321.chatgpt.site/)、小遊戲專區。LINE API 讀回六格 bounds／連結正確；管理入口隨即停用（403），憑證重複操作被拒絕（409）。未更改 Webhook、LIFF 設定或個人試用選單；正在試用者需先結束試用才會看到預設選單。仍待使用者手機實機確認顯示與開啟結果。
 
 兩個獨立手機頁面，從 LINE 圖文選單直接開啟。
 
