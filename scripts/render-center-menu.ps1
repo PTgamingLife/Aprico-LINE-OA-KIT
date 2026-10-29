@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$OutputPath)
+param([Parameter(Mandatory=$true)][string]$OutputPath,[switch]$Arches)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 if(Test-Path -LiteralPath $OutputPath){throw 'Output already exists; keep the existing image'}
@@ -23,6 +23,24 @@ try{
   $x=($i%3)*400;$y=[Math]::Floor($i/3)*405
   $brush=[Drawing.SolidBrush]::new([Drawing.ColorTranslator]::FromHtml($colors[$i]))
   $graphics.FillRectangle($brush,$x+4,$y+4,392,397);$brush.Dispose()
+  if($Arches){
+   $graphics.SetClip([Drawing.Rectangle]::new($x+4,$y+4,392,397))
+   $pen=[Drawing.Pen]::new([Drawing.Color]::FromArgb(32,41,67,55),1.8)
+   try{
+    for($row=-1;$row -lt 5;$row++){
+     for($col=-1;$col -lt 5;$col++){
+      $tx=$x+$col*96;$ty=$y+$row*96
+      foreach($inset in @(6,20,34)){
+       $diameter=84-2*($inset-6);$left=$tx+$inset;$top=$ty+8+($inset-6)
+       $graphics.DrawArc($pen,$left,$top,$diameter,$diameter,180,180)
+       $mid=$top+$diameter/2
+       $graphics.DrawLine($pen,$left,$mid,$left,$ty+92)
+       $graphics.DrawLine($pen,$left+$diameter,$mid,$left+$diameter,$ty+92)
+      }
+     }
+    }
+   }finally{$pen.Dispose();$graphics.ResetClip()}
+  }
   $graphics.FillEllipse($soft,$x+163,$y+48,74,74)
   $graphics.DrawString(('{0:D2}' -f ($i+1)),$number,$ink,[Drawing.RectangleF]::new($x+163,$y+48,74,74),$format)
   $graphics.DrawString($titles[$i],$font,$ink,[Drawing.RectangleF]::new($x+20,$y+143,360,132),$format)

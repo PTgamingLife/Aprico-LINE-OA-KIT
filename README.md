@@ -97,3 +97,15 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 
 資料表與 RPC 見 `supabase/trials.sql`，RLS／權限限制為 service_role only；前端不得提供 owner ID。試用設定由已驗證 LINE ID token 限本人讀取，沒有公開設計查詢入口。新增模型、簽章、既有 Webhook 保護、HTTPS 及回覆版本等測試；本機假帳號測試不代表真實 LINE 手機實測完成。
 
+## LINE AI 學習課程（2026-10-30）
+
+`learning.html` / `https://liff.line.me/2012197506-Vmb4O5iT/learning.html` 為移植自使用者原 Claude 新同事訓練所的 LIFF 課程：認識 Claude、Claude Code、Claude API，共21個圖文單元、每堂8題測驗與 Skills 搜尋器。沒有 Google 登入或學員排行榜。LINE 內沿用身分，首次可能需同意 LINE 授權；外部瀏覽器仍需 LINE 登入。
+
+原課程與圖片來源版本記於 `src/learning/NOTICE.md`。不修改原教學站或 Google 學習紀錄，也不以姓名自動合併帳號。進度、最高分與通過狀態儲存在獨立私有 `line_oa_kit_learning_progress`；RLS開啟且撤銷 anon/authenticated/PUBLIC 存取。studio Edge 先向 LINE 驗證 ID Token 的 audience、issuer、subject、expiry，再限該 subject 查詢／更新，沒有公開排行端點。
+
+服務端限制逐節解鎖、核算測驗分數、最高分不倒退與 revision CAS，客戶端不能直接上傳通過宣告或指定他人身分。失敗會顯示未儲存／版本衝突，不冒稱成功。新資料表 SQL 為 CLI 產生的 `supabase/migrations/20261029185056_learning_progress.sql`；本輪直接在遠端套用並讀回驗證，沒有改既有 migration history。本機無 Supabase DB，migration list --local 無法連線。
+
+studio v18已部署；未登入的三項 learning 操作皆401。本機假帳號課程操作及390px iframe版面檢查完成，SQL回滾測試無留下學員資料。新表 advisor 僅「RLS enabled no policy」資訊：此表刻意限 service_role，沒有新增公開讀取 policy。真實手機 LINE 登入與跨裝置紀錄仍待本人驗收。
+
+官方六格拱門配圖可用 `scripts/render-center-menu.ps1 -Arches -OutputPath <新PNG路徑>` 產生；準備以 `centerMenu(CENTER_LEARNING)` 將第5格改為LIFF。選單切換需本次一次性管理入口授權；尚未因本次程式發布而更改LINE預設選單。所有個人試用與Webhook保持不變。
+
