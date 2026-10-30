@@ -5,6 +5,7 @@ import {trialMenu,trialAreas,trialText,decodeMenuImage,safeTrialExternal} from '
 import {trialLine,previewPlatform,ensureTrialWebhook,validLineSignature} from '../supabase/functions/_shared/trial-line.ts';
 import {trialReplyMessages} from '../supabase/functions/_shared/trial-replies.ts';
 import {routeAssistantEvent} from '../supabase/functions/_shared/assistant-trial.ts';
+import {broadcastGateway} from '../supabase/functions/_shared/broadcast-gateway.ts';
 import {readFile} from 'node:fs/promises';
 import {stripTypeScriptTypes} from 'node:module';
 const version='11111111-2222-4333-8444-555555555555';
@@ -35,7 +36,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
  const source=await readFile(new URL('../supabase/functions/line-assistant/index.ts',import.meta.url),'utf8');
  const code=stripTypeScriptTypes(source.split('\n').filter(line=>!line.startsWith('import ')).join('\n'));
  let handler:any;const routes:any[]=[];const env={ASSIST_LINE_CHANNEL_SECRET:'original-fixture',LINE_OA_KIT_MESSAGING_CHANNEL_SECRET:'platform-fixture',LINE_OA_KIT_MESSAGING_ACCESS_TOKEN:'fixture',SUPABASE_URL:'https://fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture'};
- new Function('Deno','createClient','validLineSignature','trialLine','exitTrial','routeAssistantEvent',code)({env:{get:(key:string)=>env[key]},serve:(f:any)=>{handler=f;}},()=>({}),validLineSignature,()=>async()=>{},async()=>{},async(_e:any,r:any)=>{routes.push([r.trialAuthenticated,r.assistantAuthenticated]);});
+ new Function('Deno','createClient','validLineSignature','trialLine','exitTrial','routeAssistantEvent','broadcastGateway',code)({env:{get:(key:string)=>env[key]},serve:(f:any)=>{handler=f;}},()=>({}),validLineSignature,()=>async()=>{},async()=>{},async(_e:any,r:any)=>{routes.push([r.trialAuthenticated,r.assistantAuthenticated]);},broadcastGateway);
  const raw=JSON.stringify({events:[{type:'message'}]});
  async function signed(secret:string,text=raw){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(text)))));return new Request('https://fixture.invalid',{method:'POST',body:raw,headers:{'x-line-signature':sig}});}
  assert.equal((await handler(await signed('platform-fixture'))).status,200);assert.deepEqual(routes.pop(),[true,false]);

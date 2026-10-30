@@ -2,6 +2,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2.116.0';
 import {validLineSignature,trialLine} from '../_shared/trial-line.ts';
 import {exitTrial} from '../_shared/trial-handler.ts';
 import {routeAssistantEvent} from '../_shared/assistant-trial.ts';
+import {broadcastGateway} from '../_shared/broadcast-gateway.ts';
 // 小A — Aprico AI 助教(LINE 群組問答機器人)— Supabase Edge Function (Deno)
 //
 // 流程:客戶在群組打「小A ...」→ 本 webhook → 讀知識庫+對話紀錄 → Claude → 回覆群組
@@ -289,7 +290,10 @@ Deno.serve(async (req) => {
   const trialDb=trialAuthenticated?createClient(SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}}):null;
   const trialToken=Deno.env.get("LINE_OA_KIT_MESSAGING_ACCESS_TOKEN")||"";
   const work = Promise.all(
-    (payload.events ?? []).map((e) => routeAssistantEvent(e,{trialAuthenticated,assistantAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages}),exit:(subject)=>exitTrial(trialDb,subject,trialToken),assistant:handleEvent}).catch(() => console.error("LINE event routing failed"))),
+    (payload.events ?? []).map(async(e) => {
+      if(await broadcastGateway(e,{authenticated:trialAuthenticated,owner:Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID')||'',db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
+      return routeAssistantEvent(e,{trialAuthenticated,assistantAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages}),exit:(subject)=>exitTrial(trialDb,subject,trialToken),assistant:handleEvent});
+    }).map(p=>p.catch(() => console.error("LINE event routing failed"))),
   );
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
   else await work; // 本機 serve 沒有 EdgeRuntime 時的退路

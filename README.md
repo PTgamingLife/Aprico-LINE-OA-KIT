@@ -109,3 +109,17 @@ studio v18已部署；未登入的三項 learning 操作皆401。本機假帳號
 
 官方六格拱門配圖可用 `scripts/render-center-menu.ps1 -Arches -OutputPath <新PNG路徑>` 產生。經使用者本次一次性管理入口批准後，已以 `centerMenu(CENTER_LEARNING)` 套用拱門選單並將第5格改為LIFF；目前預設ID為 `richmenu-ed3a74ad8a17f37f5b2ea1e76ba8dbdf`。LINE讀回六格與網址正確、圖片SHA-256與本機PNG一致、同憑證重播409；臨時入口隨即停用並實測403。Pages run40935812308 success、learning.html與教材圖HTTP200。所有個人試用與Webhook保持不變；原Google紀錄不自動合併。手機LINE授權及跨裝置學習紀錄仍需本人驗收。
 
+## 主要擁有者的 LINE 發送中心（2026-10-30）
+
+入口：[管理員 LIFF](https://liff.line.me/2012197506-Vmb4O5iT/admin.html)。首次以本人 LINE 登入，頁面顯示伺服器驗證過的本人 User ID。由能管理 heart-cards 專案 Secrets 的人將此值填入 `LINE_OA_KIT_OWNER_LINE_USER_ID`，再按「重新驗證」。不是姓名、Email、OA @ID 或 Channel ID；未設定／格式錯誤時沒有人可發送，網站沒有自行申請或修改擁有者的接口。一般用戶知道網址仍無權操作。
+
+綁定後，可在 Aprico 一對一聊天室輸入「管理中心」或「發送中心」取得入口；群組與未通過平台簽章的事件不會進入此路由。原小A助教的 handleEvent 內容與原 HMAC 驗證保持不變，Webhook URL 及全體／個人選單均未更改。
+
+提供標題、內文、按鈕文字／HTTPS網址、四款配色、選填的本專案 GitHub Pages／heart-cards公開Storage PNG或JPG網址，以及小遊戲模板。圖片目前不支援上傳；模板及編輯不呼叫付費AI。可保存草稿、近似Flex預覽、明確同意後先發給本人（每版本最多一次、使用1則額度），再檢查卡片／帳號／好友統計／額度，勾選並輸入「確認發送給全部好友」才群發。好友統計非即時，預估用量不能當成逐人實收證明。
+
+確認憑證只放頁面記憶體，伺服器僅存SHA-256、5分鐘到期，綁定草稿版本及主要擁有者。修改／保存會使舊確認失效。發送前再次檢查訊息額度；沒有自動升級方案或調高月上限。原子 claim（service_role-only、security invoker）鎖定後只呼叫一次LINE，持久狀態與X-Line-Retry-Key防重複；本中心每日最多5次群發嘗試、至少間隔1分鐘。已嘗試群發的草稿不可編輯重送；逾時／結果不明／稽核寫入失敗均鎖住並提示到LINE後台核對，不自動重試。不可把同內容複製新稿當成重試。
+
+私有表 `line_oa_kit_broadcasts` 開RLS、撤銷PUBLIC／anon／authenticated存取，沒有公開發送端點。Edge每次先驗LINE Token，再比對固定owner Secret，查詢和更新限該subject；客戶端指定的owner、to、通過宣告等一律不用。紀錄顯示草稿／待確認／處理中／LINE接受／拒絕／結果不明及request ID；不冒稱每人送達或已讀。本中心不會自動匯入之前專員一次性發送的活動。
+
+SQL由CLI產生 `supabase/migrations/20261030021846_broadcast_center.sql`，已在遠端套用，未改migration history；測試腳本 `tests/broadcast-db.sql` 全程回滾，驗證subject隔離、NULL／錯誤確認、重複claim、分鐘／每日限制、本人測試去重。64項本機測試與建置通過，含同時請求只發一次、逾時不重送、角色未配置拒絕、保留原助教簽章路由。UI以假LINE身分／假API檢查桌面及390px手機版，沒有再發正式訊息。真實擁有者首次綁定與本人測試需操作者在手機完成。
+
