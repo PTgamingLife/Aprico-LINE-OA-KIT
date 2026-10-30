@@ -107,5 +107,5 @@ Node.js 22.13+，執行 `npm ci`、`npm run dev`。`npm test` 執行不扣費的
 
 studio v18已部署；未登入的三項 learning 操作皆401。本機假帳號課程操作及390px iframe版面檢查完成，SQL回滾測試無留下學員資料。新表 advisor 僅「RLS enabled no policy」資訊：此表刻意限 service_role，沒有新增公開讀取 policy。真實手機 LINE 登入與跨裝置紀錄仍待本人驗收。
 
-官方六格拱門配圖可用 `scripts/render-center-menu.ps1 -Arches -OutputPath <新PNG路徑>` 產生；準備以 `centerMenu(CENTER_LEARNING)` 將第5格改為LIFF。選單切換需本次一次性管理入口授權；尚未因本次程式發布而更改LINE預設選單。所有個人試用與Webhook保持不變。
+官方六格拱門配圖可用 `scripts/render-center-menu.ps1 -Arches -OutputPath <新PNG路徑>` 產生。經使用者本次一次性管理入口批准後，已以 `centerMenu(CENTER_LEARNING)` 套用拱門選單並將第5格改為LIFF；目前預設ID為 `richmenu-ed3a74ad8a17f37f5b2ea1e76ba8dbdf`。LINE讀回六格與網址正確、圖片SHA-256與本機PNG一致、同憑證重播409；臨時入口隨即停用並實測403。Pages run40935812308 success、learning.html與教材圖HTTP200。所有個人試用與Webhook保持不變；原Google紀錄不自動合併。手機LINE授權及跨裝置學習紀錄仍需本人驗收。
 
