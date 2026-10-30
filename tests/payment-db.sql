@@ -10,6 +10,7 @@ begin
  x:=public.line_oa_kit_begin_payment(p,s,null);
  if x->>'error' is distinct from 'invalid_environment' then raise exception 'null environment'; end if;
  x:=public.line_oa_kit_begin_payment(p,s,'sandbox');d:=(x->'order'->>'id')::uuid;first_id:=d;
+ if (x->'order'->>'amount')::integer is distinct from 3860 then raise exception 'wrong promotion price'; end if;
  x:=public.line_oa_kit_begin_payment(p,s,'sandbox');
  if (x->>'created')::boolean is distinct from false or (x->'order'->>'id')::uuid is distinct from d then raise exception 'duplicate order'; end if;
  update public.line_oa_kit_payments set status='confirming',transaction_id='2026103012345678910' where id=d;

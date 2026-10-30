@@ -4,6 +4,7 @@ import {createHmac} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {linePay,payConfig,parsePayJSON,checkoutUrl,verifiedPayment} from '../supabase/functions/_shared/linepay-client.ts';
 import {paymentAction} from '../supabase/functions/_shared/payment-handler.ts';
+import {BUILD_LIST_PRICE,BUILD_SALE_PRICE} from '../src/payment-price.ts';
 const subject='U'+'1'.repeat(32),project={id:'00000000-0000-4000-8000-000000000001'};
 const tx='2026103012345678910',id='00000000-0000-4000-8000-000000000002';
 const response=(v:any,status=200)=>Response.json(v,{status});
@@ -18,7 +19,7 @@ function memory(initial:any=null,options:any={}){
   const q:any={select:()=>q,eq:(k:any,v:any)=>{filters.push([k,v]);return q;},order:()=>q,limit:()=>q,update:(v:any)=>{update=v;return q;},single:async()=>resolve(),maybeSingle:async()=>resolve(),then:(fn:any)=>Promise.resolve(fn(resolve()))};return q;
  },rpc:async(name:string,p:any)=>{
   assert.equal(p.p_subject,subject);
-  if(name==='line_oa_kit_begin_payment'){if(order)return{data:{order:structuredClone(order),created:false}};order={...row('requesting',p.p_environment),transaction_id:null,payment_url:null};return{data:{order:structuredClone(order),created:true}};}
+  if(name==='line_oa_kit_begin_payment'){if(order)return{data:{order:structuredClone(order),created:false}};order={...row('requesting',p.p_environment),amount:3860,transaction_id:null,payment_url:null};return{data:{order:structuredClone(order),created:true}};}
   assert.equal(name,'line_oa_kit_settle_payment');settlements++;order.status=p.p_environment==='production'?'paid':'test_paid';unlocked=p.p_environment==='production';return{data:{ok:true,unlocked}};
  }};return db;
 }
@@ -30,7 +31,7 @@ function provider(options:any={}){
   if(String(url).endsWith('/request'))return new Response('{"returnCode":"0000","info":{"transactionId":2026103012345678910,"paymentUrl":{"web":"https://sandbox-web-pay.line.me/web/payment/wait?fixture=1"}}}');
   if(String(url).endsWith('/check'))return Response.json({returnCode:options.cancel?'0121':options.notReady?'0000':'0110'});
   if(String(url).endsWith('/confirm'))return Response.json({returnCode:'0000'});
-  return Response.json({returnCode:'0000',info:options.mismatch?[{...detail(),currency:'USD'}]:[detail()]});
+  return Response.json({returnCode:'0000',info:options.mismatch?[{...detail(),currency:'USD'}]:[{...detail(),payInfo:[{amount:options.amount??1890}]}]});
  };return{calls,fetcher};
 }
 test('LINE Pay keys are separate; production requires explicit live switch',()=>{
@@ -57,8 +58,8 @@ test('checkout destination and successful payment evidence reject forged details
 });
 test('creating order ignores client price/identity and fixes project scope and redirects',async()=>{
  const db=memory(),p=provider();const r=await paymentAction({action:'payment_create',acceptPurchase:true,amount:1,line_subject:'attacker'},db,subject,project,response,env(),p.fetcher);
- assert.equal(r.status,200);const body=await r.json();assert.equal(body.order.amount,1890);assert.equal(body.order.status,'pending');assert.equal(db.order.transaction_id,tx);
- assert.equal(p.calls[0].body.amount,1890);assert.equal(p.calls[0].body.currency,'TWD');assert.equal(p.calls[0].body.options.payment.capture,true);assert.ok(p.calls[0].body.redirectUrls.confirmUrl.includes(project.id));
+ assert.equal(r.status,200);const body=await r.json();assert.equal(body.order.amount,3860);assert.equal(body.listPrice,6660);assert.equal(body.order.status,'pending');assert.equal(db.order.transaction_id,tx);
+ assert.equal(p.calls[0].body.amount,3860);assert.equal(p.calls[0].body.packages[0].products[0].price,3860);assert.equal(p.calls[0].body.currency,'TWD');assert.equal(p.calls[0].body.options.payment.capture,true);assert.ok(p.calls[0].body.redirectUrls.confirmUrl.includes(project.id));
  await paymentAction({action:'payment_create',acceptPurchase:true},db,subject,project,response,env(),p.fetcher);assert.equal(p.calls.length,1);
 });
 test('status and reconcile never confirm or charge; sandbox success never grants access',async()=>{
@@ -80,4 +81,14 @@ test('private RLS ledger and service-only atomic grant have sandbox guard; authe
  const sql=readFileSync(new URL('../supabase/migrations/20261030044224_linepay_checkout.sql',import.meta.url),'utf8');
  assert.match(sql,/enable row level security/);assert.match(sql,/from public,anon,authenticated/);assert.match(sql,/if d.environment='production' then/);assert.match(sql,/on conflict\(project_id\) do nothing/);assert.doesNotMatch(sql,/security definer/i);
  const studio=readFileSync(new URL('../supabase/functions/line-oa-kit-studio/index.ts',import.meta.url),'utf8');assert.ok(studio.indexOf("await paymentAction")>studio.indexOf("identity.aud!==channelId"));assert.ok(studio.indexOf('await paymentAction')>studio.indexOf("if(!project)return"));
+});
+test('promotion is 6660/3860; old and new orders confirm against their immutable price',async()=>{
+ assert.equal(BUILD_LIST_PRICE,6660);assert.equal(BUILD_SALE_PRICE,3860);
+ for(const amount of [1890,3860]){
+  const db=memory({...row(),amount}),p=provider({amount});
+  const r=await paymentAction({action:'payment_confirm',confirmPayment:true},db,subject,project,response,env(),p.fetcher);
+  assert.equal(r.status,200);assert.equal(p.calls.find(c=>c.url.endsWith('/confirm')).body.amount,amount);assert.equal(db.order.amount,amount);assert.equal(db.order.status,'test_paid');
+ }
+ assert.equal(verifiedPayment(detail(),{...row(),amount:3860}),false);
+ const sql=readFileSync(new URL('../supabase/migrations/20261030073657_linepay_promotion_price.sql',import.meta.url),'utf8');assert.match(sql,/set default 3860/);assert.doesNotMatch(sql,/update public.line_oa_kit_payments/i);
 });

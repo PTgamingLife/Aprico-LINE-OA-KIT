@@ -21,5 +21,5 @@ export async function linePay(config:PayConfig,path:string,data:unknown=null,que
  return parsePayJSON(await r.text());
 }
 export function verifiedPayment(detail:any,order:any){
- return detail?.transactionType==='PAYMENT'&&String(detail.transactionId)===order.transaction_id&&detail.orderId===order.id&&detail.currency==='TWD'&&Array.isArray(detail.payInfo)&&detail.payInfo.length>0&&detail.payInfo.every((p:any)=>Number.isSafeInteger(p.amount)&&p.amount>=0)&&detail.payInfo.reduce((n:number,p:any)=>n+p.amount,0)===1890&&(!detail.refundList||detail.refundList.length===0);
+ return Number.isSafeInteger(order.amount)&&order.amount>0&&order.currency==='TWD'&&detail?.transactionType==='PAYMENT'&&String(detail.transactionId)===order.transaction_id&&detail.orderId===order.id&&detail.currency===order.currency&&Array.isArray(detail.payInfo)&&detail.payInfo.length>0&&detail.payInfo.every((p:any)=>Number.isSafeInteger(p.amount)&&p.amount>=0)&&detail.payInfo.reduce((n:number,p:any)=>n+p.amount,0)===order.amount&&(!detail.refundList||detail.refundList.length===0);
 }

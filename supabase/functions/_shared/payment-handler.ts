@@ -1,9 +1,10 @@
 import {linePay,payConfig,checkoutUrl,verifiedPayment} from './linepay-client.ts';
+import {BUILD_LIST_PRICE,BUILD_SALE_PRICE} from '../../../src/payment-price.ts';
 const table='line_oa_kit_payments';
 const base='https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/build.html';
 export async function paymentAction(b:any,db:any,subject:string,project:any,respond:any,env:(k:string)=>string|undefined,fetcher:typeof fetch=fetch){
  const config=payConfig(env);
- const info={available:config.enabled,mode:config.mode,amount:1890,currency:'TWD'};
+ const info={available:config.enabled,mode:config.mode,amount:BUILD_SALE_PRICE,listPrice:BUILD_LIST_PRICE,currency:'TWD'};
  const read=()=>db.from(table).select('*').eq('project_id',project.id).eq('line_subject',subject).eq('environment',config.mode).order('created_at',{ascending:false}).limit(1).maybeSingle();
  const current=await read();if(current.error)return respond({error:'讀取付款紀錄失敗'},503);
  let order=current.data;
@@ -22,7 +23,7 @@ export async function paymentAction(b:any,db:any,subject:string,project:any,resp
   const redirect=new URL(base);redirect.searchParams.set('project',project.id);redirect.searchParams.set('pay','return');
   const cancel=new URL(redirect);cancel.searchParams.set('pay','cancel');
   try{
-   const r=await linePay(config,'/v4/payments/request',{amount:1890,currency:'TWD',orderId:order.id,packages:[{id:'build',amount:1890,products:[{id:'project-build',name:'Aprico 單一專案教學與建置工具',quantity:1,price:1890}]}],options:{payment:{capture:true}},redirectUrls:{confirmUrl:redirect.href,cancelUrl:cancel.href}},'',fetcher);
+   const r=await linePay(config,'/v4/payments/request',{amount:order.amount,currency:order.currency,orderId:order.id,packages:[{id:'build',amount:order.amount,products:[{id:'project-build',name:'Aprico 單一專案教學與建置工具',quantity:1,price:order.amount}]}],options:{payment:{capture:true}},redirectUrls:{confirmUrl:redirect.href,cancelUrl:cancel.href}},'',fetcher);
    const url=checkoutUrl(r.info?.paymentUrl?.web,config.mode),tx=String(r.info?.transactionId||'');
    if(r.returnCode!=='0000'||!url||!/^\d{16,20}$/.test(tx))throw Error('payment_request_unresolved');
    const saved=await db.from(table).update({status:'pending',transaction_id:tx,payment_url:url,updated_at:new Date().toISOString()}).eq('id',order.id).eq('status','requesting').select('*').single();
@@ -49,7 +50,7 @@ export async function paymentAction(b:any,db:any,subject:string,project:any,resp
      await db.from(table).update({status:'cancelled'}).eq('id',order.id).eq('status','confirming');
      return respond({...info,order:publicOrder({...order,status:'cancelled'})});
     }
-    if(check.returnCode==='0110')await linePay(config,`/v4/payments/${order.transaction_id}/confirm`,{amount:1890,currency:'TWD'},'',fetcher);
+    if(check.returnCode==='0110')await linePay(config,`/v4/payments/${order.transaction_id}/confirm`,{amount:order.amount,currency:order.currency},'',fetcher);
     else if(check.returnCode!=='0123'){
      // Not authorized: release claim without issuing a confirm request.
      await db.from(table).update({status:'pending'}).eq('id',order.id).eq('status','confirming');
