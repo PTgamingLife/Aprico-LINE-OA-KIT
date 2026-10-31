@@ -1,3 +1,11 @@
 [functions.line-oa-kit-studio]
 verify_jwt = false
 # This function verifies the caller's LINE ID token itself before any database access.
+
+[functions.line-assistant]
+verify_jwt = false
+# LINE webhook: verifies raw-body channel HMAC before routing any event.
+
+[functions.line-oa-kit-intro]
+verify_jwt = false
+# Only a database-issued, hashed, single-use 90-second tick nonce is accepted.

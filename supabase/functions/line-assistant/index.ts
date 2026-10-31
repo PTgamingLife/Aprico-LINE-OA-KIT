@@ -3,6 +3,7 @@ import {validLineSignature,trialLine} from '../_shared/trial-line.ts';
 import {exitTrial} from '../_shared/trial-handler.ts';
 import {routeAssistantEvent} from '../_shared/assistant-trial.ts';
 import {broadcastGateway} from '../_shared/broadcast-gateway.ts';
+import {introFollowGateway,processIntroJob} from '../_shared/intro-delivery.ts';
 // 小A — Aprico AI 助教(LINE 群組問答機器人)— Supabase Edge Function (Deno)
 //
 // 流程:客戶在群組打「小A ...」→ 本 webhook → 讀知識庫+對話紀錄 → Claude → 回覆群組
@@ -289,11 +290,19 @@ Deno.serve(async (req) => {
   if(!Array.isArray(payload.events)||payload.events.length>100)return new Response("bad events",{status:400});
   const trialDb=trialAuthenticated?createClient(SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}}):null;
   const trialToken=Deno.env.get("LINE_OA_KIT_MESSAGING_ACCESS_TOKEN")||"";
+  // Persist follow/unfollow before acknowledging LINE. Sending remains background
+  // work. If persistence fails, return 503 so a redelivery can safely enroll again.
+  const introHandled=new Set<any>(),introFirstJobs:string[]=[];
+  try{
+    await Promise.all(payload.events.map(async(e)=>{
+      if(await introFollowGateway(e,{authenticated:trialAuthenticated,db:trialDb,token:trialToken,process:async(id)=>{introFirstJobs.push(id);}}))introHandled.add(e);
+    }));
+  }catch{return new Response("event persistence unavailable",{status:503});}
   const work = Promise.all(
-    (payload.events ?? []).map(async(e) => {
+    [...introFirstJobs.map(id=>processIntroJob(trialDb,trialToken,id)),...(payload.events ?? []).filter(e=>!introHandled.has(e)).map(async(e) => {
       if(await broadcastGateway(e,{authenticated:trialAuthenticated,owner:Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID')||'',db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
       return routeAssistantEvent(e,{trialAuthenticated,assistantAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages}),exit:(subject)=>exitTrial(trialDb,subject,trialToken),assistant:handleEvent});
-    }).map(p=>p.catch(() => console.error("LINE event routing failed"))),
+    })].map(p=>p.catch(() => console.error("LINE event routing failed"))),
   );
   if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
   else await work; // 本機 serve 沒有 EdgeRuntime 時的退路
