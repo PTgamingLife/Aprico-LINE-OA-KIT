@@ -1,7 +1,20 @@
 import {credentials,preflight} from './deploy-engine.ts';
 import {runDeployment} from './run-deployment.ts';
-export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void){
+import {validateSetup,requirementIssues} from '../../../src/build-model.ts';
+export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch){
  const fields='id,build_job_id,status,stage,target,app_url,webhook_url,commit_sha,system_checks,user_checks,error_code,created_at,updated_at';
+ if(b.action==='deploy_target_check'){
+  let c;
+  try{
+   const setup=validateSetup(access.setup);
+   if(requirementIssues(project.config,setup).length)return response({error:'請先保存並完成需求與帳號資料'},409);
+   if(setup.runtimeAiProvider!=='none'||project.config.cells.slice(0,project.config.grid).some((cell:any)=>cell.template==='health'))return response({error:'此版本尚未支援營運 AI 或健康檢測後端；不會先扣次數產生無法部署的草稿'},409);
+   c=credentials(b.credentials);
+   const plan=await preflight(project.id,{setup,design:project.config},c,fetcher);
+   return response({plan,designRevision:project.revision,setupRevision:access.setup_revision});
+  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';return response({error:'授權檢查未通過，請確認本關資料',code},409);}
+  finally{if(c)for(const key of Object.keys(c) as (keyof typeof c)[])c[key]='';}
+ }
  if(b.action==='deploy_status'){
   await db.from('line_oa_kit_deployments').update({status:'interrupted',error_code:'worker_interrupted',updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',subject).in('status',['queued','running']).lt('created_at',new Date(Date.now()-300000).toISOString());
   const{data,error}=await db.from('line_oa_kit_deployments').select(fields).eq('project_id',project.id).eq('line_subject',subject).order('created_at',{ascending:false}).limit(10);return error?response({error:'無法讀取部署紀錄'},503):response({deployments:data});
@@ -26,7 +39,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
  }
  let c;try{c=credentials(b.credentials);}catch{return response({error:'請填寫四項一次性部署憑證，Secret 應為 32 位英數十六進位'},400);}
  try{
-  const plan=await preflight(project.id,job.snapshot,c);
+  const plan=await preflight(project.id,job.snapshot,c,fetcher);
   if(b.action==='deploy_prepare')return response({plan});
   if(b.expectedBotId!==plan.botId||b.expectedGithub!==plan.githubRepo||b.expectedRef!==plan.ref)return response({error:'部署目標已變更，請重新檢查並確認'},409);
   const{data:started,error}=await db.rpc('line_oa_kit_begin_deployment',{p_job:job.id,p_subject:subject,p_target:plan});

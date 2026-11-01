@@ -2,11 +2,23 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {credentials,deploymentTarget,preflight,executeDeployment,webhookSource} from '../supabase/functions/_shared/deploy-engine.ts';
+import {deploymentAction} from '../supabase/functions/_shared/deploy-handler.ts';
+import {emptyDraft} from '../src/model.ts';
+import {emptySetup} from '../src/build-model.ts';
 const project='11111111-1111-4111-8111-111111111111';
 const setup={githubRepo:'https://github.com/customer/demo',supabaseUrl:'https://abcdefghijklmnopqrst.supabase.co',messagingChannelId:'1234567890',failure:'請聯絡專員'};
 const snapshot={setup,design:{name:'My project',grid:4,cells:[{label:'預約',action:'message',content:'請留下時間'}]}};
 const c={githubToken:'github-fixture',supabaseToken:'supabase-fixture',lineToken:'line-fixture',lineSecret:'0'.repeat(32)};
 const artifact={summary:'draft',files:[{path:'index.html',content:'<h1>hello</h1>'}],manualSteps:[]};
+function completeTargets(){const design=emptyDraft();design.name='Fixture';design.oaName='Fixture OA';design.cells.forEach(cell=>{cell.label='服務';cell.content='固定文字';});const s={...emptySetup(),...setup,audience:'顧客',purpose:'服務',scenario:'詢問',success:'收到回覆',human:'客服'};return{project:{id:project,revision:7,config:design},access:{setup:s,setup_revision:4}};}
+test('pre-generation target check is read-only, uses saved targets and returns no credentials',async()=>{
+ const f=completeTargets(),m=mock();const r=await deploymentAction({action:'deploy_target_check',credentials:c,setup:{githubRepo:'https://evil.example'}},{},'verified-subject',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{throw Error('must not start work');},m.fetcher);
+ assert.equal(r.status,200);const out=await r.json();assert.equal(out.plan.githubRepo,'customer/demo');assert.equal(out.designRevision,7);assert.equal(out.setupRevision,4);assert.ok(!JSON.stringify(out).includes(c.lineToken));assert.ok(m.calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));
+});
+test('unsupported runtime modules are refused before any network or paid generation',async()=>{
+ const f=completeTargets();f.access.setup.runtimeAiProvider='openai';let calls=0;
+ const r=await deploymentAction({action:'deploy_target_check',credentials:c},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{throw Error('must not start work');},async()=>{calls++;throw Error('must not call');});assert.equal(r.status,409);assert.equal(calls,0);
+});
 function mock(options:any={}){
  const calls:any[]=[];
  const fetcher=(async(url:any,init:any={})=>{const u=new URL(url),path=u.pathname;calls.push({url:String(url),method:init.method||'GET',body:init.body,headers:init.headers,redirect:init.redirect});

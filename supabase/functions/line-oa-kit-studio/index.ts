@@ -31,7 +31,7 @@ Deno.serve(async(req:Request)=>{
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
     if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
     if(b.action==='trial_info'){try{return response(await previewPlatform(Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||''));}catch{return response({available:false,reason:'trial_platform_unavailable'});}}
-    if(!['payment_status','payment_create','payment_confirm','payment_reconcile','owner_status','broadcast_list','broadcast_save','broadcast_prepare','broadcast_test','broadcast_send','learning_list','learning_complete','learning_quiz','trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action))return response({error:'不支援的操作'},400);
+    if(!['payment_status','payment_create','payment_confirm','payment_reconcile','owner_status','broadcast_list','broadcast_save','broadcast_prepare','broadcast_test','broadcast_send','learning_list','learning_complete','learning_quiz','trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
     if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
@@ -47,7 +47,7 @@ Deno.serve(async(req:Request)=>{
       if(error)return response({error:'讀取失敗，請稍後重試'},503);
       return response({projects:data,displayName:typeof identity.name==='string'?identity.name:'LINE 會員'});
     }
-    if(['payment_status','payment_create','payment_confirm','payment_reconcile','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action)){
+    if(['payment_status','payment_create','payment_confirm','payment_reconcile','build_status','unlock_build','save_build_setup','check_build','generate_source','build_jobs','build_job','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance'].includes(b.action)){
       if(typeof b.projectId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.projectId))return response({error:'請先選擇並保存專案'},400);
       const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config,revision').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
       if(projectError)return response({error:'讀取專案失敗'},503);
