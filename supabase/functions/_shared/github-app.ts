@@ -3,6 +3,16 @@ export const githubCallback='https://hhcubvixldieuwdeqnwc.supabase.co/functions/
 export const githubReturn='https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/build.html';
 export const appPermissions={contents:'write',pages:'write',administration:'write'};
 export type GithubSettings={id:string;clientId:string;clientSecret:string;privateKey:string;slug:string;webhookSecret:string};
+// Only field names/status are public; never return their contents or digests.
+export function githubConfiguration(env:(key:string)=>string|undefined){
+ const issues:string[]=[];
+ if(env('LINE_OA_KIT_GITHUB_ENABLED')!=='true')issues.push('ENABLED');
+ for(const suffix of ['APP_ID','CLIENT_ID','CLIENT_SECRET','PRIVATE_KEY','APP_SLUG','WEBHOOK_SECRET'])if(!env('LINE_OA_KIT_GITHUB_'+suffix)?.trim())issues.push(suffix);
+ const id=env('LINE_OA_KIT_GITHUB_APP_ID'),slug=env('LINE_OA_KIT_GITHUB_APP_SLUG');
+ if(id&&!/^\d+$/.test(id))issues.push('APP_ID_FORMAT');
+ if(slug&&!/^[\w.-]+$/.test(slug))issues.push('APP_SLUG_FORMAT');
+ return {configured:issues.length===0,issues};
+}
 export function githubSettings(env:(key:string)=>string|undefined):GithubSettings|null{
  if(env('LINE_OA_KIT_GITHUB_ENABLED')!=='true')return null;
  const get=(suffix:string)=>env('LINE_OA_KIT_GITHUB_'+suffix)||'';

@@ -35,3 +35,11 @@ Security advisor reports only INFO `rls_enabled_no_policy` for these intentional
 Inspected the App in the owner's GitHub session. All repository permissions were initially No access; saved exactly Administration/Contents/Pages write, with mandatory Metadata read. Verified fixed callback URI, wildcard matching off, active webhook at the expected URL, and user-token expiration enabled. Public App API confirms these saved permissions. No private key or client secret values were opened. Proof screenshot is a gitignored local QA artifact.
 
 `LINE_OA_KIT_GITHUB_ENABLED=true` is now set to allow the owner to perform the real connection test. Opened the public build center; the Chrome session needs LINE login. Final real OAuth, client-secret validity and installation-token checks still require the owner's LINE login and selection of a dedicated repository. Nothing has called paid AI, deployed a customer project, or installed the App across all repositories. Actions engine remains future work.
+
+## Mobile return troubleshooting
+
+Owner's LINE/iOS screenshot showed the generic failure banner. Read-only database check found no OAuth flow; logs had a status POST and later GET to the callback, with no authorization parameters exposed in the selected metadata. This does not establish successful OAuth or prove a key issue. Runtime `/health` now exposes only safe readiness codes (no values/digests), and reports `configured:true, issues:[]`.
+
+Fixed a launch bug: form `rel=noreferrer` can suppress Origin for a cross-origin POST, conflicting with the existing required Origin check. Form now uses same-window `_self` + `noopener`, avoiding popup/browser-context switching on LINE/iOS while retaining strict Origin, PKCE, HttpOnly cookie and replay checks. A bare callback URL redirects to an informational start hint, not a false expiry warning; unknown GET paths return 404. Actual callback failures have allowlisted stage-specific reason codes and sanitized persisted error codes; arbitrary upstream error bodies/tokens are never exposed.
+
+120 Node tests and production build pass, including same-window payload submission/cleanup and safe diagnostic/notice tests. New backend v12 deployed. Full real OAuth still requires the owner to retry from the actual connection button. No paid build, customer repo modification, or Test project execution was performed.

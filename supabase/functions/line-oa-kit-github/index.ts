@@ -1,5 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.116.0';
 import {githubAction,githubCallbackAction,githubWebhook,boundedBody} from '../_shared/github-handler.ts';
+import {githubConfiguration,githubReturn} from '../_shared/github-app.ts';
 const origins=new Set(['https://ptgaminglife.github.io','https://facialmonitor-line-kit.ptchen321.chatgpt.site']);
 Deno.serve(async(req:Request)=>{
  const origin=req.headers.get('origin'),env=(k:string)=>Deno.env.get(k);
@@ -7,7 +8,13 @@ Deno.serve(async(req:Request)=>{
  const response=(v:unknown,status=200)=>new Response(JSON.stringify(v),{status,headers});
  const db=()=>createClient(env('SUPABASE_URL')!,env('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
  try{
-  if(req.method==='GET')return await githubCallbackAction(req,db(),env);
+  const path=new URL(req.url).pathname;
+  if(path.endsWith('/health')&&req.method==='GET')return response(githubConfiguration(env));
+  if(req.method==='GET'&&path.endsWith('/line-oa-kit-github')){
+   if(!new URL(req.url).search)return new Response(null,{status:303,headers:{Location:githubReturn+'?github=start','Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
+   return await githubCallbackAction(req,db(),env);
+  }
+  if(req.method==='GET')return response({error:'Not found'},404);
   if(new URL(req.url).pathname.endsWith('/webhook')&&req.method==='POST')return await githubWebhook(req,db(),env);
   if(origin&&!origins.has(origin))return response({error:'來源不允許'},403);
   if(req.method==='OPTIONS')return new Response(null,{status:204,headers});

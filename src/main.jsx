@@ -4,6 +4,7 @@ import {themes,emptyDraft,validateDraft,actionNames} from './model.ts';
 import './style.css';
 import BuildPanel from './BuildPanel.jsx';
 import {launchGithub} from './github-launch.js';
+import {githubNotice} from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
 import {menuCellStyle} from './backgrounds.ts';
 import {renderTrialMenu} from './trial-canvas.js';
@@ -27,7 +28,7 @@ function App(){
    const requested=new URLSearchParams(location.search).get('project')||sessionStorage.getItem('aprico-selected-project');
    const selected=data.projects.find(p=>p.id===requested)||data.projects[0];
    if(selected){accept(selected);sessionStorage.setItem('aprico-selected-project',selected.id);}
-   const githubResult=new URLSearchParams(location.search).get('github');if(githubResult==='complete')notice('GitHub 帳號已核對，請在 GitHub 授權關卡更新連線結果並選擇專案。');if(githubResult==='failed')notice('GitHub 連線尚未完成或已過期，請回到 GitHub 授權關卡重新連接。',true);
+   const githubResult=githubNotice(new URLSearchParams(location.search));if(githubResult)notice(githubResult.text,githubResult.error);
   }
  }catch(e){if(live)notice(e.message,true);}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
  useEffect(()=>{const f=e=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f);},[dirty]);

@@ -1,24 +1,26 @@
 import {githubSettings,githubReturn,randomValue,digest,authorizeUrl,exchangeCode,choicesForUser,webhookValid} from './github-app.ts';
 const uuid=(v:any)=>typeof v==='string'&&/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(v);
 const connectionFields='full_name,login,verified_at,revoked_at';
-export function callbackPage(ok:boolean,projectId?:string){const url=new URL(githubReturn);url.searchParams.set('github',ok?'complete':'failed');if(uuid(projectId))url.searchParams.set('project',projectId!);return new Response(null,{status:303,headers:{Location:url.href,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});}
+export function callbackPage(ok:boolean,projectId?:string,reason='authorization_failed'){const url=new URL(githubReturn);url.searchParams.set('github',ok?'complete':'failed');if(!ok&&['platform_configuration','invalid_callback','browser_context','expired_or_replayed','github_code_exchange_failed','github_account_list_failed','github_callback_save_failed'].includes(reason))url.searchParams.set('reason',reason);if(uuid(projectId))url.searchParams.set('project',projectId!);return new Response(null,{status:303,headers:{Location:url.href,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});}
 export async function githubCallbackAction(req:Request,db:any,env:(k:string)=>string|undefined,fetcher:typeof fetch=fetch){
- const settings=githubSettings(env);if(!settings)return callbackPage(false);
+ const settings=githubSettings(env);if(!settings)return callbackPage(false,undefined,'platform_configuration');
  const url=new URL(req.url),state=url.searchParams.get('state')||'',code=url.searchParams.get('code')||'';
- if(!/^[\w-]{43}$/.test(state)||!code||code.length>1024)return callbackPage(false);
+ if(!/^[\w-]{43}$/.test(state)||!code||code.length>1024)return callbackPage(false,undefined,'invalid_callback');
  const cookieName='aprico_gh_'+state.slice(0,16),cookie=req.headers.get('cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith(cookieName+'='))?.slice(cookieName.length+1)||'';
- if(!/^[\w-]{43}$/.test(cookie))return callbackPage(false);
+ if(!/^[\w-]{43}$/.test(cookie))return callbackPage(false,undefined,'browser_context');
  // Claim before any exchange. Replays and parallel callbacks cannot exchange again.
  const {data:flow,error}=await db.from('line_oa_kit_github_flows').update({status:'processing'}).eq('state_hash',await digest(state)).eq('browser_hash',await digest(cookie)).eq('status','pending').gt('expires_at',new Date().toISOString()).select('id,verifier,project_id').maybeSingle();
- if(error||!flow)return callbackPage(false);
- let token='';
+ if(error||!flow)return callbackPage(false,undefined,'expired_or_replayed');
+ let token='',stage='github_code_exchange_failed';
  try{
   token=await exchangeCode(settings,code,flow.verifier,fetcher);
+  stage='github_account_list_failed';
   const result=await choicesForUser(settings,token,fetcher);
+  stage='github_callback_save_failed';
   const saved=await db.from('line_oa_kit_github_flows').update({status:'ready',verifier:'',github_user_id:result.githubUserId,login:result.login,choices:result.choices,truncated:result.truncated,expires_at:new Date(Date.now()+600000).toISOString()}).eq('id',flow.id).eq('status','processing').select('id').maybeSingle();
   if(saved.error||!saved.data)throw Error('github_callback_save_failed');return callbackPage(true,flow.project_id);
  }catch{
-  await db.from('line_oa_kit_github_flows').update({status:'failed',verifier:'',choices:[],error_code:'github_authorization_failed'}).eq('id',flow.id).eq('status','processing');return callbackPage(false);
+  await db.from('line_oa_kit_github_flows').update({status:'failed',verifier:'',choices:[],error_code:stage}).eq('id',flow.id).eq('status','processing');return callbackPage(false,flow.project_id,stage);
  }finally{token='';}
 }
 export async function githubAction(b:any,db:any,subject:string,project:any,response:(v:any,status?:number)=>Response,env:(k:string)=>string|undefined){

@@ -2,7 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {generateKeyPairSync,verify} from 'node:crypto';
 import {readFileSync} from 'node:fs';
-import {githubSettings,githubCallback,authorizeUrl,digest,randomValue,repositoryChoice,appJwt,installationToken,exchangeCode,choicesForUser,webhookValid} from '../supabase/functions/_shared/github-app.ts';
+import {launchGithub} from '../src/github-launch.js';
+import {githubNotice} from '../src/github-result.ts';
+import {githubConfiguration,githubSettings,githubCallback,authorizeUrl,digest,randomValue,repositoryChoice,appJwt,installationToken,exchangeCode,choicesForUser,webhookValid} from '../supabase/functions/_shared/github-app.ts';
 import {githubAction,githubCallbackAction,githubWebhook,boundedBody} from '../supabase/functions/_shared/github-handler.ts';
 const pair=generateKeyPairSync('rsa',{modulusLength:2048});
 const settings={id:'123',clientId:'Iv1.fixture',clientSecret:'fixture-secret',privateKey:pair.privateKey.export({type:'pkcs1',format:'pem'}).toString(),slug:'aprico-test',webhookSecret:'fixture-hook'};
@@ -28,6 +30,13 @@ function githubMock(){const calls:any[]=[];const fetcher=async(url:any,options:a
  throw Error('unexpected_mock_url');};return {fetcher:fetcher as typeof fetch,calls};}
 
 test('App is closed until every server credential is configured',()=>{assert.ok(githubSettings(env));assert.equal(githubSettings(()=>undefined),null);assert.equal(githubSettings(k=>k.endsWith('PRIVATE_KEY')?undefined:env(k)),null);});
+test('readiness returns only safe configuration field codes, never values or credential hashes',()=>{assert.deepEqual(githubConfiguration(env),{configured:true,issues:[]});const broken=githubConfiguration(k=>k.endsWith('APP_SLUG')?'https://github.com/apps/aprico':k.endsWith('CLIENT_SECRET')?'':env(k));assert.deepEqual(broken,{configured:false,issues:['CLIENT_SECRET','APP_SLUG_FORMAT']});assert.doesNotMatch(JSON.stringify(broken),/fixture|BEGIN|https:|ghu_|ghs_/);});
+test('mobile OAuth submits in the same window with Origin preserved and clears the temporary form',()=>{
+ let form:any,input:any,submitted:any,removed=false;const previous=(globalThis as any).document;
+ (globalThis as any).document={createElement(tag:string){if(tag==='input')return input={};return form={appendChild(){},submit(){submitted={target:this.target,rel:this.rel,body:input.value};},remove(){removed=true;}};},body:{appendChild(){}}};
+ try{launchGithub('https://example.test',{action:'github_begin',idToken:'fixture-id-token'});assert.equal(submitted.target,'_self');assert.equal(submitted.rel,'noopener');assert.equal(JSON.parse(submitted.body).idToken,'fixture-id-token');assert.equal(input.value,'');assert.ok(removed);}finally{(globalThis as any).document=previous;}
+});
+test('return notices distinguish direct callback links, browser loss and actual expiry without trusting arbitrary reason text',()=>{assert.equal(githubNotice(new URLSearchParams('github=start'))?.error,false);assert.match(githubNotice(new URLSearchParams('github=failed&reason=browser_context'))!.text,/同一個瀏覽器/);assert.match(githubNotice(new URLSearchParams('github=failed&reason=expired_or_replayed'))!.text,/過期或已使用/);assert.doesNotMatch(githubNotice(new URLSearchParams('github=failed&reason=untrusted-secret'))!.text,/untrusted-secret/);assert.equal(githubNotice(new URLSearchParams()),null);});
 test('OAuth uses fixed callback, random state and S256, with no credentials in URL',async()=>{const s=randomValue(),v=randomValue();assert.equal(s.length,43);assert.notEqual(s,v);const url=new URL(authorizeUrl(settings,s,await digest(v)));assert.equal(url.searchParams.get('redirect_uri'),githubCallback);assert.equal(url.searchParams.get('code_challenge_method'),'S256');assert.equal(url.searchParams.get('state'),s);assert.ok(!url.href.includes(settings.clientSecret));assert.ok(!url.href.includes(v));});
 test('only public, administrable, writable repositories are offered',()=>{assert.equal(repositoryChoice(choice,9)?.repositoryId,8);for(const bad of [{private:true},{archived:true},{permissions:{push:true}},{full_name:'owner/demo?escape'}])assert.equal(repositoryChoice({...choice,...bad},9),null);});
 test('OAuth listing uses the intersection of app installation and user rights',async()=>{const m=githubMock();const r=await choicesForUser(settings,'fixture',m.fetcher);assert.equal(r.githubUserId,7);assert.deepEqual(r.choices,[{repositoryId:8,installationId:9,fullName:'owner/demo',url:'https://github.com/owner/demo'}]);assert.ok(!m.calls.some(c=>c.url.includes('/11/')));});

@@ -58,7 +58,7 @@ Installation、Installation repositories 與 GitHub App authorization 由 GitHub
 
 1. 用 LINE 登入 Aprico，選擇已開通的建置專案。
 2. 到 GitHub 授權關卡；安裝 Aprico App，選 **Only select repositories**，只勾選自己有管理權的公開專用 repo（先建立 README）。
-3. 回建置中心按「連接我的 GitHub 帳號」。在新分頁確認帳號，完成後回原分頁按「更新連線結果」。
+3. 回建置中心按「連接我的 GitHub 帳號」。在同一分頁確認帳號，完成後會自動回建置中心，再按「更新連線結果」。不要手動開啟 Callback URL；它是給 GitHub 回傳用的網址。
 4. 從 GitHub 實際核對的清單選擇 repo。下一關會保存網址；這一步不扣 AI 額度或部署。
 5. 核對本次帳號並同意任務後，伺服器才取得只限單一 repo 的安裝 Token，完成檢查或部署後嘗試撤銷；即使清理中斷，GitHub Token 也會到期（通常一小時）。App 安裝本身會持續到使用者撤銷。
 6. 正式開放前測試：不同 LINE 帳號不能讀取或選擇對方的 repo；假 callback／錯誤 state／不同瀏覽器／重複 callback 必須失敗；移除 App 或 repo 後新任務必須停止。
