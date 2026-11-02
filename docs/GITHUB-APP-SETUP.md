@@ -33,8 +33,8 @@ Events 訂閱 Installation repositories；Installation 與 GitHub App authorizat
 按 Create GitHub App。進入 App 設定頁後：
 
 1. 記下 App ID、Client ID。
-2. Generate a new client secret；只複製到 Supabase。
-3. Generate a private key，下載 `.pem`；將檔案全文只存到 Supabase Secret。支援 GitHub 下載的 RSA PKCS#1 或 PKCS#8 PEM。
+2. 左側點 Credentials，在 Client secrets 區新增 Client secret（介面可能標示 Generate a new client secret／New client secret）；只複製到 Supabase。
+3. 左側 Credentials → Key pairs → New key，下載 `.pem`。用記事本開啟，將全文（含 BEGIN／END）只存到 Supabase Secret；支援 GitHub 下載的 RSA PKCS#1 或 PKCS#8 PEM。
 4. App slug 是公開網址 `https://github.com/apps/你的-slug` 最後一段，不是顯示名稱。
 
 ## 2. 儲存伺服器設定
@@ -45,8 +45,8 @@ Events 訂閱 Installation repositories；Installation 與 GitHub App authorizat
 | --- | --- |
 | `LINE_OA_KIT_GITHUB_APP_ID` | GitHub App → General → App ID |
 | `LINE_OA_KIT_GITHUB_CLIENT_ID` | 同頁 Client ID（與 App ID 不同） |
-| `LINE_OA_KIT_GITHUB_CLIENT_SECRET` | 同頁剛產生的 Client secret |
-| `LINE_OA_KIT_GITHUB_PRIVATE_KEY` | 下載的 `.pem` 全文，含 BEGIN／END 與換行 |
+| `LINE_OA_KIT_GITHUB_CLIENT_SECRET` | Credentials → Client secrets 剛產生的 Client secret |
+| `LINE_OA_KIT_GITHUB_PRIVATE_KEY` | Credentials → Key pairs 下載的 `.pem` 全文，含 BEGIN／END 與換行 |
 | `LINE_OA_KIT_GITHUB_APP_SLUG` | 公開 App 網址最後一段 |
 | `LINE_OA_KIT_GITHUB_WEBHOOK_SECRET` | 與 GitHub Webhook Secret 完全一致 |
 

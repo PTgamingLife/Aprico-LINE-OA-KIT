@@ -19,3 +19,9 @@ Implemented and tested the first stage: GitHub App OAuth + selected repository b
 5. Actions deployment remains separate work: trusted workflow, least permissions, task-scoped credentials/OIDC, progress reporting and idempotency. Do not call the current API deployer Actions.
 
 Pre-existing `docs/SALES-POLICY-DRAFT.md` edits are unrelated and must remain uncommitted.
+
+## Owner setup follow-up
+
+Owner reported App setup complete. Read-only CLI secret metadata confirms all six `LINE_OA_KIT_GITHUB_*` configuration names exist; `ENABLED` remains absent. Secret values were not read, so this is not credential-validity verification. Public GitHub App API confirms ID 5574298, slug `aprico-ai-studio-builder`, owner PTgamingLife. Its response currently reports empty `permissions` and `events`; inspect the App's Permissions & events before activation rather than assuming write permissions were granted.
+
+A fresh schema apply confirmation again returned expired, with no DDL applied. Asked the owner whether the native confirmation was visible; do not keep resubmitting or bypass it with another writer. OAuth and installation-token tests remain pending the schema and configuration gates.
