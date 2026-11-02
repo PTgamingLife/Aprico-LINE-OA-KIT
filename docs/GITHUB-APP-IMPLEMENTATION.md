@@ -25,3 +25,13 @@ Pre-existing `docs/SALES-POLICY-DRAFT.md` edits are unrelated and must remain un
 Owner reported App setup complete. Read-only CLI secret metadata confirms all six `LINE_OA_KIT_GITHUB_*` configuration names exist; `ENABLED` remains absent. Secret values were not read, so this is not credential-validity verification. Public GitHub App API confirms ID 5574298, slug `aprico-ai-studio-builder`, owner PTgamingLife. Its response currently reports empty `permissions` and `events`; inspect the App's Permissions & events before activation rather than assuming write permissions were granted.
 
 A fresh schema apply confirmation again returned expired, with no DDL applied. Asked the owner whether the native confirmation was visible; do not keep resubmitting or bypass it with another writer. OAuth and installation-token tests remain pending the schema and configuration gates.
+
+## Schema and App readiness completed
+
+After the owner confirmed readiness to approve, `aprico_github_app_owner_scoped_connection` applied successfully through the native migration tool. Verified both tables have RLS enabled and no anon/authenticated SELECT access; both RPCs are SECURITY INVOKER, callable by service_role only. A rolled-back fixture transaction passed wrong-owner initiation, wrong-owner selection, unlisted repo, expired selection, valid exact-target binding, repeated selection rejection, and verifier/choices clearing. No fixture records were retained.
+
+Security advisor reports only INFO `rls_enabled_no_policy` for these intentionally server-only tables. This is expected: no browser role has table grants, and no permissive browser policies should be added. Existing unrelated findings were not changed.
+
+Inspected the App in the owner's GitHub session. All repository permissions were initially No access; saved exactly Administration/Contents/Pages write, with mandatory Metadata read. Verified fixed callback URI, wildcard matching off, active webhook at the expected URL, and user-token expiration enabled. Public App API confirms these saved permissions. No private key or client secret values were opened. Proof screenshot is a gitignored local QA artifact.
+
+`LINE_OA_KIT_GITHUB_ENABLED=true` is now set to allow the owner to perform the real connection test. Opened the public build center; the Chrome session needs LINE login. Final real OAuth, client-secret validity and installation-token checks still require the owner's LINE login and selection of a dedicated repository. Nothing has called paid AI, deployed a customer project, or installed the App across all repositories. Actions engine remains future work.

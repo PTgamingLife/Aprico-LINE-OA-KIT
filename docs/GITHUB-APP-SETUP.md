@@ -28,7 +28,7 @@ Repository permissions：
 - Metadata：GitHub 自動加入的唯讀權限。
 - 其他權限保持 No access，包括 Secrets、Workflows、Actions。**本階段還不是 Actions 部署引擎**，後續接固定工作流程才另行申請必要權限。
 
-Events 訂閱 Installation repositories；Installation 與 GitHub App authorization 等 GitHub 強制提供的事件依介面顯示。本端點驗證 HMAC 後處理撤銷、停用與移除 repo，忽略其他事件。
+Installation、Installation repositories 與 GitHub App authorization 由 GitHub 自動提供，不一定出現在可勾選的事件清單。本階段不需額外勾選 Push／Workflow 等事件。本端點驗證 HMAC 後處理撤銷、停用與移除 repo，忽略其他事件。
 
 按 Create GitHub App。進入 App 設定頁後：
 
