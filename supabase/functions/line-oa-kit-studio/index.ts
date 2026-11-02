@@ -9,6 +9,7 @@ import {previewPlatform} from '../_shared/trial-line.ts';
 import {learningAction} from '../_shared/learning-handler.ts';
 import {broadcastAction} from '../_shared/broadcast-handler.ts';
 import {paymentAction} from '../_shared/payment-handler.ts';
+import {githubSettings,installationToken,ghRequest} from '../_shared/github-app.ts';
 
 const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
 const channelId = '2012197506';
@@ -77,7 +78,13 @@ Deno.serve(async(req:Request)=>{
         return response({unlocked:true,access:granted});
       }
       if(!access)return response({error:'請先使用專員提供的密碼開通此專案'},403);
-      if(b.action.startsWith('deploy_'))return await deploymentAction(b,db,identity.sub,project,access,response,p=>EdgeRuntime.waitUntil(p));
+      if(b.action.startsWith('deploy_'))return await deploymentAction(b,db,identity.sub,project,access,response,p=>EdgeRuntime.waitUntil(p),fetch,async()=>{
+        const settings=githubSettings(k=>Deno.env.get(k));if(!settings)throw Error('github_app_not_configured');
+        const r=await db.from('line_oa_kit_github_connections').select('installation_id,repository_id,full_name,revoked_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
+        if(r.error||!r.data)throw Error('github_binding_required');
+        const token=await installationToken(settings,r.data,access.setup.githubRepo);
+        return {token,repositoryId:r.data.repository_id,release:async()=>{await ghRequest('/installation/token',token,'DELETE');}};
+      });
       if(b.action==='build_jobs'||b.action==='build_job'){
         // A stopped worker must never be silently retried with another paid request.
         await db.from('line_oa_kit_build_jobs').update({status:'interrupted',error_code:'worker_interrupted',updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub).in('status',['queued','running']).lt('created_at',new Date(Date.now()-300000).toISOString());

@@ -1,5 +1,5 @@
 import {validateArtifact} from './source-builder.ts';
-export type DeployCredentials={githubToken:string;supabaseToken:string;lineToken:string;lineSecret:string};
+export type DeployCredentials={githubToken:string;supabaseToken:string;lineToken:string;lineSecret:string;githubRepositoryId?:number};
 export function credentials(value:any):DeployCredentials{
  const out:any={};for(const key of ['githubToken','supabaseToken','lineToken','lineSecret']){if(typeof value?.[key]!=='string'||!value[key].trim()||value[key].length>6000||/[\r\n]/.test(value[key]))throw Error('credentials_required');out[key]=value[key].trim();}if(!/^[a-f0-9]{32}$/i.test(out.lineSecret))throw Error('line_secret_format');return out;
 }
@@ -27,7 +27,8 @@ export function apiClient(c:DeployCredentials,fetcher:typeof fetch=fetch){
 export async function preflight(projectId:string,snapshot:any,c:DeployCredentials,fetcher:typeof fetch=fetch){
  const t=deploymentTarget(projectId,snapshot.setup,snapshot.design.name),call=apiClient(c,fetcher);
  const repo=await call('github',t.repoPath);
- if(repo.full_name?.toLowerCase()!==`${t.owner}/${t.repo}`.toLowerCase()||!repo.permissions?.push||repo.private||repo.archived)throw Error('repository_not_public_writable');
+ const canPush=c.githubRepositoryId?repo.id===c.githubRepositoryId:repo.permissions?.push;
+ if(repo.full_name?.toLowerCase()!==`${t.owner}/${t.repo}`.toLowerCase()||!canPush||repo.private||repo.archived)throw Error('repository_not_public_writable');
  // Refuse empty repos: never initialize or rewrite the user's default branch implicitly.
  const head=await call('github',`${t.repoPath}/git/ref/heads/${encodeURIComponent(repo.default_branch)}`);
  if(!head.object?.sha)throw Error('repository_initialize_readme');

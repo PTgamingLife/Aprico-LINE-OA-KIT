@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {themes,emptyDraft,validateDraft,actionNames} from './model.ts';
 import './style.css';
 import BuildPanel from './BuildPanel.jsx';
+import {launchGithub} from './github-launch.js';
 import BackgroundPicker from './BackgroundPicker.jsx';
 import {menuCellStyle} from './backgrounds.ts';
 import {renderTrialMenu} from './trial-canvas.js';
@@ -17,7 +18,7 @@ function App(){
  const [current,setCurrent]=useState(null),[baseline,setBaseline]=useState(JSON.stringify(emptyDraft())),[saved,setSaved]=useState(''),[editing,setEditing]=useState(null),[working,setWorking]=useState(null),[demo,setDemo]=useState(null),[mode,setMode]=useState('edit');
  const dialog=useRef(null),demoDialog=useRef(null),sdk=useRef(null),buildSaver=useRef(null),dirty=JSON.stringify(draft)!==baseline;
  function notice(text,isError=false){setStatus(text);setError(isError);}
- async function api(body){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,idToken:sdk.current?.getIDToken()||undefined}),signal:AbortSignal.timeout(['deploy_target_check','deploy_prepare','deploy_start','trial_apply', 'payment_create','payment_confirm','payment_reconcile'].includes(body.action)?120000:20000)});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error||'暫時無法連線'),{code:data.code});return data;}
+ async function api(body){const endpoint=body.action.startsWith('github_')?API.replace('line-oa-kit-studio','line-oa-kit-github'):API;const payload={...body,idToken:sdk.current?.getIDToken()||undefined};if(body.action==='github_begin')return launchGithub(endpoint,payload);const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(['deploy_target_check','deploy_prepare','deploy_start','trial_apply', 'payment_create','payment_confirm','payment_reconcile'].includes(body.action)?120000:20000)});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error||'暫時無法連線'),{code:data.code});return data;}
  function accept(project){const d=validateDraft(project.config);setDraft(d);setBaseline(JSON.stringify(d));setCurrent({id:project.id,revision:project.revision});setSaved(project.updated_at);}
  useEffect(()=>{let live=true;(async()=>{try{
   if(!window.liff)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://static.line-scdn.net/liff/edge/2/sdk.js';s.onload=resolve;s.onerror=()=>reject(Error('LINE 登入元件載入失敗，請重試'));document.head.appendChild(s);});
@@ -26,6 +27,7 @@ function App(){
    const requested=new URLSearchParams(location.search).get('project')||sessionStorage.getItem('aprico-selected-project');
    const selected=data.projects.find(p=>p.id===requested)||data.projects[0];
    if(selected){accept(selected);sessionStorage.setItem('aprico-selected-project',selected.id);}
+   const githubResult=new URLSearchParams(location.search).get('github');if(githubResult==='complete')notice('GitHub 帳號已核對，請在 GitHub 授權關卡更新連線結果並選擇專案。');if(githubResult==='failed')notice('GitHub 連線尚未完成或已過期，請回到 GitHub 授權關卡重新連接。',true);
   }
  }catch(e){if(live)notice(e.message,true);}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
  useEffect(()=>{const f=e=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f);},[dirty]);

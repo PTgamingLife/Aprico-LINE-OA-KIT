@@ -9,3 +9,8 @@ verify_jwt = false
 [functions.line-oa-kit-intro]
 verify_jwt = false
 # Only a database-issued, hashed, single-use 90-second tick nonce is accepted.
+
+[functions.line-oa-kit-github]
+verify_jwt = false
+# POST verifies LINE ID + project ownership; OAuth GET requires single-use PKCE
+# state; /webhook verifies GitHub's raw-body HMAC before writing anything.

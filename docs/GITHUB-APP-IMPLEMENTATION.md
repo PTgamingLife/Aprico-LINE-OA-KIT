@@ -1,0 +1,21 @@
+# GitHub App integration checkpoint — 2026-11-02
+
+Implemented and tested the first stage: GitHub App OAuth + selected repository binding + integration with the existing direct-API deployer. This is not the future GitHub Actions deployment engine.
+
+- 117 Node tests pass; production Vite build passes. No paid AI request or customer deployment was made.
+- New endpoint `line-oa-kit-github` v2 and existing `line-oa-kit-studio` v37 deployed. Existing remote v36 sources matched HEAD before changes; unrelated dependencies preserved. OAuth redirects back to the GitHub Pages UI, avoiding Supabase default-domain HTML rewriting.
+- Anonymous status requests and unsigned GitHub webhooks both return 401.
+- OAuth launch is an origin-checked top-level POST, sets an HttpOnly Secure SameSite=Lax first-party cookie, then redirects to GitHub. Callback requires that cookie, a one-use hashed state, and PKCE S256. No token in links or browser storage.
+- Bindings are scoped to a verified LINE subject and project. Browser-supplied installation IDs have no authority. User token is held only during callback to discover repositories and then discarded. It must expire; no refresh token is stored.
+- Installation token requests specify one repository ID and required permissions. The deployer checks the repository ID, target URLs and existing resources before writing. Token revocation is attempted after preflight/task completion; no silent retry/fallback to a manual token when App access fails.
+- Gate `LINE_OA_KIT_GITHUB_ENABLED` must stay unset until schema, App credentials and isolated real authorization tests are complete.
+
+## Remaining external steps
+
+1. Schema `supabase/github-app.sql` is **not applied**. Supabase `apply_migration` confirmation expired twice; stopped retrying. A read-only check confirmed both new tables absent. Do not bypass the confirmation via a different SQL writer.
+2. Platform owner must register the GitHub App and store six settings per `GITHUB-APP-SETUP.md`. Never request secret values in chat.
+3. Obtain a fresh native Supabase schema-change confirmation, apply the reviewed SQL, verify function ownership/RLS/grants and test single-use binding in a rolled-back transaction. Run security advisors after applying.
+4. Only after schema readiness, enable App integration and run real OAuth/installation/revocation tests using a dedicated non-customer repo. Do not run the paused Test build or spend AI credits merely to test authorization.
+5. Actions deployment remains separate work: trusted workflow, least permissions, task-scoped credentials/OIDC, progress reporting and idempotency. Do not call the current API deployer Actions.
+
+Pre-existing `docs/SALES-POLICY-DRAFT.md` edits are unrelated and must remain uncommitted.

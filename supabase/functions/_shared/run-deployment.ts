@@ -6,5 +6,5 @@ export async function runDeployment(db:any,id:string,plan:any,snapshot:any,artif
  }catch(e){
   const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_request_failed';
   await db.from('line_oa_kit_deployments').update({status:'failed',error_code:code,updated_at:new Date().toISOString()}).eq('id',id).in('status',['queued','running']);
- }finally{for(const key of Object.keys(c) as (keyof DeployCredentials)[])c[key]='';}
+ }finally{for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';}
 }

@@ -19,6 +19,18 @@ test('unsupported runtime modules are refused before any network or paid generat
  const f=completeTargets();f.access.setup.runtimeAiProvider='openai';let calls=0;
  const r=await deploymentAction({action:'deploy_target_check',credentials:c},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{throw Error('must not start work');},async()=>{calls++;throw Error('must not call');});assert.equal(r.status,409);assert.equal(calls,0);
 });
+test('App preflight uses a server-resolved repository identity and revokes its token after checking',async()=>{
+ const f=completeTargets(),m=mock();let released=0,resolved=0;
+ const fetcher=(async(url:any,init:any)=>{const r=await m.fetcher(url,init);if(new URL(url).pathname==='/repos/customer/demo')return Response.json({...await r.json(),id:8,permissions:undefined});return r;}) as typeof fetch;
+ const result=await deploymentAction({action:'deploy_target_check',githubApp:true,credentials:{...c,githubToken:''}},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{},fetcher,async()=>{resolved++;return {token:'installation-fixture',repositoryId:8,release:async()=>{released++;}};});
+ assert.equal(result.status,200);assert.equal(resolved,1);assert.equal(released,1);assert.ok(m.calls.filter(x=>x.url.startsWith('https://api.github.com')).every(x=>x.headers.Authorization==='Bearer installation-fixture'));assert.ok(!(await result.text()).includes('installation-fixture'));
+});
+test('failed App preflight revokes its token and cannot fall back to a supplied manual token',async()=>{
+ const f=completeTargets(),m=mock({error:true});let released=0;
+ const result=await deploymentAction({action:'deploy_target_check',githubApp:true,credentials:c},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{},m.fetcher,async()=>({token:'app-fixture',repositoryId:8,release:async()=>{released++;}}));
+ assert.equal(result.status,409);assert.equal(released,1);assert.ok(m.calls.every(x=>x.headers.Authorization!=='Bearer '+c.githubToken));
+ assert.equal((credentials({...c,githubRepositoryId:8}) as any).githubRepositoryId,undefined);
+});
 function mock(options:any={}){
  const calls:any[]=[];
  const fetcher=(async(url:any,init:any={})=>{const u=new URL(url),path=u.pathname;calls.push({url:String(url),method:init.method||'GET',body:init.body,headers:init.headers,redirect:init.redirect});

@@ -1,7 +1,14 @@
 import {credentials,preflight} from './deploy-engine.ts';
 import {runDeployment} from './run-deployment.ts';
 import {validateSetup,requirementIssues} from '../../../src/build-model.ts';
-export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch){
+export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch,resolveGithub?:(()=>Promise<{token:string;repositoryId:number;release:()=>Promise<void>}>)){
+ let release:(()=>Promise<void>)|undefined;
+ async function readCredentials(){
+  if(b.githubApp!==true)return credentials(b.credentials);
+  if(!resolveGithub)throw Error('github_app_not_available');
+  const grant=await resolveGithub();release=grant.release;
+  return {...credentials({...b.credentials,githubToken:grant.token}),githubRepositoryId:grant.repositoryId};
+ }
  const fields='id,build_job_id,status,stage,target,app_url,webhook_url,commit_sha,system_checks,user_checks,error_code,created_at,updated_at';
  if(b.action==='deploy_target_check'){
   let c;
@@ -9,11 +16,11 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
    const setup=validateSetup(access.setup);
    if(requirementIssues(project.config,setup).length)return response({error:'請先保存並完成需求與帳號資料'},409);
    if(setup.runtimeAiProvider!=='none'||project.config.cells.slice(0,project.config.grid).some((cell:any)=>cell.template==='health'))return response({error:'此版本尚未支援營運 AI 或健康檢測後端；不會先扣次數產生無法部署的草稿'},409);
-   c=credentials(b.credentials);
+   c=await readCredentials();
    const plan=await preflight(project.id,{setup,design:project.config},c,fetcher);
    return response({plan,designRevision:project.revision,setupRevision:access.setup_revision});
   }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';return response({error:'授權檢查未通過，請確認本關資料',code},409);}
-  finally{if(c)for(const key of Object.keys(c) as (keyof typeof c)[])c[key]='';}
+  finally{if(c)for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';await release?.().catch(()=>{});}
  }
  if(b.action==='deploy_status'){
   await db.from('line_oa_kit_deployments').update({status:'interrupted',error_code:'worker_interrupted',updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',subject).in('status',['queued','running']).lt('created_at',new Date(Date.now()-300000).toISOString());
@@ -37,15 +44,15 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
   if(error)return response({error:'無法檢查部署紀錄'},503);if(existing)return response({deploymentId:existing.id,reused:true},202);
   if(b.confirmPublish!==true)return response({error:'請先確認本次公開發布與目標平台'},400);
  }
- let c;try{c=credentials(b.credentials);}catch{return response({error:'請填寫四項一次性部署憑證，Secret 應為 32 位英數十六進位'},400);}
+ let c;try{c=await readCredentials();}catch{await release?.().catch(()=>{});return response({error:'請確認部署授權仍有效，Secret 應為 32 位英數十六進位；GitHub App 失效時需重新連接'},400);}
  try{
   const plan=await preflight(project.id,job.snapshot,c,fetcher);
   if(b.action==='deploy_prepare')return response({plan});
   if(b.expectedBotId!==plan.botId||b.expectedGithub!==plan.githubRepo||b.expectedRef!==plan.ref)return response({error:'部署目標已變更，請重新檢查並確認'},409);
   const{data:started,error}=await db.rpc('line_oa_kit_begin_deployment',{p_job:job.id,p_subject:subject,p_target:plan});
   if(error)return response({error:'建立部署工作失敗'},503);if(started.error)return response({error:'版本已變更或已有部署正在執行，請重新整理'},409);
-  if(started.created){const captured=c;c=undefined;background(runDeployment(db,started.id,plan,job.snapshot,job.artifact,captured));}
+  if(started.created){const captured=c,cleanup=release;c=undefined;release=undefined;background((async()=>{try{await runDeployment(db,started.id,plan,job.snapshot,job.artifact,captured);}finally{await cleanup?.().catch(()=>{});}})());}
   return response({deploymentId:started.id,reused:!started.created},202);
  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';return response({error:'部署檢查未通過：'+code,code},409);}
- finally{if(c)for(const key of Object.keys(c) as (keyof typeof c)[])c[key]='';}
+ finally{if(c)for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';await release?.().catch(()=>{});}
 }

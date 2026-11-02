@@ -42,6 +42,7 @@ export function safeJourneyState(value:any){
 export function sameTarget(a:any,b:any){return Boolean(a&&b&&a.botId===b.botId&&a.githubRepo===b.githubRepo&&a.ref===b.ref);}
 export function questProof(q:any,c:any){
  const deployed=c.deployment?.status==='awaiting_acceptance';
+ if(q.id==='githubToken'&&c.githubApp)return {done:true,label:'GitHub App 已綁定；執行前重驗'};
  if(q.kind==='automatic')return {done:deployed,label:deployed?'系統處理完成':c.running?'系統處理中':'等待前置關卡'};
  if(q.kind==='acceptance')return {done:deployed&&c.deployment?.user_checks?.[q.id]===true,label:'本人實測回報'};
  if(q.kind==='manual')return {done:deployed&&c.acks[q.id]===true,label:'本人操作確認'};
