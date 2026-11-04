@@ -4,6 +4,11 @@ import {readFileSync} from 'node:fs';
 import {questSteps,journeySteps,safeJourneyState,questProof,sameTarget,entered} from '../src/journey.ts';
 import {emptyDraft} from '../src/model.ts';
 import {emptySetup} from '../src/build-model.ts';
+import {detailDefinitions,detailKey,pageDetails,detailProgress,safeDetailAcks} from '../src/journey-details.ts';
+import {equipment,equipmentForStep,equipmentProgress,safeSecretaryProfile,safeSecretaryNotes,sensitiveNote} from '../src/equipment-model.ts';
+import {tutorialScene} from '../src/tutorial-scenes.ts';
+
+function detailContext(){return {setup:emptySetup(),savedSetup:emptySetup(),secrets:{githubToken:'',supabaseToken:'',lineSecret:'',lineToken:''},acks:{},details:{},githubMode:'app',github:null,githubApp:false,grid:4,consent:false,deployment:null};}
 test('one system square, distinct human actions, optional LIFF only when needed',()=>{
  assert.equal(questSteps.filter(q=>q.kind==='automatic').length,1);assert.equal(new Set(questSteps.map(q=>q.id)).size,questSteps.length);
  const d=emptyDraft();d.cells.forEach(c=>c.action='message');assert.ok(!journeySteps(d).some(q=>q.id==='liff'));d.cells[0].action='half';assert.ok(journeySteps(d).some(q=>q.id==='liff'));
@@ -41,4 +46,54 @@ test('existing draft can resume deployment without a new paid generation request
  assert.match(ui,/job\?\.status==='draft_ready'\?\{jobId:job.id\}:await api\(\{action:'generate_source'/);
  assert.match(ui,/credits.remaining===0&&job\?\.status!=='draft_ready'/);
  assert.match(ui,/沿用已保存的同版本草稿，不再扣 AI 次數/);
+});
+test('every page has distinct granular actions and AI stays one combined unit',()=>{
+ for(const mode of ['app','token'])for(const q of questSteps){const ds=detailDefinitions(q,mode,8);assert.ok(ds.length>0,q.id);assert.equal(new Set(ds.map(d=>d.id)).size,ds.length);for(const d of ds){assert.ok(d.title);assert.ok(d.text);}}
+ assert.equal(detailDefinitions(questSteps.find(q=>q.id==='automatic')).length,1);
+ const create=detailDefinitions(questSteps.find(q=>q.id==='github-create'));assert.ok(create.some(d=>d.id==='readme'));assert.ok(create.some(d=>d.id==='public'));assert.ok(create.some(d=>d.kind==='link'&&d.url==='https://github.com/new'));
+});
+test('every completed point advances one equal unit, page navigation does not change the denominator',()=>{
+ const c=detailContext(),steps=journeySteps(emptyDraft()),q=questSteps.find(q=>q.id==='github-create')!;const start=detailProgress(steps,c);let previous=start.percent;
+ const details:any={};for(const d of detailDefinitions(q)){details[detailKey(q,d)]=true;const p=detailProgress(steps,{...c,details});assert.equal(p.total,start.total);assert.ok(p.percent>previous);previous=p.percent;}
+ assert.ok(detailProgress(steps,{...c,details}).pages.find(p=>p.id===q.id)?.complete);
+});
+test('typing and saving are separate completion points and unsaved values are labeled',()=>{
+ const q=questSteps.find(q=>q.id==='audience')!,c=detailContext();c.setup.audience='新顧客';let units=pageDetails(q,c);assert.equal(units[0].done,true);assert.match(units[0].label,/尚未保存/);assert.equal(units[1].done,false);c.savedSetup.audience=c.setup.audience;units=pageDetails(q,c);assert.equal(units.filter(d=>d.done).length,2);
+});
+test('link clicks and local booleans cannot complete server OAuth, binding or consent',()=>{
+ const c=detailContext(),q=questSteps.find(q=>q.id==='githubToken')!;c.details=safeDetailAcks({'githubToken.install':true,'githubToken.limited':true,'githubToken.account':true,'githubToken.repository':true,'review.consent':true,'automatic.system':true,'lineSecret.input':true});
+ assert.deepEqual(c.details,{'githubToken.install':true,'githubToken.limited':true});const units=pageDetails(q,c);assert.equal(units[0].done,true);assert.equal(units[1].done,true);assert.equal(units[2].done,false);assert.equal(units[3].done,false);
+ const review=pageDetails(questSteps.find(q=>q.id==='review'),c);assert.ok(review.every(d=>!d.done));
+});
+test('self-test detail confirmations belong to their deployment and never carry to another deployment',()=>{
+ const q=questSteps.find(q=>q.id==='menu')!,old='00000000-0000-0000-0000-000000000001',next='00000000-0000-0000-0000-000000000002',c:any={...detailContext(),deployment:{id:old,status:'awaiting_acceptance',user_checks:{}}};
+ c.details=safeDetailAcks({['menu.cell-0#'+old]:true,'menu.cell-1':true,'menu.cell-7#invalid':true});assert.equal(pageDetails(q,c).find(d=>d.id==='cell-0')?.done,true);assert.equal(pageDetails(q,c).find(d=>d.id==='cell-1')?.done,false);c.deployment.id=next;assert.equal(pageDetails(q,c).find(d=>d.id==='cell-0')?.done,false);
+});
+test('100 percent requires automatic completion and persisted user acceptance; running cannot round to 100',()=>{
+ const c:any=detailContext(),draft=emptyDraft();draft.cells.forEach(cell=>cell.action='message');const steps=journeySteps(draft);
+ Object.assign(c.setup,{audience:'顧客',purpose:'服務',scenario:'點選服務',success:'完成操作',failure:'重試',human:'聯絡客服',githubRepo:'https://github.com/owner/demo',supabaseUrl:'https://abcdefghijklmnopqrst.supabase.co',messagingChannelId:'1234567890'});c.savedSetup={...c.setup};c.githubApp=true;c.deployment={id:'00000000-0000-0000-0000-000000000001',status:'awaiting_acceptance',user_checks:{website:true,lineMessage:true,menu:true,liff:true}};
+ for(const q of steps)for(const d of detailDefinitions(q,'app',4))if(['link','confirm'].includes(d.kind))c.details[detailKey(q,d,c.deployment.id)]=true;
+ let p=detailProgress(steps,c);assert.equal(p.percent,100);assert.equal(p.done,p.total);c.deployment.status='running';p=detailProgress(steps,c);assert.ok(p.percent<100);assert.ok(!p.pages.find(p=>p.id==='automatic')?.complete);
+});
+test('local checklist resume stores only recognized nonsecret acknowledgement keys',()=>{
+ const clean=safeDetailAcks({'github-create.readme':true,'github-create.public':true,token:'secret','audience.input':'private text','supabaseToken.input':true,plan:true});assert.deepEqual(clean,{'github-create.readme':true,'github-create.public':true});assert.deepEqual(safeDetailAcks(JSON.parse(JSON.stringify(clean))),clean);assert.ok(!JSON.stringify(clean).includes('secret'));
+});
+
+test('equipment covers each human/system step once and keeps Supabase as storage ring',()=>{
+ const assigned=equipment.flatMap(e=>[...e.pages]);assert.equal(new Set(assigned).size,assigned.length);
+ for(const q of questSteps){assert.equal(assigned.filter(id=>id===q.id).length,1);assert.ok(equipmentForStep(q.id));}
+ assert.equal(equipment.find(e=>e.id==='ring')?.name,'儲物戒');assert.equal(equipmentForStep('automatic'),'badge');
+ const draft=emptyDraft(),groups=equipmentProgress([{id:'supabase-signup',done:2,total:4}],draft,false);assert.equal(groups.find(g=>g.id==='ring')?.complete,false);assert.equal(groups.find(g=>g.id==='uniform')?.complete,false);
+ draft.cells.forEach(c=>{c.label='服務';c.content='內容';});const saved=equipmentProgress([],draft,true);assert.equal(saved.find(g=>g.id==='uniform')?.complete,true);assert.equal(saved.find(g=>g.id==='voice')?.complete,true);
+});
+test('appearance is isolated presentation state and notes reject recognizable credentials',()=>{
+ assert.deepEqual(safeSecretaryProfile({appearance:'male',role:'admin',token:'secret'}),{appearance:'male'});assert.equal(safeSecretaryProfile(null).appearance,'female');
+ for(const secret of ['sk-proj-abcdefghijklmnopqrst','github_pat_abcdefghijklmnop','sb_secret_abcdefghijklmnop','-----BEGIN RSA PRIVATE KEY-----','Bearer test-token','a'.repeat(32)])assert.equal(sensitiveNote(secret),true,secret.slice(0,10));
+ assert.deepEqual(safeSecretaryNotes([{text:'想增加活動入口',date:'2026-11-04',token:'private'},{text:'sk-proj-abcdefghijklmnopqrst'},{text:'a'.repeat(1201)}]),[{text:'想增加活動入口',date:'2026-11-04'}]);
+});
+test('every subtask has a bounded mobile tutorial scene with safe illustrative values',()=>{
+ for(const q of questSteps)for(const d of detailDefinitions(q,'app',8)){const scene=tutorialScene({...d,key:detailKey(q,d)});assert.ok(scene.rows.length>=3&&scene.rows.length<=5);assert.ok(scene.focus>=0&&scene.focus<scene.rows.length);assert.ok(scene.platform);}
+ assert.equal(tutorialScene({key:'github-create.readme',title:'README',text:'確認'}).focus,3);
+ assert.equal(tutorialScene({key:'lineSecret.input',title:'Secret',text:'安全填寫'}).platform,'LINE Developers');
+ assert.match(tutorialScene({key:'lineToken.input',title:'Token',text:'沿用'}).rows.join(' '),/已有 Token.*沿用/);
 });

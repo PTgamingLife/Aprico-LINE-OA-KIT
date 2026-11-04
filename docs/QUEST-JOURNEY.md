@@ -1,8 +1,47 @@
 # Build-center quest journey
 
-2026-11-02. The build center presents one human action per square and one combined
-automatic square. No new GitHub App, Supabase OAuth, or Actions deployment engine
-is claimed: it uses the existing limited-token/direct-API deployment engine.
+The build center presents one human action per square and one combined automatic
+square. GitHub can use the existing verified GitHub App binding, with an explicit
+limited-token fallback. Supabase still requires deployment credentials. There is
+no new Supabase OAuth or GitHub Actions deployment engine in this interface release.
+
+## Secretary equipment room
+
+- The left panel shows the verified LINE display name, project, OA name, grid size,
+  and percentage calculated from individual required actions. Typing and saving
+  are separate points; a link click never stands in for a server authorization.
+- Eight equipment groups surround a modular SVG secretary. Users can select male
+  or female appearance; only presentation changes, never authorization or progress.
+  Completed equipment becomes solid on the character; incomplete equipment is ghosted.
+  Supabase is named 儲物戒. Uniform and voice/knowledge are saved-design milestones,
+  not extra points counted a second time in the build checklist.
+- Every required journey page belongs to one equipment group. Selecting an item
+  opens a native task dialog. Future tasks stay gated; old completed tasks remain
+  viewable. The automatic stage and phone acceptance are grouped under the badge.
+- Each detail has an adjacent phone diagram and a three-part, replayable tutorial:
+  go to the setting, perform this action, return to Aprico. Controls include pause,
+  previous/next, and direct segment selection. Images are clearly illustrative,
+  use masked example data, and link to relevant official documentation.
+- Reduced-motion preferences disable pointing/materialization motion. Nested
+  tutorial dialogs close without cancelling the parent task or resetting its state.
+- Appearance and nonsecret requirement notes are local to the device/project UUID.
+  Notes are explicitly labeled local notes, not AI replies or executed modifications;
+  recognizable credential formats are rejected and only allowlisted fields persist.
+  Actual input settings still use the original owner-scoped cloud-save API.
+- The proposed NT$1,680 / 1,680-point ledger, AI chat modifications, and automatic
+  runtime AI service have NOT been connected in this frontend release. Existing
+  payment, five-build entitlements, platform budget, and scheduled messages are unchanged.
+
+### Release validation
+
+- Unit coverage: equipment partitioning, no premature completion, appearance
+  allowlist, note bounds/credential filtering, all detail tutorial scenes, granular
+  progress, deployment-scoped acceptance, and no client-forged authorization.
+- Mocked browser QA: male/female switching, appearance survives reload, click equipment
+  to open its task dialog, blocked future equipment, tutorial modal/segment control,
+  notes without paid API calls, and completion changing 27% to 28.3%.
+- 390px viewport: document client/scroll widths both 375px; no horizontal overflow.
+  Verification used mock projects only; no real generation, payment or deployment ran.
 
 ## User experience
 
@@ -46,5 +85,5 @@ checks. No auth, grant, payment, credit, or campaign permissions were widened.
 - Reloaded mocked page invoked only build_jobs and deploy_status, not generation.
 - Existing teaching images are labeled illustrative, not actual account screenshots.
 - Studio was v34 before this change; new v35 read-only action preserves original files.
-- GitHub Actions/OAuth setup is a separate future implementation requiring registered
-  integration credentials. Do not relabel a saved URL as platform authorization.
+- Full Actions orchestration is separate from the existing App/direct API deployment.
+  Do not relabel a saved URL as platform authorization.
