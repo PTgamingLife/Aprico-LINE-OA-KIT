@@ -1,0 +1,18 @@
+.real-tutorial{background:#f7f5eb;border:1px solid #d4ddcb;border-radius:16px;padding:16px;color:#294b3c;min-width:0}
+.tutorial-kind{display:block;font-size:11px!important;color:#65795f!important;margin-bottom:10px}
+.tutorial-provenance{margin:8px 0;font-size:10px;line-height:1.8}.tutorial-provenance>summary{cursor:pointer;color:#718268;min-height:30px;padding:5px 0}
+.tutorial-real-shot{width:100%;aspect-ratio:4/3;position:relative;overflow:hidden;background:#f0f0eb;border:1px solid #d8ddd1;border-radius:10px}
+.tutorial-real-shot>img{display:block;width:100%;height:100%;object-fit:contain}.tutorial-real-shot>img.loaded{visibility:hidden}
+.tutorial-real-shot>svg{position:absolute;inset:0;width:100%;height:100%;background:#fff}
+.tutorial-real-pointer{paint-order:stroke;stroke:#fff;stroke-width:1px;transform-box:fill-box;transform-origin:center}
+.real-tutorial.playing .tutorial-real-pointer{animation:real-tutorial-tap 1.3s 2}
+.tutorial-narration>small{display:block;font-size:11px;color:#8b714d;margin:12px 0 5px}.tutorial-narration h4{font-size:19px;line-height:1.6}.detail-help .tutorial-narration p,.tutorial-narration p{font-size:12px;line-height:1.9;margin:8px 0}
+.tutorial-controls{display:flex;justify-content:center;align-items:center;gap:8px;margin:12px 0}.tutorial-controls button{display:block!important;min-width:44px;min-height:44px;font-size:12px!important;margin:0!important;padding:8px 12px!important}.tutorial-controls button.primary{flex:1;max-width:160px}
+.tutorial-segments{display:flex;gap:8px}.tutorial-segments button{flex:1;border:0;border-top:3px solid #d4decb;border-radius:0;background:transparent;font-size:11px!important;margin:0!important;padding:6px!important;min-height:36px}.tutorial-segments button[aria-current=step]{border-top-color:#aa8150}
+.detail-help .tutorial-credit,.tutorial-credit,.detail-help .tutorial-safety,.tutorial-safety{font-size:10px;line-height:1.8;color:#78846d;margin:9px 0}.tutorial-source{display:inline-block;font-size:11px;padding:8px 0;line-height:1.6}.tutorial-shot-unavailable{font-size:11px!important;line-height:1.9!important;background:#eeeee5;border-radius:10px;padding:12px}
+.detail-help .detail-zoom{min-height:44px;font-size:12px;padding:8px 0;margin:5px 0 0}.detail-dialog:has(.real-tutorial){width:min(760px,calc(100vw - 24px));max-height:92dvh}.detail-dialog .tutorial-real-shot{aspect-ratio:4/3;max-height:52dvh}.detail-dialog .real-tutorial{padding:18px}.detail-dialog .tutorial-narration p{font-size:14px}
+@keyframes real-tutorial-tap{0%,100%{transform:translate(0,0)}50%{transform:translate(-5px,5px)}}
+.quest-detail:has(.tutorial-local.playing)>.detail-operation :is(input,textarea,button){animation:real-field-focus 1.5s 2}
+@keyframes real-field-focus{50%{outline:2px solid #d33c31;outline-offset:4px}}
+@media(max-width:760px){.quest-detail .detail-help{display:block;padding:14px 0 0}.real-tutorial.compact{padding:12px}.detail-dialog:has(.real-tutorial){padding:12px}.detail-dialog .real-tutorial{padding:12px}.detail-help .tutorial-credit,.detail-help .tutorial-safety{font-size:10px}.tutorial-real-shot{aspect-ratio:1.15}}
+@media(prefers-reduced-motion:reduce){.real-tutorial *,.quest-detail .detail-operation *{animation:none!important}}

@@ -7,6 +7,7 @@ import {emptySetup} from '../src/build-model.ts';
 import {detailDefinitions,detailKey,pageDetails,detailProgress,safeDetailAcks} from '../src/journey-details.ts';
 import {equipment,equipmentForStep,equipmentProgress,safeSecretaryProfile,safeSecretaryNotes,sensitiveNote} from '../src/equipment-model.ts';
 import {tutorialScene} from '../src/tutorial-scenes.ts';
+import {tutorialMedia,shotCamera} from '../src/tutorial-media.ts';
 
 function detailContext(){return {setup:emptySetup(),savedSetup:emptySetup(),secrets:{githubToken:'',supabaseToken:'',lineSecret:'',lineToken:''},acks:{},details:{},githubMode:'app',github:null,githubApp:false,grid:4,consent:false,deployment:null};}
 test('one system square, distinct human actions, optional LIFF only when needed',()=>{
@@ -96,4 +97,21 @@ test('every subtask has a bounded mobile tutorial scene with safe illustrative v
  assert.equal(tutorialScene({key:'github-create.readme',title:'README',text:'確認'}).focus,3);
  assert.equal(tutorialScene({key:'lineSecret.input',title:'Secret',text:'安全填寫'}).platform,'LINE Developers');
  assert.match(tutorialScene({key:'lineToken.input',title:'Token',text:'沿用'}).rows.join(' '),/已有 Token.*沿用/);
+});
+
+test('real screenshot tutorials use existing local assets, attributable sources and bounded annotations',()=>{
+ for(const q of questSteps)for(const d of detailDefinitions(q,'app',8)){
+  const media=tutorialMedia({...d,key:detailKey(q,d)});if(!media)continue;
+  assert.ok(readFileSync(new URL('../public/tutorials/real/'+media.file,import.meta.url)).byteLength>1000);
+  assert.ok(media.source.startsWith('https://'));assert.ok(media.credit);
+  const [x,y,w,h]=media.box;assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=100&&y+h<=100);
+  const [cx,cy,cw,ch]=shotCamera(375,844,media.box,true).split(' ').map(Number);
+  assert.ok(cx>=0&&cy>=0&&cw>0&&ch>0&&cx+cw<=375.001&&cy+ch<=844.001);
+ }
+ assert.equal(tutorialMedia({key:'supabaseToken.input'}),null);
+ assert.equal(tutorialMedia({key:'githubToken.input'}),null);
+ assert.equal(tutorialMedia({key:'lineToken.input'}),null);
+ assert.equal(tutorialMedia({key:'unknown.input'}),null);
+ assert.equal(shotCamera(375,844,[0,0,100,100],false),'0 0 375 844');
+ assert.equal(tutorialMedia({key:'webhook.switch#00000000-0000-0000-0000-000000000001'})?.file,'line-webhook.png');
 });

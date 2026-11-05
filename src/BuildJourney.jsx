@@ -1,8 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {validateSetup} from './build-model.ts';
 import {projectGuides} from './project-guides.ts';
-import {AccountScreen} from './ProjectSetupGuide.jsx';
-import GuideImage from './GuideImage.jsx';
+import TutorialAnimation from './TutorialAnimation.jsx';
 import GithubConnection from './GithubConnection.jsx';
 import QuestDetail,{QuestProgress} from './QuestDetail.jsx';
 import {safeDetailAcks,pageDetails,detailProgress} from './journey-details.ts';
@@ -105,7 +104,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   <SecretaryRoom projectId={projectId} user={user} draft={draft} progress={progress} groups={groups} steps={steps} currentStep={q.id} firstOpen={firstOpen} running={running} selected={selectedEquipment} onOpen={openEquipment} onClose={()=>setSelectedEquipment(null)} onStep={async id=>{await go(id);setSelectedEquipment(equipmentForStep(id));}} onDesign={onDesign||(()=>location.assign('design.html?project='+encodeURIComponent(projectId)))}>
   <article className="quest-stage" ref={panel} aria-labelledby="quest-title"><div className="quest-stage-top"><span>{q.kind==='automatic'?'系統關卡':'你的關卡'} · {index+1} / {steps.length}</span><span>本頁 {units.filter(d=>d.done).length} / {units.length} 細項</span></div><h3 id="quest-title">{q.title}</h3>
    {guide&&<p>{guide.lead}</p>}
-   <details className="stage-reference"><summary>完整教學圖與官方參考</summary>{guide?<><AccountScreen key={guide.id} guide={guide}/><p>{guide.note}</p><a href={guide.source} target="_blank" rel="noreferrer">查看官方教學 ↗</a></>:<GuideImage topic={q.id==='lineSecret'?'lineSecret':q.kind==='automatic'?'journeyAuto':q.topic}/>}</details>
+   <details className="stage-reference"><summary>本頁教學與官方參考</summary><TutorialAnimation key={q.id} unit={units[0]||{key:q.id+'.open',title:q.title,text:guide?.lead||q.hint||'依下方細項逐一完成。'}}/>{guide&&<p>{guide.note}</p>}</details>
    {q.id==='githubToken'&&githubMode==='app'?<GithubConnection api={api} projectId={projectId} state={github} units={units} onAcknowledge={acknowledge} onBeforeLaunch={async()=>!dirty||await save()} disabled={running} onRepository={url=>change('githubRepo',url)} onStatus={r=>{setGithub(r);setPlan(null);setReady(false);setConsent(false);if(r.connection)setSecrets(s=>({...s,githubToken:''}));}}/>:<div className="quest-detail-list">{units.map(unit=><QuestDetail key={unit.key} unit={unit}>{detailControl(unit)}</QuestDetail>)}</div>}
    {q.id==='githubToken'&&github?.configured&&<button className="detail-mode-switch" disabled={running} onClick={()=>{setManualGithub(v=>!v);setPlan(null);setReady(false);setConsent(false);}}>{manualGithub?'改用 GitHub App 連接':'需要其他方式？改用一次性限權 Token'}</button>}
    {q.id==='purpose'&&setup.runtimeAiProvider!=='none'&&<p className="notice">此專案先前選了營運 AI；目前自動部署尚不支援。<button onClick={()=>change('runtimeAiProvider','none')}>本次先改成不使用營運 AI</button></p>}

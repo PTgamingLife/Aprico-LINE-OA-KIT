@@ -1,10 +1,9 @@
-import React,{useId,useRef} from 'react';
+import React,{useRef} from 'react';
 import TutorialAnimation from './TutorialAnimation.jsx';
-import {tutorialScene} from './tutorial-scenes.ts';
 import './quest-details.css';
 export function DetailHelp({unit}){
- const dialog=useRef(null),scene=tutorialScene(unit),[opened,setOpened]=React.useState(false);
- return <aside className="detail-help"><div className="detail-thumbnail"><div className="detail-mini-phone" role="img" aria-label={unit.title+'的操作位置示意'}><small>{scene.platform} · 操作示意</small>{[scene.heading,scene.rows[scene.focus], '回 Aprico 繼續'].map((line,i)=><div className={i===1?'focus':''} key={i}>{line}</div>)}</div></div><p>{unit.text}</p><button type="button" className="detail-zoom" onClick={()=>{setOpened(true);dialog.current?.showModal();}}>▶ 播放教學／放大圖解</button><dialog className="detail-dialog" ref={dialog} aria-label={unit.title+'動畫教學'} onClose={()=>setOpened(false)} onClick={e=>e.target===dialog.current&&dialog.current?.close()}><button type="button" className="detail-close" onClick={()=>dialog.current?.close()}>關閉教學 ×</button>{opened&&<TutorialAnimation unit={unit} autoPlay/>}</dialog></aside>;
+ const dialog=useRef(null),[opened,setOpened]=React.useState(false);
+ return <aside className="detail-help"><TutorialAnimation key={unit.key} unit={unit} autoPlay compact suspended={opened}/><button type="button" className="detail-zoom" onClick={()=>{setOpened(true);dialog.current?.showModal();}}>放大教學 ↗</button><dialog className="detail-dialog" ref={dialog} aria-label={unit.title+'動畫教學'} onClose={()=>setOpened(false)} onClick={e=>e.target===dialog.current&&dialog.current?.close()}><button type="button" className="detail-close" onClick={()=>dialog.current?.close()}>關閉教學 ×</button>{opened&&<TutorialAnimation unit={unit} autoPlay/>}</dialog></aside>;
 }
 export default function QuestDetail({unit,children}){
  return <section className={`quest-detail ${unit.done?'is-complete':''}`} aria-label={unit.title}><div className="detail-operation"><span className="detail-status">{unit.done?'✓ '+unit.label:'○ 待完成'}</span><h4>{unit.title}</h4>{children}</div><DetailHelp unit={unit}/></section>;
