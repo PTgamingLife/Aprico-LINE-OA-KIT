@@ -140,3 +140,21 @@ test('Supabase token walkthrough uses distinct actual frames without claiming to
   assert.equal(image.readUInt32BE(20),height,'Only the approved crop may be published');
  }
 });
+
+test('project location screenshots remain distinct from Token permissions and do not add manual secret work',()=>{
+ const url=tutorialMedia({key:'supabaseUrl.connect'})!;
+ assert.deepEqual(url.frames?.map(f=>f.file),['supabase-project-settings-nav.png','supabase-general-nav.png','supabase-project-id.png']);
+ assert.match(tutorialFrame(url,2)?.instruction||'',/https:.*\.supabase\.co/);
+ assert.match(tutorialFrame(url,2)?.instruction||'',/不要照抄/);
+ const setup=tutorialMedia({key:'supabaseUrl.input'})!;assert.match(tutorialFrame(setup,2)?.instruction||'',/不代表部署授權/);
+ const automatic=tutorialMedia({key:'automatic.system'})!;
+ assert.deepEqual(automatic.frames?.map(f=>f.file),['supabase-functions-nav.png','supabase-functions-secrets-nav.png','supabase-secrets-empty-form.png']);
+ assert.match(tutorialFrame(automatic,2)?.instruction||'',/一般流程由系統配置/);
+ assert.match(tutorialFrame(automatic,2)?.instruction||'',/只有部署結果提示/);
+ assert.match(tutorialFrame(automatic,2)?.instruction||'',/不要把 Supabase Access Token/);
+ assert.equal(questSteps.filter(q=>q.kind==='automatic').length,1);
+ assert.equal(detailDefinitions(questSteps.find(q=>q.id==='automatic')).length,1);
+ const token=tutorialMedia({key:'supabaseToken.scope'})!;assert.ok(token.frames?.every(f=>f.file.includes('supabase-token-')));
+ const dimensions=[['supabase-project-settings-nav.png',245,700],['supabase-general-nav.png',320,200],['supabase-project-id.png',860,90],['supabase-functions-nav.png',245,700],['supabase-projects-toolbar.png',1050,150],['supabase-project-example-card.png',330,220],['supabase-functions-secrets-nav.png',320,200],['supabase-secrets-empty-form.png',1440,480]] as const;
+ for(const [file,width,height] of dimensions){const image=readFileSync(new URL('../public/tutorials/real/'+file,import.meta.url));assert.equal(image.readUInt32BE(16),width);assert.equal(image.readUInt32BE(20),height);}
+});

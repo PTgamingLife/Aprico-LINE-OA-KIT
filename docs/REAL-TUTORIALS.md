@@ -101,6 +101,44 @@ Reference: https://supabase.com/docs/guides/platform/personal-access-tokens
 No token was created, permissions changed, or authenticated Supabase page read
 while incorporating these user-supplied captures.
 
+### Additional project and deployment location captures
+
+A second batch of six supplied screenshots was prepared using the same approved
+crop-only workflow. `scripts/prepare-supabase-project-tutorial-assets.ps1` accepts
+the input files; originals are not committed. Five inputs are 1920 × 1080 and the
+Secrets input is 1920 × 931. No artwork generation or UI text replacement occurs.
+
+| Asset | Original x / y / width / height | Content retained |
+| --- | --- | --- |
+| supabase-project-settings-nav.png | 8 / 210 / 245 / 700 | Project navigation only |
+| supabase-general-nav.png | 60 / 210 / 320 / 200 | General submenu |
+| supabase-project-id.png | 710 / 550 / 860 / 90 | Project ID row and Copy |
+| supabase-functions-nav.png | 8 / 210 / 245 / 700 | Edge Functions navigation |
+| supabase-projects-toolbar.png | 250 / 260 / 1050 / 150 | Projects toolbar / New project |
+| supabase-project-example-card.png | 610 / 420 / 330 / 220 | Single example project card |
+| supabase-functions-secrets-nav.png | 60 / 210 / 320 / 200 | Functions / Secrets submenu |
+| supabase-secrets-empty-form.png | 420 / 270 / 1440 / 480 | Empty Name / Value / Save form |
+
+Visual inspection confirmed no browser chrome, account/org header, usage figures,
+other project cards, existing function rows, existing secret names or values in
+these crops. The example card name and Project ID identify the already public
+example project, and instructions explicitly forbid copying them into a customer's
+setup. Project ID is not a credential; it is used to form the project API URL.
+New asset dimensions are tested so full untrimmed screenshots fail verification.
+
+The Project URL lesson now uses Project Settings → General → Project ID, with
+Connect retained as an alternate way to check the resulting URL. The general
+project-setup guide and granular detail text use the same route.
+
+The automatic/system square shows Edge Functions → Secrets → empty secret form
+only to explain deployment locations and conditional recovery. It remains **one
+system unit**; no manual-secret task or progress point was added. Routine LINE
+secret configuration remains the deployer's job. The text explicitly distinguishes
+these dashboard locations from the Token permissions selector and says not to
+store a Supabase Access Token as an Edge Secret. The placeholder CLIENT_KEY is
+not a variable the customer should copy; use the project's actual generated names.
+These are instructional changes only, with no writes to Supabase or LINE.
+
 ## Verification
 
 - Asset existence, attribution, annotation bounds, camera bounds, deployment-key

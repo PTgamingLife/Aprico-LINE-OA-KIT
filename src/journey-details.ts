@@ -34,7 +34,7 @@ const guideTasks:Record<string,Detail[]>={
   {id:'created',kind:'confirm',title:'建立專案並等待啟動',text:'按 Create new project，等 Dashboard 可以開啟專案後再確認。'}],
  'supabaseUrl':[
   {id:'open',kind:'link',title:'開啟自己的 Supabase 專案',url:'https://supabase.com/dashboard',text:'進入剛才建立或已經存在的專用專案。'},
-  {id:'connect',kind:'confirm',title:'從 Connect 找到 Project URL',text:'在 Connect 的應用程式／框架範例找 Project URL 或 SUPABASE_URL。'},
+  {id:'connect',kind:'confirm',title:'從 Project ID 取得 Project URL',text:'進入 Project Settings → General，複製 Project ID；完整網址是 https:// 加上這個代碼，再加 .supabase.co。也可從 Connect 核對，請勿照抄教學範例。'},
   {id:'input',kind:'field',field:'supabaseUrl',label:'Supabase Project URL',title:'貼上 Project URL',hint:'https://你的專案代碼.supabase.co',text:'只貼專案網址，不貼後台網址、資料庫連線字串或 Key。'},
   {id:'save',kind:'save',title:'保存 Project URL',text:'保存後可切換頁面繼續，部署授權會在後面的關卡核對。'}]
 };
