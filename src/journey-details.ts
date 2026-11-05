@@ -50,7 +50,7 @@ export function detailDefinitions(q:any,mode='app',cells=4):Detail[]{
   {id:'save',kind:'save',title:'保存這項資料',text:'填妥後保存。綠色「已保存」代表已寫入你的專案，不是系統已驗證外部平台。'}];
  if(q.kind==='secret')return [
   {id:'open',kind:'link',title:'開啟本項設定頁',url:q.url,text:'只使用本次專案與自己的帳號，依圖解找到對應位置。'},
-  {id:'scope',kind:'confirm',title:q.id==='lineSecret'||q.id==='lineToken'?'確認是同一個 Messaging API Channel':'確認憑證只限本次專案',text:q.id==='githubToken'?'只授權本次 repo 的 Contents、Pages、Administration 讀寫。':q.id==='supabaseToken'?'使用限專案的管理 Token；不是 anon 或 service_role Key。':'Channel Secret 與 Access Token 必須屬於你剛才填寫 Channel ID 的同一個 OA。'},
+  {id:'scope',kind:'confirm',title:q.id==='lineSecret'||q.id==='lineToken'?'確認是同一個 Messaging API Channel':'確認憑證只限本次專案',text:q.id==='githubToken'?'只授權本次 repo 的 Contents、Pages、Administration 讀寫。':q.id==='supabaseToken'?'Resource access 選 Project，只選本次專案；Project Settings：Read，Edge Functions 與 Edge Function Secrets：Read-write，其餘維持 No access。選短效期限，Review access 核對後再產生；不是 anon 或 service_role Key。':'Channel Secret 與 Access Token 必須屬於你剛才填寫 Channel ID 的同一個 OA。'},
   {id:'input',kind:'credential',field:q.id,label:q.label,title:'填入 '+q.label,text:q.id==='lineToken'?'已有 Token 就沿用；沒有才 Issue。此欄只留在目前頁面記憶體，離開或重新整理會清空。':'憑證只留在目前頁面記憶體，離開或重新整理會清空；不存到進度紀錄。'}];
  if(q.kind==='review')return [
   {id:'verify',kind:'verify',title:'核對本次帳號與授權',text:'由系統核對 GitHub、Supabase 與 LINE 的目標帳號，尚未扣 AI 次數或修改外部設定。'},

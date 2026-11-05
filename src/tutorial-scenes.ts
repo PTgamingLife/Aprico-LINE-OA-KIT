@@ -11,7 +11,7 @@ export function tutorialScene(unit:{key?:string;title:string;text:string;rows?:s
   platform='Supabase';address='supabase.com/dashboard';source='https://supabase.com/docs/guides/getting-started/api-keys';
   if(page==='supabase-signup'){heading='Get started';rows=['Continue with GitHub','或 Email / Password','完成信箱或帳號驗證','自己的 Dashboard'];focus=part==='verified'?2:part==='owner'?3:0;}
   else if(page==='supabase-create'){heading='Create a new project';rows=['Organization：自己的組織','Project name：你的專案','Database password：自行保管','Region：選服務區域','核對 Plan → Create new project'];focus=({organization:0,name:1,password:2,region:3,plan:4,created:4} as Record<string,number>)[part]??0;}
-  else if(page==='supabaseToken'){heading='Account · Access Tokens';rows=['Account → Access Tokens','建立限專案管理 Token','核對本次權限與有效期','Token：只填安全欄位','不是 Project API Key'];focus=part==='input'?3:part==='scope'?2:0;source='https://supabase.com/docs/guides/platform/access-control';}
+  else if(page==='supabaseToken'){heading='Account · Access Tokens';rows=['Generate new token','Project：選組織與本次專案','Project Settings：Read','Edge Functions / Secrets：Read-write','Review access → 確認後產生'];focus=part==='input'?4:part==='scope'?1:0;source='https://supabase.com/docs/guides/platform/personal-access-tokens';}
   else{heading='你的專案 · Connect';rows=['Connect','應用程式／框架連線範例','Project URL / SUPABASE_URL','https://專案代碼.supabase.co','回 Aprico 貼上 Project URL'];focus=part==='connect'?2:part==='input'||part==='save'?4:0;}
  }else if(['messagingChannelId','lineSecret','lineToken','webhook','liff'].includes(page)){
   platform='LINE Developers';address='developers.line.biz/console';source='https://developers.line.biz/en/docs/messaging-api/building-bot/';

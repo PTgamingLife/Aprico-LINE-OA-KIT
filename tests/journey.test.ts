@@ -7,7 +7,7 @@ import {emptySetup} from '../src/build-model.ts';
 import {detailDefinitions,detailKey,pageDetails,detailProgress,safeDetailAcks} from '../src/journey-details.ts';
 import {equipment,equipmentForStep,equipmentProgress,safeSecretaryProfile,safeSecretaryNotes,sensitiveNote} from '../src/equipment-model.ts';
 import {tutorialScene} from '../src/tutorial-scenes.ts';
-import {tutorialMedia,shotCamera} from '../src/tutorial-media.ts';
+import {tutorialMedia,tutorialFrame,shotCamera} from '../src/tutorial-media.ts';
 
 function detailContext(){return {setup:emptySetup(),savedSetup:emptySetup(),secrets:{githubToken:'',supabaseToken:'',lineSecret:'',lineToken:''},acks:{},details:{},githubMode:'app',github:null,githubApp:false,grid:4,consent:false,deployment:null};}
 test('one system square, distinct human actions, optional LIFF only when needed',()=>{
@@ -102,16 +102,41 @@ test('every subtask has a bounded mobile tutorial scene with safe illustrative v
 test('real screenshot tutorials use existing local assets, attributable sources and bounded annotations',()=>{
  for(const q of questSteps)for(const d of detailDefinitions(q,'app',8)){
   const media=tutorialMedia({...d,key:detailKey(q,d)});if(!media)continue;
-  assert.ok(readFileSync(new URL('../public/tutorials/real/'+media.file,import.meta.url)).byteLength>1000);
   assert.ok(media.source.startsWith('https://'));assert.ok(media.credit);
-  const [x,y,w,h]=media.box;assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=100&&y+h<=100);
-  const [cx,cy,cw,ch]=shotCamera(375,844,media.box,true).split(' ').map(Number);
-  assert.ok(cx>=0&&cy>=0&&cw>0&&ch>0&&cx+cw<=375.001&&cy+ch<=844.001);
+  for(const frame of media.frames||[media]){
+   assert.ok(readFileSync(new URL('../public/tutorials/real/'+frame.file,import.meta.url)).byteLength>1000);
+   const [x,y,w,h]=frame.box;assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=100&&y+h<=100);
+   const [cx,cy,cw,ch]=shotCamera(375,844,frame.box,true).split(' ').map(Number);
+   assert.ok(cx>=0&&cy>=0&&cw>0&&ch>0&&cx+cw<=375.001&&cy+ch<=844.001);
+  }
  }
- assert.equal(tutorialMedia({key:'supabaseToken.input'}),null);
+ assert.equal(tutorialMedia({key:'supabaseToken.input'})?.label,'Supabase 桌面版實際截圖');
  assert.equal(tutorialMedia({key:'githubToken.input'}),null);
  assert.equal(tutorialMedia({key:'lineToken.input'}),null);
  assert.equal(tutorialMedia({key:'unknown.input'}),null);
  assert.equal(shotCamera(375,844,[0,0,100,100],false),'0 0 375 844');
  assert.equal(tutorialMedia({key:'webhook.switch#00000000-0000-0000-0000-000000000001'})?.file,'line-webhook.png');
+});
+
+test('Supabase token walkthrough uses distinct actual frames without claiming to show generated credentials',()=>{
+ const media=tutorialMedia({key:'supabaseToken.open'})!;
+ assert.equal(media.frames?.length,3);
+ assert.equal(tutorialFrame(media,0)?.file,'supabase-token-entry.png');
+ assert.equal(tutorialFrame(media,1)?.file,'supabase-token-scope.png');
+ assert.equal(tutorialFrame(media,2)?.file,'supabase-token-permissions.png');
+ assert.equal(tutorialFrame(media,-10),tutorialFrame(media,0));
+ assert.equal(tutorialFrame(media,90),tutorialFrame(media,2));
+ assert.equal(tutorialFrame(media,NaN),tutorialFrame(media,0));
+ assert.equal(tutorialFrame(null,1),null);
+ const scope=tutorialMedia({key:'supabaseToken.scope'})!;
+ assert.match(tutorialFrame(scope,1)?.instruction||'',/Project Settings.*Read/);
+ assert.match(tutorialFrame(scope,2)?.instruction||'',/Edge Functions.*Edge Function Secrets.*Read-write/);
+ assert.match(tutorialFrame(scope,2)?.instruction||'',/尚未拍攝/);
+ const single=tutorialMedia({key:'github-create.readme'})!;assert.equal(tutorialFrame(single,2),single);
+ for(const [file,width,height] of [['supabase-token-entry.png',900,425],['supabase-token-scope.png',978,854],['supabase-token-permissions.png',978,854]] as const){
+  const image=readFileSync(new URL('../public/tutorials/real/'+file,import.meta.url));
+  assert.equal(image.subarray(1,4).toString(),'PNG');
+  assert.equal(image.readUInt32BE(16),width,'Do not publish the original full screenshot');
+  assert.equal(image.readUInt32BE(20),height,'Only the approved crop may be published');
+ }
 });
