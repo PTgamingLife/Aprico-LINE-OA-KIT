@@ -7,7 +7,7 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
  const mobile=(file:string,box:TutorialShot['box'],source=githubDocs):TutorialShot=>({file,label:'手機版實際截圖',source,credit:'Aprico 拍攝 · 2026-11-05',box,note:'畫面中的公開帳號是拍攝範例；請使用自己的專案。'});
  const official=(file:string,box:TutorialShot['box'],source:string,credit:string,note='官方範例截圖，可能是桌面版；手機版位置與語言可能不同。請勿照抄範例值。'):TutorialShot=>({file,label:'官方實際截圖',box,source,credit,note});
  if(page==='github-create'){
-  if(['public','readme','created'].includes(part))return mobile('github-create-options-mobile.jpg',part==='readme'?[14,27,78,13]:part==='created'?[56,70,37,6]:[14,12,78,13]);
+  if(['public','readme','created'].includes(part))return mobile('github-create-options-mobile.jpg',part==='readme'?[14,37.5,78,14]:part==='created'?[56,81.5,37,6]:[14,23.5,78,13]);
   return mobile('github-create-mobile.jpg',part==='name'?[14,36,78,8]:[14,27,78,8]);
  }
  if(page==='githubRepo')return {...mobile('github-repository-mobile.jpg',[4,4,90,16]),note:'這張實拍用來辨識 Repository 頁面。手機瀏覽器的網址列不在網頁截圖內；請用瀏覽器選單複製網址，不要按 Code 複製 .git。'};
@@ -17,7 +17,7 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
  if(page==='lineSecret')return official('line-channel-secret.png',[1,14,80,70],'https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/','LINE Developers / LY Corporation','紅框是 Channel secret 與複製圖示。右邊 Issue 是重新發行，不要為了複製而按它。圖中的字串為官方範例。');
  if(page==='messagingChannelId')return official('line-channels.png',[53,44,45,53],'https://developers.line.biz/en/docs/messaging-api/getting-started/','LINE Developers / LY Corporation','先選 Messaging API Channel，再到 Basic settings 取得 Channel ID。此圖是選擇 Channel 的畫面，未顯示 Channel ID 欄位。');
  if(page==='webhook')return official('line-webhook.png',part==='switch'?[2,72,33,23]:[2,20,60,42],'https://developers.line.biz/en/docs/messaging-api/building-bot/','LINE Developers / LY Corporation');
- if(page==='liff')return official('line-liff-list.webp',[0,10,99,80],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','此圖顯示 LIFF 清單；新增時另填 Size 與 Endpoint URL，這張圖沒有示範新增表單。');
+ if(page==='liff')return official('line-liff-list.webp',part==='open'?[14,1,6,8]:[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','此圖顯示 LIFF 清單；新增時另填 Size 與 Endpoint URL，這張圖沒有示範新增表單。');
  return null;
 }
 export function shotCamera(width:number,height:number,box:TutorialShot['box'],zoom:boolean){
