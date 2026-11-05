@@ -88,9 +88,11 @@ PNG dimensions are tested to reject accidentally publishing uncropped sources.
 
 `supabaseToken.open`, `.scope` and `.input` now use ordered, distinct real images.
 Per-file dimensions prevent the previous image's aspect ratio being reused while
-the next file loads. The text explicitly distinguishes visible controls from
-steps not pictured: expanded permission selectors, review confirmation and the
-generated-token result are **not shown** and must not be represented as captured.
+the next file loads. The `supabaseToken.input` sequence shows the Review access
+button, then Token summary and Capabilities using `supabase-token-review-official.png`
+and `supabase-token-capabilities-official.png` from the [Supabase blog](https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job).
+The captions identify the sample project and Database permission as examples.
+The expanded permission selectors and generated-token result are covered in text.
 
 The current direct-API deployment calls only project lookup, function lookup /
 deployment, and bulk secret creation. Its tutorial maps those calls to Project

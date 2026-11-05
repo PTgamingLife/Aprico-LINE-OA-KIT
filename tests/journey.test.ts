@@ -131,7 +131,11 @@ test('Supabase token walkthrough uses distinct actual frames without claiming to
  const scope=tutorialMedia({key:'supabaseToken.scope'})!;
  assert.match(tutorialFrame(scope,1)?.instruction||'',/Project Settings.*Read/);
  assert.match(tutorialFrame(scope,2)?.instruction||'',/Edge Functions.*Edge Function Secrets.*Read-write/);
- assert.match(tutorialFrame(scope,2)?.instruction||'',/尚未拍攝/);
+ assert.match(tutorialFrame(scope,2)?.instruction||'',/分類入口/);
+ const input=tutorialMedia({key:'supabaseToken.input'})!;
+ assert.equal(tutorialFrame(input,1)?.file,'supabase-token-review-official.png');
+ assert.equal(tutorialFrame(input,2)?.file,'supabase-token-capabilities-official.png');
+ assert.match(tutorialFrame(input,2)?.instruction||'',/Database 保持 None/);
  const single=tutorialMedia({key:'github-create.readme'})!;assert.equal(tutorialFrame(single,2),single);
  for(const [file,width,height] of [['supabase-token-entry.png',900,425],['supabase-token-scope.png',978,854],['supabase-token-permissions.png',978,854]] as const){
   const image=readFileSync(new URL('../public/tutorials/real/'+file,import.meta.url));
