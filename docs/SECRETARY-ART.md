@@ -1,5 +1,24 @@
 # Premium secretary portraits
 
+## Current production: approved chibi pair
+
+The Q-version approved in conversation is now the default male/female base.
+Asset: `public/secretaries/secretary-chibi-pair-v1.png` (1536 × 1024 RGBA).
+It was generated with the built-in image generation tool. The original pixels
+and alpha are preserved; no additional generation or billable platform API call
+was needed for integration. Both corner alpha and the gap between figures are 0.
+The browser displays each figure separately using nested SVG viewports:
+female `245 0 480 1024`, male `780 0 480 1024`. This keeps the approved appearance
+identical while downloading a single shared image. Equipment is separately
+positioned for the larger head and shorter body; progress logic is unchanged.
+The previous realistic assets below remain available for future design work.
+
+### Chibi prompt (built-in generation)
+
+Create ONE polished character concept preview image showing the FEMALE and MALE Aprico AI secretary as a matching premium CHIBI / Q-version pair. Image 1 is female identity, wardrobe and color reference; Image 2 is male identity, wardrobe and color reference. These are reference images only. Transform their adult professional character designs into charming 3-head-tall stylized 3D collectible figures: large expressive warm brown eyes, oversized rounded heads, small refined noses, friendly smiles, short elegant bodies, soft rounded hands and feet, clearly recognizable adult business-secretary styling. Female has swept-back dark brown hair in a low ponytail; male has neat short dark brown side-parted hair. Both wear beautifully tailored forest-green blazers and matching trousers, ivory blouses/shirts, tiny muted brass piping and buttons, and dark leather loafers. High-end sculpted 3D illustration with soft satin materials, meticulous hair sculpting and subtle fabric texture; cute but sophisticated, not flat clip art. Both full-body head-to-toe, front-facing relaxed standing poses, female left and male right, generous separation and transparent margins, hands visible and empty for future game equipment. Genuinely transparent background with clean alpha edges. Soft warm studio lighting on the characters only. No environment, no pedestal, no background glow, no text, no labels, no watermark, no logo, no badges, no headset, no rings, no bags or other props. Single cohesive presentation, not a web UI screenshot.
+
+## Previous realistic version
+
 The two production portraits use a consistent forest-green tailored suit, ivory
 shirt, warm brass accents, natural adult proportions and realistic studio lighting.
 Generated using the built-in image generation tool, not the platform's billable
