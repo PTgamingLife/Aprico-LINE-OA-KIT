@@ -7,13 +7,13 @@ const actions={message:'傳送訊息',half:'半頁 App',full:'全頁 App',web:'�
 type Step='intro'|'direction'|'name'|'oaName'|'grid'|'theme'|'purpose'|'label'|'action'|'content'|'conversation'|'features'|'policy'|'review'|'saved'|'demo'|'demoConfirm';
 type State={id:string;step:Step;draft:Draft;index:number;demo?:string};
 const purposes={record:'紀錄',contact:'聯絡／接洽',share:'資訊傳遞',service:'個人資訊服務',custom:'自訂'};
-type Choice=[string,string];
+type Choice=[string,string,{inputOption:'openKeyboard';fillInText:string}?];
 const choices=(items:Record<string,string>):Choice[]=>Object.entries(items).map(([value,label])=>[label,value]);
 const text=(value:string)=>({type:'text',text:value});
 const link=(id:string,page:string)=>CENTER_LIFF+'/'+page+'?project='+encodeURIComponent(id);
 function card(title:string,body:string,choices:Choice[]=[],revision='',links:Choice[]=[]){
  const buttons=[
-  ...choices.map(([label,value])=>({type:'button',height:'sm',action:{type:'postback',label,data:new URLSearchParams({aprico_design:value,v:revision}).toString()}})),
+  ...choices.map(([label,value,input])=>({type:'button',height:'sm',action:{type:'postback',label,data:new URLSearchParams({aprico_design:value,v:revision}).toString(),...input}})),
   ...links.map(([label,uri])=>({type:'button',height:'sm',action:{type:'uri',label,uri}}))
  ];
  return {type:'flex',altText:title,contents:{type:'bubble',body:{type:'box',layout:'vertical',spacing:'md',contents:[
@@ -32,6 +32,7 @@ const fields:Partial<Record<Step,[string,string,number]>>={
  ,demo:['試一句給秘書','例如「明天下午 3 點跟客戶開會」。目前可試用行程整理。',160]
 };
 function show(s:State,v:string){
+ if(s.step==='name')return card('專案名稱','點「輸入專案名稱」，在下方輸入名稱後送出。也可直接傳送「填寫 你的專案名稱」。',[['輸入專案名稱','open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
  const field=fields[s.step];
  if(field)return card((['label','content'].includes(s.step)?'第 '+(s.index+1)+' 格 · ':'')+field[0],field[1]+'\n請在聊天室輸入「填寫 你的內容」。');
  switch(s.step){
@@ -134,6 +135,7 @@ export async function chatDesignGateway(event:any,r:{authenticated:boolean;db:an
  if(choice==='new'&&(params.get('v')||'')!==(previous?.revision||'')){await reply(text('這張開始卡已更新，請再次點選「打造我的 LINE OA」。'));return true;}
  if(choice!=='new'&&!current){if(choice)await reply(text('請再次點選「打造我的 LINE OA」開始。'));return Boolean(choice);}
  if(choice!=='new'&&choice&&params.get('v')!==current.revision){await reply(show(current.state,current.revision));return true;}
+ if(choice==='open_name')return true;
  const state:State=starting?{id:crypto.randomUUID(),step:'intro',draft:emptyDraft(),index:0}:structuredClone(current.state);
  if(choice==='save'&&state.step==='review'){
   const {error}=await r.db.from('line_oa_kit_designs').upsert({id:state.id,line_subject:own,config:validateDraft(state.draft),revision:1},{onConflict:'id',ignoreDuplicates:true});

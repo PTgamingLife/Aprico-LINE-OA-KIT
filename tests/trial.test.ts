@@ -103,6 +103,9 @@ test('chat design resumes after 24 hours and saves a records design before simul
  }
  assert.equal(await send('打造我的 LINE OA',false,true),false);
  await send('new',true);await send('next',true);await send('records',true);
+ const action=reply![0].contents.footer.contents[0].action;
+ assert.equal(action.inputOption,'openKeyboard');assert.equal(action.fillInText,'填寫 ');
+ await send('open_name',true);assert.equal(session.state.step,'name');assert.equal(reply!.length,0);
  await send('填寫 我的秘書');
  session.updated_at='2020-01-01T00:00:00Z';
  await send('打造我的 LINE OA');
