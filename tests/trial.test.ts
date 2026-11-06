@@ -125,6 +125,13 @@ test('chat design resumes after 24 hours and saves a records design before simul
  await send('填寫 本人確認');await send('save',true);
  assert.equal(project.line_subject,owner);
  assert.equal(project.config.secretary.features,'記錄行程');
+ assert.match(JSON.stringify(reply!),/召喚秘書/);
+ await send('summon',true);
+ const portrait=session.state.portrait;
+ assert.ok(['male','female'].includes(portrait));
+ assert.match(reply![0].contents.hero.url,new RegExp('summon-'+portrait+'\\.jpg$'));
+ assert.match(JSON.stringify(reply!),/打造可以為你工作的工具/);
+ await send('summon',true);assert.equal(session.state.portrait,portrait);
  await send('demo',true);
  assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');
  await send('填寫 明天下午 3 點跟客戶開會');

@@ -6,7 +6,7 @@ const directions={oa:'官方帳號卡片與按鈕',records:'個人／群組對�
 const conversations={personal:'個人私聊',group:'群組',both:'個人與群組'};
 const actions={message:'傳送訊息',half:'半頁 App',full:'全頁 App',web:'開啟網頁'};
 type Step='intro'|'direction'|'name'|'oaName'|'grid'|'theme'|'pattern'|'purpose'|'label'|'action'|'content'|'conversation'|'features'|'policy'|'review'|'saved'|'demo'|'demoConfirm';
-type State={id:string;step:Step;draft:Draft;index:number;demo?:string};
+type State={id:string;step:Step;draft:Draft;index:number;demo?:string;portrait?:'male'|'female'};
 const purposes={record:'紀錄',contact:'聯絡／接洽',share:'資訊傳遞',service:'個人資訊服務',custom:'自訂'};
 type Choice=[string,string,({inputOption:'openKeyboard';fillInText:string}|{colors:string[]})?];
 const choices=(items:Record<string,string>):Choice[]=>Object.entries(items).map(([value,label])=>[label,value]);
@@ -68,7 +68,20 @@ function show(s:State,v:string){
    themes[s.draft.theme].name+' · '+(prints.find(p=>p.key===s.draft.pattern)?.name||'不加印花'),
    ...s.draft.cells.slice(0,s.draft.grid).map(c=>c.label+' · '+actions[c.action])
   ]:[]),s.draft.secretary!.features,s.draft.secretary!.policy].filter(Boolean).join('\n'),[['保存這份設計','save']],v);
-  case 'saved':return card('設計已保存','召喚法陣已保存。先試用秘書的能力，再決定是否前往建置。',s.draft.secretary!.direction==='oa'?[]:[['試用秘書回覆','demo']],v,[...(s.draft.secretary!.direction!=='records'?[['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat'] as Choice,['開啟建置中心',link(s.id,'build.html')] as Choice]:[]),['查看設計',link(s.id,'design.html')]]);
+  case 'saved':{
+   const options:Choice[]=s.portrait?[]:[['召喚秘書','summon']];
+   if(s.draft.secretary!.direction!=='oa')options.push(['試用秘書回覆','demo']);
+   const links:Choice[]=[];
+   if(s.portrait)links.push(['打造可以為你工作的工具',link(s.id,'build.html')]);
+   if(s.draft.secretary!.direction!=='records')links.push(['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat']);
+   links.push(['查看設計',link(s.id,'design.html')]);
+   if(!s.portrait)return card('設計已保存','召喚法陣準備好了。點下方按鈕，揭曉你的 LINE AI 秘書。',options,v,links);
+   const revealed=card('召喚成功','你的專屬秘書已現身。接下來，到建置中心打造它可以替你使用的工具。',options,v,links);
+   return {...revealed,contents:{...revealed.contents,hero:{
+    type:'image',url:'https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/secretaries/summon-'+s.portrait+'.jpg',
+    size:'full',aspectRatio:'3:4',aspectMode:'fit',backgroundColor:'#FCFAFF'
+   }}};
+  }
   case 'demoConfirm':return card('待確認行程 · 試用',s.demo+'\n這是秘書為你整理的試用行程。',[['確認示範','confirm'],['修改或再試一句','demo']],v);
  }
  throw Error('unknown_design_step');
@@ -98,7 +111,10 @@ function advance(s:State,value:string,typed:boolean):boolean{
   case 'conversation':if(!Object.hasOwn(conversations,value))return false;d.secretary!.conversation=value as NonNullable<Draft['secretary']>['conversation'];s.step='features';break;
   case 'features':d.secretary!.features=value;s.step='policy';break;
   case 'policy':d.secretary!.policy=value;s.step='review';break;
-  case 'saved':if(value!=='demo'||d.secretary?.direction==='oa')return false;s.step='demo';break;
+  case 'saved':
+   if(value==='summon'){s.portrait??=Math.random()<0.5?'male':'female';break;}
+   if(value!=='demo'||d.secretary?.direction==='oa')return false;
+   s.step='demo';break;
   case 'demo':{
    const match=value.match(/^(今天|明天|後天|\d{1,2}[月/]\d{1,2}日?)\s*(上午|早上|下午|晚上)?\s*(\d{1,2})\s*(?:[:：](\d{2})|點(半)?(?:\s*(\d{1,2})分)?)\s*(.+)$/u);
    if(!match)return false;
