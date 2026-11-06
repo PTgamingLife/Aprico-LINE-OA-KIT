@@ -7,14 +7,27 @@ const actions={message:'傳送訊息',half:'半頁 App',full:'全頁 App',web:'�
 type Step='intro'|'direction'|'name'|'oaName'|'grid'|'theme'|'purpose'|'label'|'action'|'content'|'conversation'|'features'|'policy'|'review'|'saved'|'demo'|'demoConfirm';
 type State={id:string;step:Step;draft:Draft;index:number;demo?:string};
 const purposes={record:'紀錄',contact:'聯絡／接洽',share:'資訊傳遞',service:'個人資訊服務',custom:'自訂'};
-type Choice=[string,string,{inputOption:'openKeyboard';fillInText:string}?];
+type Choice=[string,string,({inputOption:'openKeyboard';fillInText:string}|{colors:string[]})?];
 const choices=(items:Record<string,string>):Choice[]=>Object.entries(items).map(([value,label])=>[label,value]);
 const text=(value:string)=>({type:'text',text:value});
 const link=(id:string,page:string)=>CENTER_LIFF+'/'+page+'?project='+encodeURIComponent(id);
 const sigil='https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/summoning-sigil.png';
 function card(title:string,body:string,choices:Choice[]=[],revision='',links:Choice[]=[]){
  const buttons=[
-  ...choices.map(([label,value,input])=>({type:'button',height:'sm',action:{type:'postback',label,data:new URLSearchParams({aprico_design:value,v:revision}).toString(),...input}})),
+  ...choices.map(([label,value,options])=>{
+   const action={type:'postback',label,data:new URLSearchParams({aprico_design:value,v:revision}).toString()};
+   if(options&&'colors' in options)return {
+    type:'box',layout:'horizontal',alignItems:'center',paddingAll:'9px',cornerRadius:'md',
+    borderWidth:'1px',borderColor:'#E4DEEC',action,contents:[
+     {type:'text',text:label,size:'sm',color:'#344B40',wrap:true,flex:1},
+     {type:'box',layout:'horizontal',flex:0,spacing:'xs',contents:options.colors.map(color=>({
+      type:'box',layout:'vertical',contents:[],width:'17px',height:'17px',cornerRadius:'xs',backgroundColor:color,
+      borderWidth:'1px',borderColor:'#00000018'
+     }))}
+    ]
+   };
+   return {type:'button',height:'sm',action:{...action,...options}};
+  }),
   ...links.map(([label,uri])=>({type:'button',height:'sm',action:{type:'uri',label,uri}}))
  ];
  return {type:'flex',altText:title,contents:{type:'bubble',body:{type:'box',layout:'vertical',spacing:'md',backgroundColor:'#FCFAFF',contents:[
@@ -44,7 +57,7 @@ function show(s:State,v:string){
   case 'intro':return card('第 1 步 · 喚醒你的 AI 生活秘書','你的秘書將在 LINE 裡整理散落的資訊和待辦，減少生活雜訊與來回溝通。準備好了，就開始第一段吟唱。',[['開始吟唱','next']],v);
   case 'direction':return card('第 2 步 · 選擇秘書的能力','選擇要賦予秘書哪一種能力。它可以用官方帳號的卡片與按鈕做紀錄、聯絡接洽或傳遞資訊，也能整理個人或群組對話。',choices(directions),v);
   case 'grid':return card('召喚法陣 · 選單格數','每一格符文都是一個功能入口。選擇聊天室要顯示幾格。',[['4 格','4'],['6 格','6'],['8 格','8']],v);
-  case 'theme':return {type:'flex',altText:'選擇選單配色',contents:{type:'carousel',contents:[0,4].map(start=>card('選擇選單配色','選一款召喚法陣的配色，決定圖文選單的樣子。',themes.slice(start,start+4).map((theme,i)=>[theme.name,String(start+i)]),v).contents)}};
+  case 'theme':return {type:'flex',altText:'選擇選單配色',contents:{type:'carousel',contents:[0,4].map(start=>card('選擇選單配色','色塊就是圖文選單會用的配色。點整列選取，左右滑動查看其他主題。',themes.slice(start,start+4).map((theme,i)=>[theme.name,String(start+i),{colors:theme.colors}]),v).contents)}};
   case 'purpose':return card('第 '+(s.index+1)+' 格 · 這格要做什麼？','先決定這格符文的用途，接著再為它命名並指定點擊動作。',choices(purposes),v);
   case 'action':return card('第 '+(s.index+1)+' 格 · 點擊後的動作','選擇使用者點下「'+s.draft.cells[s.index].label+'」後的反應。',choices(actions),v);
   case 'conversation':return card('記憶符文 · 對話紀錄範圍','選擇秘書未來要在哪裡協助整理對話。',choices(conversations),v);

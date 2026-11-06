@@ -84,6 +84,7 @@ test('webhook verifies exact HMAC and rejects malformed or changed content',asyn
  assert.equal(await validLineSignature(raw,sig,secret),true);assert.equal(await validLineSignature(new TextEncoder().encode('changed'),sig,secret),false);assert.equal(await validLineSignature(raw,'bad!',secret),false);
 });
 import {chatDesignGateway} from '../supabase/functions/_shared/chat-design.ts';
+import {themes} from '../src/model.ts';
 
 test('chat design resumes after 24 hours and saves a records design before simulating a calendar reply',async()=>{
  const owner='U'+'a'.repeat(32);
@@ -131,4 +132,10 @@ test('chat design resumes after 24 hours and saves a records design before simul
  await send('confirm',true);
  assert.equal(session.state.demo,undefined);
  assert.match(JSON.stringify(reply!),/示範行程已確認/);
+ await send('new',true);await send('next',true);await send('oa',true);
+ await send('填寫 新設計');await send('填寫 測試 OA');await send('4',true);
+ const rows=reply![0].contents.contents.flatMap((bubble:any)=>bubble.footer.contents);
+ assert.deepEqual(rows.map((row:any)=>row.contents[1].contents.map((swatch:any)=>swatch.backgroundColor)),themes.map(theme=>theme.colors));
+ assert.deepEqual(rows.map((row:any)=>new URLSearchParams(row.action.data).get('aprico_design')),themes.map((_,index)=>String(index)));
+ await send('7',true);assert.equal(session.state.draft.theme,7);
 });
