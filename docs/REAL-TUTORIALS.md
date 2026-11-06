@@ -92,7 +92,12 @@ the next file loads. The `supabaseToken.input` sequence shows the Review access
 button, then Token summary and Capabilities using `supabase-token-review-official.png`
 and `supabase-token-capabilities-official.png` from the [Supabase blog](https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job).
 The captions identify the sample project and Database permission as examples.
-The expanded permission selectors and generated-token result are covered in text.
+The `supabaseToken.scope` sequence now shows the actual three expanded permission
+selectors. The generated-token result is covered in text.
+
+The LIFF setup sequence uses a crop of the real creation form for Size, Endpoint
+URL and Scopes. Only the form region is published. The browser bar and console
+breadcrumb, including channel and account identifiers, are outside the crop.
 
 The current direct-API deployment calls only project lookup, function lookup /
 deployment, and bulk secret creation. Its tutorial maps those calls to Project

@@ -50,14 +50,16 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
  if(page==='supabaseToken'){
   const entry:TutorialFrame={file:'supabase-token-entry.png',box:[74,89,24,10],caption:'開啟 Generate new token',instruction:'進入 Account → Access Tokens，按 Generate new token，開啟新的限權申請表單；不要選 Create legacy token。'};
   const scope:TutorialFrame={file:'supabase-token-scope.png',box:[59,30,39,13],caption:'限本次專案與有效期限',instruction:'Name 填容易辨識的名稱；Expires in 選涵蓋本次部署的短效期限。Resource access 保持 Project，選自己的組織及本次專案，不選整個 Organization。'};
-  const project:TutorialFrame={file:'supabase-token-permissions.png',box:[1,42,97,10],caption:'Project → Project Settings',instruction:'先選 Preset · No access，再點 Project 右側箭頭。展開後找到 Project Settings，在右側下拉選 Read。圖中紅框標出分類入口，展開後請按欄位名稱核對。'};
-  const services:TutorialFrame={file:'supabase-token-permissions.png',box:[1,60,97,11],caption:'Application services → 兩項部署權限',instruction:'點 Application services 右側箭頭，找到 Edge Functions 和 Edge Function Secrets，兩項各選 Read-write。其餘權限維持 None，再往下按 Review access。圖中紅框標出分類入口，展開後請按欄位名稱核對。'};
+  const services:TutorialFrame={file:'supabase-token-permissions.png',box:[1,60,97,11],caption:'展開 Application services',instruction:'從 Preset · No access 開始。展開 Project 和 Application services，依下一格教學設定三項權限。'};
+  const project:TutorialFrame={file:'supabase-scope-project-settings.png',box:[79,69,18,14],caption:'Project Settings 選 Read',instruction:'展開 Project。打開 Project Settings 右側下拉選單，選 Read。'};
+  const edge:TutorialFrame={file:'supabase-scope-edge-functions.png',box:[79,43,18,20],caption:'Edge Functions 選 Read-write',instruction:'在 Application services 找到 Edge Functions，打開該列右側下拉，選 Read-write。圖中選單向上展開，Data API JWT Secret 保持 None。'};
+  const edgeSecrets:TutorialFrame={file:'supabase-scope-edge-secrets.png',box:[79,82,18,15],caption:'Edge Function Secrets 選 Read-write',instruction:'在 Edge Function Secrets 那一列選 Read-write。其餘權限維持 None，再往下按 Review access。'};
   const reviewButton:TutorialFrame={file:'supabase-token-scope.png',box:[81,94,18,5],caption:'進入 Review access',instruction:'完成專案範圍、期限與三項權限後，按右下角 Review access 開啟核對頁。'};
   const review:TutorialFrame={file:'supabase-token-review-official.png',box:[2,54,96,44],caption:'核對專案與期限（官方範例）',instruction:'看 Token summary 的 Expires 和 Resource access，確認期限與本次專案。圖中的 test 專案與風險等級是官方範例。'};
   const capabilities:TutorialFrame={file:'supabase-token-capabilities-official.png',box:[1,1,26,6],caption:'逐項核對 Capabilities（官方範例）',instruction:'Aprico 只需 Project Settings 選 Read，Edge Functions 與 Edge Function Secrets 選 Read-write。圖中的 Database 是官方範例，Aprico 的 Database 保持 None。核對後由你產生 Token，貼回 Aprico 上方的安全欄位。'};
-  const frames=part==='scope'?[scope,project,services]:part==='input'?[reviewButton,review,capabilities]:[entry,scope,services];
+  const frames=part==='scope'?[project,edge,edgeSecrets]:part==='input'?[reviewButton,review,capabilities]:[entry,scope,services];
   const reviewing=part==='input';
-  return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:reviewing?'https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job':'https://supabase.com/docs/guides/platform/personal-access-tokens',credit:reviewing?'使用者提供與 Supabase 官方範例':'使用者提供 · 2026-11-05',note:'桌面版介面實拍。展開後的個別權限下拉選項依文字步驟操作。官方核對頁示範畫面配置，請以自己的專案、期限及 Aprico 所需權限為準。'};
+  return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:reviewing?'https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job':'https://supabase.com/docs/guides/platform/personal-access-tokens',credit:reviewing?'使用者提供與 Supabase 官方範例':'使用者提供 · 已裁切',note:reviewing?'官方核對頁示範畫面配置。請以自己的專案、期限及 Aprico 所需權限為準。':'紅框標示要選的權限。下拉選單拍攝時尚未送出。'};
  }
  if(page==='lineSecret')return official('line-channel-secret.png',[1,14,80,70],'https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/','LINE Developers / LY Corporation','紅框是 Channel secret 與複製圖示。右邊 Issue 是重新發行，不要為了複製而按它。圖中的字串為官方範例。');
  if(page==='lineToken'){
@@ -82,9 +84,14 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
    {file:'line-webhook-verify-controls.png',box:[4,12,39,78],caption:'按 Verify 核對部署結果',instruction:'按 Verify，看到成功後回 Aprico 繼續用手機實測。'}]};
  }
  if(page==='liff'){
-  const list=official('line-liff-list.webp',[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','清單是官方截圖，尺寸比較是官方示意圖。新增表單與個人 App 的實測畫面仍待補。');
+  const list=official('line-liff-list.webp',[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers 與使用者提供','清單是官方截圖，新增表單是使用者提供的裁切實拍，尺寸比較為官方示意。');
+  const open:TutorialFrame={...list,box:[14,1,6,8],caption:'在 LINE Login Channel 開啟 LIFF',instruction:'選本次使用的 LINE Login Channel，開啟 LIFF 分頁。建立新 App 時按 Add。'};
+  const endpoint:TutorialFrame={file:'line-liff-form.png',box:[0.5,32,40,13],caption:'填入部署後的 Endpoint URL',instruction:'貼上部署結果中的 HTTPS App 網址，網址不得含 # 片段。畫面的 example.com 是提示值。Scopes 依 App 實際需要勾選，然後按 Add。'};
+  if(part==='open')return {...list,frames:[open,
+   {file:'line-liff-form.png',box:[0.5,5,33,10],caption:'在新增表單選 Size',instruction:'全頁選 Full。半頁依專案需要選 Tall 或 Compact。'},
+   endpoint]};
   return {...list,frames:[
-   {...list,box:[14,1,6,8],caption:'在 LINE Login Channel 開啟 LIFF',instruction:'選本次使用的 LINE Login Channel，開啟 LIFF 分頁。建立新 App 時按 Add，並填入部署後的 HTTPS Endpoint URL。'},
+   endpoint,
    {file:'line-liff-sizes.png',box:[2,3,96,93],caption:'手機顯示尺寸（官方示意）',instruction:'全頁選 Full。半頁依專案需求選 Tall 或 Compact。用自己的 LINE 在手機實際開啟，確認顯示高度與內容。'},
    {...list,caption:'核對自己的 LIFF ID 與 App 入口',instruction:'在清單確認本次 App 的 LIFF ID。用手機逐一開啟使用到的 App 入口，完成後回到 Aprico 保存實測結果。'}]};
  }

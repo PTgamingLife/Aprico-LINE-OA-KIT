@@ -130,9 +130,10 @@ test('Supabase token walkthrough uses distinct actual frames without claiming to
  assert.equal(tutorialFrame(media,NaN),tutorialFrame(media,0));
  assert.equal(tutorialFrame(null,1),null);
  const scope=tutorialMedia({key:'supabaseToken.scope'})!;
- assert.match(tutorialFrame(scope,1)?.instruction||'',/Project Settings.*Read/);
- assert.match(tutorialFrame(scope,2)?.instruction||'',/Edge Functions.*Edge Function Secrets.*Read-write/);
- assert.match(tutorialFrame(scope,2)?.instruction||'',/分類入口/);
+ assert.match(tutorialFrame(scope,0)?.instruction||'',/Project Settings.*Read/);
+ assert.match(tutorialFrame(scope,1)?.instruction||'',/Edge Functions.*Read-write/);
+ assert.match(tutorialFrame(scope,2)?.instruction||'',/Edge Function Secrets.*Read-write/);
+ assert.deepEqual(tutorialMedia({key:'liff.open'})?.frames?.map(f=>f.file),['line-liff-list.webp','line-liff-form.png','line-liff-form.png']);
  const input=tutorialMedia({key:'supabaseToken.input'})!;
  assert.equal(tutorialFrame(input,1)?.file,'supabase-token-review-official.png');
  assert.equal(tutorialFrame(input,2)?.file,'supabase-token-capabilities-official.png');
@@ -159,7 +160,7 @@ test('project location screenshots remain distinct from Token permissions and do
  assert.match(tutorialFrame(automatic,2)?.instruction||'',/不要把 Supabase Access Token/);
  assert.equal(questSteps.filter(q=>q.kind==='automatic').length,1);
  assert.equal(detailDefinitions(questSteps.find(q=>q.id==='automatic')).length,1);
- const token=tutorialMedia({key:'supabaseToken.scope'})!;assert.ok(token.frames?.every(f=>f.file.includes('supabase-token-')));
+ const token=tutorialMedia({key:'supabaseToken.scope'})!;assert.deepEqual(token.frames?.map(f=>f.file),['supabase-scope-project-settings.png','supabase-scope-edge-functions.png','supabase-scope-edge-secrets.png']);
  const dimensions=[['supabase-project-settings-nav.png',245,700],['supabase-general-nav.png',320,200],['supabase-project-id.png',860,90],['supabase-functions-nav.png',245,700],['supabase-projects-toolbar.png',1050,150],['supabase-project-example-card.png',330,220],['supabase-functions-secrets-nav.png',320,200],['supabase-secrets-empty-form.png',1440,480]] as const;
  for(const [file,width,height] of dimensions){const image=readFileSync(new URL('../public/tutorials/real/'+file,import.meta.url));assert.equal(image.readUInt32BE(16),width);assert.equal(image.readUInt32BE(20),height);}
 });
