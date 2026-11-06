@@ -17,19 +17,19 @@ function card(title:string,body:string,choices:Choice[]=[],revision='',links:Cho
   ...links.map(([label,uri])=>({type:'button',height:'sm',action:{type:'uri',label,uri}}))
  ];
  return {type:'flex',altText:title,contents:{type:'bubble',body:{type:'box',layout:'vertical',spacing:'md',contents:[
-  {type:'text',text:'APRICO · AI 生活秘書',size:'xs',color:'#52765F',weight:'bold'},
+  {type:'text',text:'APRICO · AI 宇宙召喚中心',size:'xs',color:'#52765F',weight:'bold'},
   {type:'text',text:title,size:'lg',weight:'bold',wrap:true},
   {type:'text',text:body,size:'sm',wrap:true,color:'#344B40'}
  ]},...(buttons.length?{footer:{type:'box',layout:'vertical',spacing:'sm',contents:buttons}}:{})}};
 }
 const fields:Partial<Record<Step,[string,string,number,string]>>={
- name:['專案名稱','為這份設計取個好辨識的名字。',80,'輸入專案名稱'],
- oaName:['LINE OA 名稱','輸入預計在 LINE 顯示的官方帳號名稱。',80,'輸入 LINE OA 名稱'],
- label:['按鈕名稱','輸入使用者會看到的名稱。',30,'輸入按鈕名稱'],
- content:['按鈕內容','填寫訊息內容、App 功能說明或 HTTPS 連結。',500,'輸入按鈕內容'],
- features:['想整理哪些紀錄？','例如行程、支出、目標、待辦，也可寫下圖片辨識或定時摘要需求。',500,'輸入想整理的紀錄'],
- policy:['何時整理、由誰確認？','例如只整理標記給秘書的訊息，由指定成員確認後存檔，保留 30 天。先取得群組成員同意。',500,'輸入整理與確認規則'],
- demo:['試一句給秘書','例如「明天下午 3 點跟客戶開會」。目前可試用行程整理。',160,'輸入試用訊息']
+ name:['專案名稱','為你的召喚法陣命名。這個專案名稱會幫你找回這份設計。',80,'輸入專案名稱'],
+ oaName:['LINE OA 名稱','現在為秘書的服務入口命名。這是顧客會在 LINE 看到的官方帳號名稱。',80,'輸入 LINE OA 名稱'],
+ label:['按鈕名稱','為這格符文取名。這就是使用者在選單上看到的按鈕名稱。',30,'輸入按鈕名稱'],
+ content:['按鈕內容','寫下這格符文要觸發的內容。依你剛選的動作，填寫訊息、App 功能說明或 HTTPS 連結。',500,'輸入按鈕內容'],
+ features:['想整理哪些紀錄？','告訴秘書要替你收錄哪些日常片段，例如行程、支出、目標或待辦。也可以寫下圖片辨識或定時摘要的需求。',500,'輸入想整理的紀錄'],
+ policy:['何時整理、由誰確認？','為記憶符文訂下規則。例如只整理標記給秘書的訊息，由指定成員確認後存檔，保留 30 天。啟用群組紀錄前，請先取得成員同意。',500,'輸入整理與確認規則'],
+ demo:['試一句給秘書','用一句日常指令試試秘書的行程能力，例如「明天下午 3 點跟客戶開會」。',160,'輸入試用訊息']
 };
 function show(s:State,v:string){
  const field=fields[s.step];
@@ -39,16 +39,16 @@ function show(s:State,v:string){
   return card(prefix+title,hint+'\n點下方按鈕即可輸入。也可直接傳送「填寫 你的內容」。',[[label,'open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
  }
  switch(s.step){
-  case 'intro':return card('第 1 步 · 認識你的 AI 生活秘書','把 AI 結合 LINE，成為你的個人生活秘書，減少生活雜訊與來回溝通的成本。',[['開始規劃','next']],v);
-  case 'direction':return card('第 2 步 · 你想怎麼使用？','官方帳號可用卡片與介面按鈕做紀錄、聯絡、接洽、資訊傳遞或個人資訊服務。也能規劃個人或群組對話紀錄。',choices(directions),v);
-  case 'grid':return card('官方帳號 · 選單格數','選擇想讓使用者在聊天室看到幾個入口。',[['4 格','4'],['6 格','6'],['8 格','8']],v);
-  case 'theme':return {type:'flex',altText:'選擇選單配色',contents:{type:'carousel',contents:[0,4].map(start=>card('選擇選單配色','挑選一個主題。',themes.slice(start,start+4).map((theme,i)=>[theme.name,String(start+i)]),v).contents)}};
-  case 'purpose':return card('第 '+(s.index+1)+' 格 · 這格要做什麼？','選擇用途，下一張再設定名稱和動作。',choices(purposes),v);
+  case 'intro':return card('第 1 步 · 喚醒你的 AI 生活秘書','你的秘書將在 LINE 裡整理散落的資訊和待辦，減少生活雜訊與來回溝通。準備好了，就開始第一段吟唱。',[['開始吟唱','next']],v);
+  case 'direction':return card('第 2 步 · 選擇秘書的能力','選擇要賦予秘書哪一種能力。它可以用官方帳號的卡片與按鈕做紀錄、聯絡接洽或傳遞資訊，也能整理個人或群組對話。',choices(directions),v);
+  case 'grid':return card('召喚法陣 · 選單格數','每一格符文都是一個功能入口。選擇聊天室要顯示幾格。',[['4 格','4'],['6 格','6'],['8 格','8']],v);
+  case 'theme':return {type:'flex',altText:'選擇選單配色',contents:{type:'carousel',contents:[0,4].map(start=>card('選擇選單配色','選一款召喚法陣的配色，決定圖文選單的樣子。',themes.slice(start,start+4).map((theme,i)=>[theme.name,String(start+i)]),v).contents)}};
+  case 'purpose':return card('第 '+(s.index+1)+' 格 · 這格要做什麼？','先決定這格符文的用途，接著再為它命名並指定點擊動作。',choices(purposes),v);
   case 'action':return card('第 '+(s.index+1)+' 格 · 點擊後的動作','選擇使用者點下「'+s.draft.cells[s.index].label+'」後的反應。',choices(actions),v);
-  case 'conversation':return card('對話紀錄 · 使用範圍','選擇要規劃的對話場景。',choices(conversations),v);
-  case 'review':return card('確認你的設計',[s.draft.name+' · '+s.draft.oaName,directions[s.draft.secretary!.direction],...(s.draft.secretary!.direction!=='records'?s.draft.cells.slice(0,s.draft.grid).map(c=>c.label+' · '+actions[c.action]):[]),s.draft.secretary!.features,s.draft.secretary!.policy].filter(Boolean).join('\n'),[['保存這份設計','save']],v);
-  case 'saved':return card('設計已保存','可以先試用，再決定是否前往建置。',s.draft.secretary!.direction==='oa'?[]:[['試用秘書回覆','demo']],v,[...(s.draft.secretary!.direction!=='records'?[['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat'] as Choice,['開啟建置中心',link(s.id,'build.html')] as Choice]:[]),['查看設計',link(s.id,'design.html')]]);
-  case 'demoConfirm':return card('待確認行程 · 試用',s.demo+'\n這是試用結果。',[['確認示範','confirm'],['修改或再試一句','demo']],v);
+  case 'conversation':return card('記憶符文 · 對話紀錄範圍','選擇秘書未來要在哪裡協助整理對話。',choices(conversations),v);
+  case 'review':return card('核對召喚法陣',[s.draft.name+' · '+s.draft.oaName,directions[s.draft.secretary!.direction],...(s.draft.secretary!.direction!=='records'?s.draft.cells.slice(0,s.draft.grid).map(c=>c.label+' · '+actions[c.action]):[]),s.draft.secretary!.features,s.draft.secretary!.policy].filter(Boolean).join('\n'),[['保存這份設計','save']],v);
+  case 'saved':return card('設計已保存','召喚法陣已保存。先試用秘書的能力，再決定是否前往建置。',s.draft.secretary!.direction==='oa'?[]:[['試用秘書回覆','demo']],v,[...(s.draft.secretary!.direction!=='records'?[['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat'] as Choice,['開啟建置中心',link(s.id,'build.html')] as Choice]:[]),['查看設計',link(s.id,'design.html')]]);
+  case 'demoConfirm':return card('待確認行程 · 試用',s.demo+'\n這是秘書為你整理的試用行程。',[['確認示範','confirm'],['修改或再試一句','demo']],v);
  }
  throw Error('unknown_design_step');
 }
@@ -109,7 +109,7 @@ export async function chatDesignGateway(event:any,r:{authenticated:boolean;db:an
  if(previous?.last_event===eventId)return true;
  const current=previous;
  if(raw===DESIGN_COMMAND){
-  await reply(card('第 0 步 · 開始打造你的 LINE OA','從頭建立新設計，或開啟用這個 LINE 帳號保存的專案。',[
+  await reply(card('第 0 步 · AI 宇宙召喚中心','恭喜來到 AI 宇宙，接下來透過一連串的吟唱，你可以召喚出一個專屬於你的 LINE AI 秘書，讓我們一起完成召喚的法陣吧！',[
    ['從頭開始','new'],['選擇已有專案','projects'],...(current&&current.state.step!=='saved'?[['繼續未完成設計','resume'] as Choice]:[])
   ],previous?.revision||''));return true;
  }
@@ -117,25 +117,25 @@ export async function chatDesignGateway(event:any,r:{authenticated:boolean;db:an
   const {data,error}=await r.db.from('line_oa_kit_designs').select('id,name:config->>name').eq('line_subject',own).order('updated_at',{ascending:false}).limit(8);
   if(error)throw Error('chat_design_projects');
   const projects:Choice[]=(data||[]).map((p:any)=>[(p.name||'未命名設計').slice(0,20),'project:'+p.id]);
-  await reply(projects.length?{type:'flex',altText:'你的已保存設計',contents:{type:'carousel',contents:Array.from({length:Math.ceil(projects.length/4)},(_,i)=>card('你的已保存設計','選一個最近的專案查看或修改。',projects.slice(i*4,i*4+4)).contents)}}:card('還沒有已保存的設計','先從頭建立一份設計。',[['從頭開始','new']],previous?.revision||''));return true;
+  await reply(projects.length?{type:'flex',altText:'你的召喚法陣',contents:{type:'carousel',contents:Array.from({length:Math.ceil(projects.length/4)},(_,i)=>card('你的召喚法陣','選一個已保存的法陣，查看或修改對應的專案。',projects.slice(i*4,i*4+4)).contents)}}:card('還沒有已保存的法陣','從第一段吟唱開始，建立你的第一份設計。',[['從頭開始','new']],previous?.revision||''));return true;
  }
  if(choice?.startsWith('project:')){
   const id=choice.slice(8);
   if(!/^[0-9a-f-]{36}$/i.test(id))return true;
   const {data,error}=await r.db.from('line_oa_kit_designs').select('config').eq('id',id).eq('line_subject',own).maybeSingle();
   if(error)throw Error('chat_design_project_read');
-  if(!data){await reply(text('找不到這份設計。'));return true;}
+  if(!data){await reply(text('找不到這份召喚法陣，請重新選擇已有專案。'));return true;}
   const d=validateDraft(data.config);
   const summary=[d.oaName,...d.cells.slice(0,d.grid).map(c=>c.label).filter(Boolean),d.secretary?.features].filter(Boolean).join('\n');
-  await reply(card(d.name||'未命名設計',summary||'這份專案尚未填寫功能。',[],'',[['修改設計',link(id,'design.html')],...(d.secretary?.direction==='records'?[]:[['開啟個人選單試用',link(id,'design.html')+'&preview=chat'] as Choice])]));
+  await reply(card(d.name||'未命名設計',summary||'這份法陣還沒寫入功能，開啟設計後就能繼續。',[],'',[['修改設計',link(id,'design.html')],...(d.secretary?.direction==='records'?[]:[['開啟個人選單試用',link(id,'design.html')+'&preview=chat'] as Choice])]));
   return true;
  }
  if(choice==='resume'&&current){await reply(show(current.state,current.revision));return true;}
  if(choice==='new'&&current&&current.state.step!=='saved'){
-  await reply(card('從頭開始？','目前的未完成草稿會被取代。',[['確認從頭開始','restart'],['繼續設計','resume']],current.revision));return true;
+  await reply(card('從頭開始？','重新吟唱會取代目前未完成的設計草稿。',[['確認從頭開始','restart'],['繼續設計','resume']],current.revision));return true;
  }
  const starting=choice==='new'||choice==='restart';
- if(choice==='new'&&(params.get('v')||'')!==(previous?.revision||'')){await reply(text('這張開始卡已更新，請再次點選「打造我的 LINE OA」。'));return true;}
+ if(choice==='new'&&(params.get('v')||'')!==(previous?.revision||'')){await reply(text('召喚入口已更新，請再次點選「打造我的 LINE OA」。'));return true;}
  if(choice!=='new'&&!current){if(choice)await reply(text('請再次點選「打造我的 LINE OA」開始。'));return Boolean(choice);}
  if(choice!=='new'&&choice&&params.get('v')!==current.revision){await reply(show(current.state,current.revision));return true;}
  if(choice==='open_name')return true;
@@ -145,13 +145,13 @@ export async function chatDesignGateway(event:any,r:{authenticated:boolean;db:an
   if(error)throw Error('chat_design_save');
   state.step='saved';
  }else if(!starting&&!advance(state,typed?raw.replace(/^填寫\s+/,'').trim():choice||'',typed)){
-  await reply(text(state.step==='demo'?'請補上日期、時間及行程名稱，例如「明天下午 3 點跟客戶開會」。':'請依照目前卡片的方式選擇或填寫。'),show(current.state,current.revision));return true;
+  await reply(text(state.step==='demo'?'請補上日期、時間及行程名稱，例如「明天下午 3 點跟客戶開會」。':'這段吟唱還沒完成，請依目前卡片的提示選擇或填寫。'),show(current.state,current.revision));return true;
  }
  const revision=crypto.randomUUID(),next={revision,state,last_event:eventId,updated_at:new Date().toISOString()};
  const changed=previous?await r.db.from(table).update(next).eq('line_subject',own).eq('revision',previous.revision).select('revision').maybeSingle():await r.db.from(table).insert({line_subject:own,...next}).select('revision').single();
  if(changed.error&&changed.error.code!=='23505')throw Error('chat_design_write');
  if(changed.data){
-  if(choice==='confirm'&&state.step==='saved')await reply(text('示範行程已確認。'),show(state,revision));
+  if(choice==='confirm'&&state.step==='saved')await reply(text('示範行程已確認。你可以繼續試用秘書的能力。'),show(state,revision));
   else await reply(show(state,revision));
  }
  return true;
