@@ -138,4 +138,8 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.deepEqual(rows.map((row:any)=>row.contents[1].contents.map((swatch:any)=>swatch.backgroundColor)),themes.map(theme=>theme.colors));
  assert.deepEqual(rows.map((row:any)=>new URLSearchParams(row.action.data).get('aprico_design')),themes.map((_,index)=>String(index)));
  await send('7',true);assert.equal(session.state.draft.theme,7);
+ assert.equal(session.state.step,'pattern');
+ assert.equal(reply![0].contents.contents.flatMap((bubble:any)=>bubble.footer.contents).length,9);
+ await send('image',true);assert.equal(session.state.step,'pattern');
+ await send('arches',true);assert.equal(session.state.draft.pattern,'arches');assert.equal(session.state.step,'purpose');
 });

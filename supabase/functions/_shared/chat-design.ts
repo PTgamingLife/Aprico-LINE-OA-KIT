@@ -1,14 +1,16 @@
 import {emptyDraft,validateDraft,themes,type Cell,type Draft} from '../../../src/model.ts';
 import {CENTER_LIFF,DESIGN_COMMAND} from '../../../src/center-menu.ts';
+import {prints,type PrintKey} from '../../../src/backgrounds.ts';
 
 const directions={oa:'官方帳號卡片與按鈕',records:'個人／群組對話紀錄',both:'兩個方向都要'};
 const conversations={personal:'個人私聊',group:'群組',both:'個人與群組'};
 const actions={message:'傳送訊息',half:'半頁 App',full:'全頁 App',web:'開啟網頁'};
-type Step='intro'|'direction'|'name'|'oaName'|'grid'|'theme'|'purpose'|'label'|'action'|'content'|'conversation'|'features'|'policy'|'review'|'saved'|'demo'|'demoConfirm';
+type Step='intro'|'direction'|'name'|'oaName'|'grid'|'theme'|'pattern'|'purpose'|'label'|'action'|'content'|'conversation'|'features'|'policy'|'review'|'saved'|'demo'|'demoConfirm';
 type State={id:string;step:Step;draft:Draft;index:number;demo?:string};
 const purposes={record:'紀錄',contact:'聯絡／接洽',share:'資訊傳遞',service:'個人資訊服務',custom:'自訂'};
 type Choice=[string,string,({inputOption:'openKeyboard';fillInText:string}|{colors:string[]})?];
 const choices=(items:Record<string,string>):Choice[]=>Object.entries(items).map(([value,label])=>[label,value]);
+const patternChoices:Choice[]=[['不加印花','none'],...prints.map(({name,key}):Choice=>[name,key])];
 const text=(value:string)=>({type:'text',text:value});
 const link=(id:string,page:string)=>CENTER_LIFF+'/'+page+'?project='+encodeURIComponent(id);
 const sigil='https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/summoning-sigil.png';
@@ -58,10 +60,14 @@ function show(s:State,v:string){
   case 'direction':return card('第 2 步 · 選擇秘書的能力','選擇要賦予秘書哪一種能力。它可以用官方帳號的卡片與按鈕做紀錄、聯絡接洽或傳遞資訊，也能整理個人或群組對話。',choices(directions),v);
   case 'grid':return card('召喚法陣 · 選單格數','每一格符文都是一個功能入口。選擇聊天室要顯示幾格。',[['4 格','4'],['6 格','6'],['8 格','8']],v);
   case 'theme':return {type:'flex',altText:'選擇選單配色',contents:{type:'carousel',contents:[0,4].map(start=>card('選擇選單配色','色塊就是圖文選單會用的配色。點整列選取，左右滑動查看其他主題。',themes.slice(start,start+4).map((theme,i)=>[theme.name,String(start+i),{colors:theme.colors}]),v).contents)}};
+  case 'pattern':return {type:'flex',altText:'選擇選單印花',contents:{type:'carousel',contents:[0,3,6].map(start=>card('選擇選單印花','為召喚法陣加上底紋。左右滑動可查看其他印花，也可以保留純色。',patternChoices.slice(start,start+3),v).contents)}};
   case 'purpose':return card('第 '+(s.index+1)+' 格 · 這格要做什麼？','先決定這格符文的用途，接著再為它命名並指定點擊動作。',choices(purposes),v);
   case 'action':return card('第 '+(s.index+1)+' 格 · 點擊後的動作','選擇使用者點下「'+s.draft.cells[s.index].label+'」後的反應。',choices(actions),v);
   case 'conversation':return card('記憶符文 · 對話紀錄範圍','選擇秘書未來要在哪裡協助整理對話。',choices(conversations),v);
-  case 'review':return card('核對召喚法陣',[s.draft.name+' · '+s.draft.oaName,directions[s.draft.secretary!.direction],...(s.draft.secretary!.direction!=='records'?s.draft.cells.slice(0,s.draft.grid).map(c=>c.label+' · '+actions[c.action]):[]),s.draft.secretary!.features,s.draft.secretary!.policy].filter(Boolean).join('\n'),[['保存這份設計','save']],v);
+  case 'review':return card('核對召喚法陣',[s.draft.name+' · '+s.draft.oaName,directions[s.draft.secretary!.direction],...(s.draft.secretary!.direction!=='records'?[
+   themes[s.draft.theme].name+' · '+(prints.find(p=>p.key===s.draft.pattern)?.name||'不加印花'),
+   ...s.draft.cells.slice(0,s.draft.grid).map(c=>c.label+' · '+actions[c.action])
+  ]:[]),s.draft.secretary!.features,s.draft.secretary!.policy].filter(Boolean).join('\n'),[['保存這份設計','save']],v);
   case 'saved':return card('設計已保存','召喚法陣已保存。先試用秘書的能力，再決定是否前往建置。',s.draft.secretary!.direction==='oa'?[]:[['試用秘書回覆','demo']],v,[...(s.draft.secretary!.direction!=='records'?[['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat'] as Choice,['開啟建置中心',link(s.id,'build.html')] as Choice]:[]),['查看設計',link(s.id,'design.html')]]);
   case 'demoConfirm':return card('待確認行程 · 試用',s.demo+'\n這是秘書為你整理的試用行程。',[['確認示範','confirm'],['修改或再試一句','demo']],v);
  }
@@ -79,7 +85,8 @@ function advance(s:State,value:string,typed:boolean):boolean{
   case 'name':d.name=value;s.step='oaName';break;
   case 'oaName':d.oaName=value;s.step=d.secretary!.direction==='records'?'conversation':'grid';break;
   case 'grid':if(!['4','6','8'].includes(value))return false;d.grid=Number(value) as Draft['grid'];s.step='theme';break;
-  case 'theme':if(!/^[0-7]$/.test(value))return false;d.theme=Number(value);s.step='purpose';break;
+  case 'theme':if(!/^[0-7]$/.test(value))return false;d.theme=Number(value);s.step='pattern';break;
+  case 'pattern':if(!patternChoices.some(([,key])=>key===value))return false;d.pattern=value as PrintKey;s.step='purpose';break;
   case 'purpose':if(!Object.hasOwn(purposes,value))return false;(d.secretary!.menuPurposes??=[])[s.index]=purposes[value as keyof typeof purposes];s.step='label';break;
   case 'label':cell.label=value;s.step='action';break;
   case 'action':if(!Object.hasOwn(actions,value))return false;cell.action=value as Cell['action'];s.step='content';break;
