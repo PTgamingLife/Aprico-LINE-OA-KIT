@@ -3,6 +3,7 @@ import {validLineSignature,trialLine} from '../_shared/trial-line.ts';
 import {exitTrial} from '../_shared/trial-handler.ts';
 import {routeAssistantEvent} from '../_shared/assistant-trial.ts';
 import {broadcastGateway} from '../_shared/broadcast-gateway.ts';
+import {chatDesignGateway} from '../_shared/chat-design.ts';
 import {introFollowGateway,processIntroJob} from '../_shared/intro-delivery.ts';
 // 小A — Aprico AI 助教(LINE 群組問答機器人)— Supabase Edge Function (Deno)
 //
@@ -301,6 +302,7 @@ Deno.serve(async (req) => {
   const work = Promise.all(
     [...introFirstJobs.map(id=>processIntroJob(trialDb,trialToken,id)),...(payload.events ?? []).filter(e=>!introHandled.has(e)).map(async(e) => {
       if(await broadcastGateway(e,{authenticated:trialAuthenticated,owner:Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID')||'',db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
+      if(await chatDesignGateway(e,{authenticated:trialAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
       return routeAssistantEvent(e,{trialAuthenticated,assistantAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages}),exit:(subject)=>exitTrial(trialDb,subject,trialToken),assistant:handleEvent});
     })].map(p=>p.catch(() => console.error("LINE event routing failed"))),
   );

@@ -37,7 +37,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
  const source=await readFile(new URL('../supabase/functions/line-assistant/index.ts',import.meta.url),'utf8');
  const code=stripTypeScriptTypes(source.split('\n').filter(line=>!line.startsWith('import ')).join('\n'));
  let handler:any;const routes:any[]=[];const env={ASSIST_LINE_CHANNEL_SECRET:'original-fixture',LINE_OA_KIT_MESSAGING_CHANNEL_SECRET:'platform-fixture',LINE_OA_KIT_MESSAGING_ACCESS_TOKEN:'fixture',SUPABASE_URL:'https://fixture.invalid',SUPABASE_SERVICE_ROLE_KEY:'fixture'};
- new Function('Deno','createClient','validLineSignature','trialLine','exitTrial','routeAssistantEvent','broadcastGateway','introFollowGateway',code)({env:{get:(key:string)=>env[key]},serve:(f:any)=>{handler=f;}},()=>({}),validLineSignature,()=>async()=>{},async()=>{},async(_e:any,r:any)=>{routes.push([r.trialAuthenticated,r.assistantAuthenticated]);},broadcastGateway,introFollowGateway);
+ new Function('Deno','createClient','validLineSignature','trialLine','exitTrial','routeAssistantEvent','broadcastGateway','introFollowGateway','chatDesignGateway',code)({env:{get:(key:string)=>env[key]},serve:(f:any)=>{handler=f;}},()=>({}),validLineSignature,()=>async()=>{},async()=>{},async(_e:any,r:any)=>{routes.push([r.trialAuthenticated,r.assistantAuthenticated]);},broadcastGateway,introFollowGateway,async()=>false);
  const raw=JSON.stringify({events:[{type:'message'}]});
  async function signed(secret:string,text=raw){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(text)))));return new Request('https://fixture.invalid',{method:'POST',body:raw,headers:{'x-line-signature':sig}});}
  assert.equal((await handler(await signed('platform-fixture'))).status,200);assert.deepEqual(routes.pop(),[true,false]);
@@ -82,4 +82,39 @@ test('webhook verifies exact HMAC and rejects malformed or changed content',asyn
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
  const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,raw))));
  assert.equal(await validLineSignature(raw,sig,secret),true);assert.equal(await validLineSignature(new TextEncoder().encode('changed'),sig,secret),false);assert.equal(await validLineSignature(raw,'bad!',secret),false);
+});
+import {chatDesignGateway} from '../supabase/functions/_shared/chat-design.ts';
+
+test('chat design resumes after 24 hours and saves a records design before simulating a calendar reply',async()=>{
+ const owner='U'+'a'.repeat(32);
+ let session:any,project:any,reply:any[],sequence=0;
+ const db={from(table:string){
+  let write:any;
+  const query:any={select:()=>query,eq:()=>query,insert:(data:any)=>{write=data;return query;},update:(data:any)=>{write=data;return query;},
+   single:()=>query.maybeSingle(),maybeSingle:async()=>{if(write)session=structuredClone(write);return {data:session};},
+   upsert:async(data:any)=>{assert.equal(table,'line_oa_kit_designs');project=data;return {};}};
+  return query;
+ }};
+ async function send(value:string,button=false,group=false){
+  const event={source:{type:group?'group':'user',userId:owner},replyToken:'fixture',webhookEventId:'chat-event-'+(++sequence),
+   ...(button?{type:'postback',postback:{data:new URLSearchParams({aprico_design:value,v:session?.revision||''}).toString()}}:{type:'message',message:{type:'text',text:value}})};
+  reply=[];
+  return chatDesignGateway(event,{authenticated:true,db,reply:async(_token,messages)=>{reply=messages;}});
+ }
+ assert.equal(await send('打造我的 LINE OA',false,true),false);
+ await send('new',true);await send('next',true);await send('records',true);
+ await send('填寫 我的秘書');
+ session.updated_at='2020-01-01T00:00:00Z';
+ await send('打造我的 LINE OA');
+ assert.match(JSON.stringify(reply!),/繼續未完成設計/);
+ await send('resume',true);
+ assert.match(JSON.stringify(reply!),/LINE OA 名稱/);
+ await send('填寫 秘書服務');await send('personal',true);await send('填寫 記錄行程');await send('填寫 本人確認');await send('save',true);
+ assert.equal(project.line_subject,owner);
+ assert.equal(project.config.secretary.features,'記錄行程');
+ await send('demo',true);await send('填寫 明天下午 3 點跟客戶開會');
+ assert.match(JSON.stringify(reply!),/明天 15:00｜跟客戶開會/);
+ await send('confirm',true);
+ assert.equal(session.state.demo,undefined);
+ assert.match(JSON.stringify(reply!),/示範行程已確認/);
 });

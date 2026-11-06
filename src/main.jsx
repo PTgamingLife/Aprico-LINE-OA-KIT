@@ -25,9 +25,15 @@ function App(){
   if(!window.liff)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://static.line-scdn.net/liff/edge/2/sdk.js';s.onload=resolve;s.onerror=()=>reject(Error('LINE 登入元件載入失敗，請重試'));document.head.appendChild(s);});
   if(!live)return;sdk.current=window.liff;await sdk.current.init({liffId:LIFF_ID});if(sdk.current.isLoggedIn()){
    const data=await api({action:'list'});if(!live)return;setUser(data.displayName);setProjects(data.projects);
-   const requested=new URLSearchParams(location.search).get('project')||sessionStorage.getItem('aprico-selected-project');
+   const params=new URLSearchParams(location.search),requested=params.get('project')||sessionStorage.getItem('aprico-selected-project');
    const selected=data.projects.find(p=>p.id===requested)||data.projects[0];
    if(selected){accept(selected);sessionStorage.setItem('aprico-selected-project',selected.id);}
+   if(route==='design'&&params.get('preview')==='chat'){
+    const url=new URL(location.href);
+    url.searchParams.delete('preview');history.replaceState(history.state,'',url);
+    if(selected&&selected.id===params.get('project'))await applyTrial(validateDraft(selected.config),selected);
+    else notice('找不到這份已保存的試用設計。',true);
+   }
    const githubResult=githubNotice(new URLSearchParams(location.search));if(githubResult)notice(githubResult.text,githubResult.error);
   }
  }catch(e){if(live)notice(e.message,true);}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
@@ -39,7 +45,8 @@ function App(){
  function applyCell(){setDraft(d=>({...d,cells:d.cells.map((c,i)=>i===editing?working:c)}));setEditing(null);}
  async function save(){if(!user){notice('請先登入 LINE，才能保存到你的專案。',true);return false;}if(busy)return false;setBusy(true);notice('正在保存…');const target=current||{id:crypto.randomUUID(),revision:0};setCurrent(target);
  try{const snapshot=validateDraft(draft);const result=await api({action:'save',...target,config:snapshot});setCurrent(result.project);setBaseline(JSON.stringify(snapshot));setSaved(result.project.updated_at);sessionStorage.setItem('aprico-selected-project',target.id);setProjects(ps=>[{...result.project,config:snapshot},...ps.filter(p=>p.id!==target.id)]);notice('已保存到你的 LINE 會員專案');return result.project;}catch(e){notice(e.message,true);return false;}finally{setBusy(false);}}
- async function saveAndTrial(){if(busy)return;const snapshot=validateDraft(draft),project=await save();if(!project)return;setBusy(true);notice('設計已保存，正在套用你的個人試用選單…');try{const image=await renderTrialMenu(snapshot);const result=await api({action:'trial_apply',projectId:project.id,revision:project.revision,image});setTrialResult(result);notice(result.message);}catch(e){setTrialResult({failed:true});notice('設計已保存。'+e.message,true);}finally{setBusy(false);}}
+ async function applyTrial(snapshot,project){setBusy(true);notice('設計已保存，正在套用你的個人試用選單…');try{const image=await renderTrialMenu(snapshot);const result=await api({action:'trial_apply',projectId:project.id,revision:project.revision,image});setTrialResult(result);notice(result.message);}catch(e){setTrialResult({failed:true});notice('設計已保存。'+e.message,true);}finally{setBusy(false);}}
+ async function saveAndTrial(){if(busy)return;const snapshot=validateDraft(draft),project=await save();if(project)await applyTrial(snapshot,project);}
  async function stopTrial(){if(busy)return;setBusy(true);try{await api({action:'trial_exit'});setTrialResult(null);notice('已結束個人試用，恢復 Aprico 原本選單；設計仍保留。');}catch(e){notice(e.message,true);}finally{setBusy(false);}}
  function openTrialChat(){if(sdk.current?.isInClient())sdk.current.closeWindow();else window.open(TRIAL_CHAT,'_blank','noopener,noreferrer');}
  async function changeProject(id){if(busy)return;if(buildSaver.current&&!await buildSaver.current())return;if(dirty&&!confirm('目前還有未保存的修改，確定切換專案？'))return;const p=projects.find(p=>p.id===id);if(p){accept(p);sessionStorage.setItem('aprico-selected-project',id);notice('已載入專案');}}

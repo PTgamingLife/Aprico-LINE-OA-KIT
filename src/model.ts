@@ -11,7 +11,8 @@ export const themes=[
  {name:'黑白極簡',colors:['#C3C6C5','#DCDDD9','#B7BDBA','#E7E5DE']}
 ];
 export type Cell={label:string;action:'message'|'half'|'full'|'web';template:'custom'|'scratch'|'health';content:string};
-export type Draft={name:string;oaName:string;grid:4|6|8;theme:number;pattern:PrintKey;backgroundImage:string;cells:Cell[]};
+export type SecretaryDesign={direction:'oa'|'records'|'both';conversation?:'personal'|'group'|'both';features?:string;policy?:string;menuPurposes?:string[]};
+export type Draft={name:string;oaName:string;grid:4|6|8;theme:number;pattern:PrintKey;backgroundImage:string;cells:Cell[];secretary?:SecretaryDesign};
 export function emptyDraft():Draft{return {name:'',oaName:'',grid:4,theme:0,pattern:'none',backgroundImage:'',cells:Array.from({length:8},()=>({label:'',action:'message',template:'custom',content:''}))};}
 export function validateDraft(value:unknown):Draft{
  if(!value||typeof value!=='object')throw Error('設定格式不正確');const v=value as Draft;
@@ -20,6 +21,10 @@ export function validateDraft(value:unknown):Draft{
  const pattern=v.pattern??'none',backgroundImage=v.backgroundImage??'';
  if(!['none','image',...prints.map(p=>p.key)].includes(pattern))throw Error('印花設定不正確');
  if(backgroundImage)backgroundBytes(backgroundImage);else if(backgroundImage!==''||pattern==='image')throw Error('請先上傳背景圖片');
- return {name:str(v.name,80),oaName:str(v.oaName,80),grid:v.grid,theme:v.theme,pattern,backgroundImage,cells:v.cells.map(c=>{if(!c||!['message','half','full','web'].includes(c.action)||!['custom','scratch','health'].includes(c.template))throw Error('格子設定不正確');return{label:str(c.label,30),action:c.action,template:c.template,content:str(c.content,2000)};})};
+ const secretary=v.secretary;
+ if(secretary&&(!['oa','records','both'].includes(secretary.direction)||(secretary.conversation!==undefined&&!['personal','group','both'].includes(secretary.conversation))))throw Error('秘書用途設定不正確');
+ if(secretary?.menuPurposes!==undefined&&(!Array.isArray(secretary.menuPurposes)||secretary.menuPurposes.length>8))throw Error('選單用途設定不正確');
+ const menuPurposes=secretary?.menuPurposes?.map(p=>str(p,30));
+ return {name:str(v.name,80),oaName:str(v.oaName,80),grid:v.grid,theme:v.theme,pattern,backgroundImage,cells:v.cells.map(c=>{if(!c||!['message','half','full','web'].includes(c.action)||!['custom','scratch','health'].includes(c.template))throw Error('格子設定不正確');return{label:str(c.label,30),action:c.action,template:c.template,content:str(c.content,2000)};}),...(secretary?{secretary:{direction:secretary.direction,conversation:secretary.conversation,features:str(secretary.features??'',500),policy:str(secretary.policy??'',500),menuPurposes}}:{})};
 }
 export const actionNames={message:'聊天訊息',half:'半頁 App',full:'全頁 App',web:'跳轉網頁'};
