@@ -22,6 +22,13 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
  const projectTutorial=suppliedProjectTutorial(page,part);if(projectTutorial)return projectTutorial;
  const mobile=(file:string,box:TutorialShot['box'],source=githubDocs):TutorialShot=>({file,label:'手機版實際截圖',source,credit:'Aprico 拍攝 · 2026-11-05',box,note:'畫面中的公開帳號是拍攝範例；請使用自己的專案。'});
  const official=(file:string,box:TutorialShot['box'],source:string,credit:string,note='官方範例截圖，可能是桌面版；手機版位置與語言可能不同。請勿照抄範例值。'):TutorialShot=>({file,label:'官方實際截圖',box,source,credit,note});
+ if(page==='supabase-signup'&&['open','account','verified'].includes(part)){
+  const signup={...mobile('supabase-signup-mobile.png',[18,28,78,6],'https://supabase.com/dashboard/sign-up'),credit:'Aprico 拍攝 · Supabase 公開註冊頁',note:'公開表單以手機視窗擷取。驗證郵件或授權確認畫面會因登入方式而異，圖中只示範表單入口。'};
+  return {...signup,frames:[
+   {...signup,caption:'用自己的 GitHub 帳號繼續',instruction:'開啟 Supabase 註冊頁，可按 Continue with GitHub，依平台提示完成帳號授權。'},
+   {...signup,box:[18,52,78,25],caption:'或使用 Email 註冊',instruction:'使用自己的 Email 與新密碼，按 Sign up。若收到驗證信，請在自己的信箱完成驗證。'},
+   {...signup,box:[63,78,15,5],caption:'已有帳號可從 Sign in 登入',instruction:'已有帳號就按 Sign in。完成登入後回 Aprico 確認，再到下一關建立或選擇專案。'}]};
+ }
  if(page==='github-create'){
   if(['public','readme','created'].includes(part))return mobile('github-create-options-mobile.jpg',part==='readme'?[14,37.5,78,14]:part==='created'?[56,81.5,37,6]:[14,23.5,78,13]);
   return mobile('github-create-mobile.jpg',part==='name'?[14,36,78,8]:[14,27,78,8]);
