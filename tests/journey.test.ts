@@ -112,10 +112,11 @@ test('real screenshot tutorials use existing local assets, attributable sources 
  }
  assert.equal(tutorialMedia({key:'supabaseToken.input'})?.label,'Supabase 桌面版實際截圖');
  assert.equal(tutorialMedia({key:'githubToken.input'}),null);
- assert.equal(tutorialMedia({key:'lineToken.input'}),null);
+ assert.deepEqual(tutorialMedia({key:'lineToken.input'})?.frames?.map(f=>f.file),['line-channel-tabs.png','line-long-lived-token-label.png','line-long-lived-token-controls.png']);
  assert.equal(tutorialMedia({key:'unknown.input'}),null);
  assert.equal(shotCamera(375,844,[0,0,100,100],false),'0 0 375 844');
  assert.equal(tutorialMedia({key:'webhook.switch#00000000-0000-0000-0000-000000000001'})?.file,'line-webhook.png');
+ assert.equal(tutorialMedia({key:'github-signup.account'})?.frames?.[1].file,'github-signup-form.png');
 });
 
 test('Supabase token walkthrough uses distinct actual frames without claiming to show generated credentials',()=>{

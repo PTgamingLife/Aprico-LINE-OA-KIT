@@ -6,7 +6,7 @@ const appDocs='https://docs.github.com/en/apps/using-github-apps/installing-a-gi
 function suppliedProjectTutorial(page:string,part:string):TutorialShot|null{
  if(!['supabaseUrl','automatic'].includes(page)&&!(page==='supabase-create'&&['open','created'].includes(part))&&!(page==='supabase-signup'&&part==='owner'))return null;
  const toolbar:TutorialFrame={file:'supabase-projects-toolbar.png',box:[85,70,14,27],caption:'Projects：建立或選擇自己的專案',instruction:'登入後進入自己的 Projects。沒有本次專用專案才按 New project；已有專案則直接開啟。此圖不含帳號身分資訊，請在自己的後台另外核對登入帳號與組織。'};
- const card:TutorialFrame={file:'supabase-project-example-card.png',box:[2,5,96,40],caption:'選擇本次專用專案',instruction:'專案啟動後，點選你自己的專用專案卡片。圖中的 heart-cards 只是拍攝範例，不是要求你選的平台專案，也不會自動填入你的設定。'};
+ const card:TutorialFrame={file:'supabase-project-example-card.png',box:[2,5,96,40],caption:'選擇本次專用專案',instruction:'專案啟動後，點選你自己的專用專案卡片。圖中的專案名稱已遮蔽。'};
  const settings:TutorialFrame={file:'supabase-project-settings-nav.png',box:[1,91,98,7.5],caption:'Project Settings',instruction:'進入自己的專案後，展開左側導覽選單，選 Project Settings。這是專案設定入口，不是 Token 表單裡的權限選項。'};
  const general:TutorialFrame={file:'supabase-general-nav.png',box:[4,56,92,17],caption:'Configuration → General',instruction:'在 Project Settings 的 Configuration 下選 General，再找 Project ID。Project ID 是專案代碼，不是任何金鑰。'};
  const projectId:TutorialFrame={file:'supabase-project-id.png',box:[49,24,49,53],caption:'複製 Project ID，組成 Project URL',instruction:'在 General 的 Project ID 按 Copy。完整 Project URL 是 https:// 加上你自己的 Project ID，再加 .supabase.co。也可從 Connect 核對網址；不要貼 supabase.com/dashboard 後台網址，不要照抄截圖裡的代碼。'};
@@ -15,13 +15,22 @@ function suppliedProjectTutorial(page:string,part:string):TutorialShot|null{
  const secrets:TutorialFrame={file:'supabase-functions-secrets-nav.png',box:[4,72,92,20],caption:'Edge Functions → Secrets',instruction:'Edge Functions 的左側可切換 Functions 與 Secrets。Secrets 用來保存後端使用的值；它不是 Account → Access Tokens，也不是設定 Token 權限的畫面。'};
  const emptyForm:TutorialFrame={file:'supabase-secrets-empty-form.png',box:[59,43,39,36],caption:'空白 Secrets 表單：必要時才補填',instruction:'一般流程由系統配置 LINE Secrets。只有部署結果提示需要補填時，才使用本頁：Name 填建置結果列出的完整變數名稱（含專案前綴），Value 填對應值，再按 Save。CLIENT_KEY 是畫面佔位範例；不要照填，也不要把 Supabase Access Token 填到這裡。'};
  const frames=page==='automatic'?[edge,secrets,emptyForm]:page==='supabase-signup'?[toolbar,card,settings]:page==='supabase-create'?(part==='open'?[toolbar,card,settings]:[card,settings,general]):part==='open'?[card,settings,general]:part==='connect'?[settings,general,projectId]:[general,projectId,fillUrl];
- return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:page==='automatic'?'https://supabase.com/docs/guides/functions/secrets':'https://supabase.com/docs/guides/getting-started/api-keys',credit:'使用者提供 · 2026-11-05',note:'原圖僅裁切，未重繪介面；已排除帳號列、用量及既有函式／Secret 清單。範例專案與 Project ID 不可照抄。這些是專案後台位置，不是 Token 權限選擇器。'};
+ return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:page==='automatic'?'https://supabase.com/docs/guides/functions/secrets':'https://supabase.com/docs/guides/getting-started/api-keys',credit:'使用者提供 · 2026-11-05',note:'實拍已裁切，專案名稱與 Project ID 已遮蔽。帳號列、用量及既有函式與 Secret 清單已裁除。'};
 }
 export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
  const [page,part]=String(unit.key||'').split('#')[0].split('.');
  const projectTutorial=suppliedProjectTutorial(page,part);if(projectTutorial)return projectTutorial;
  const mobile=(file:string,box:TutorialShot['box'],source=githubDocs):TutorialShot=>({file,label:'手機版實際截圖',source,credit:'Aprico 拍攝 · 2026-11-05',box,note:'畫面中的公開帳號是拍攝範例；請使用自己的專案。'});
  const official=(file:string,box:TutorialShot['box'],source:string,credit:string,note='官方範例截圖，可能是桌面版；手機版位置與語言可能不同。請勿照抄範例值。'):TutorialShot=>({file,label:'官方實際截圖',box,source,credit,note});
+ const supplied=(frame:TutorialFrame,source:string,frames?:TutorialFrame[]):TutorialShot=>({...frame,frames,source,label:'桌面版實際截圖',credit:'使用者提供 · 已裁切',note:'畫面只保留本步驟需要的操作區域。'});
+ if(page==='github-signup'){
+  const entry:TutorialFrame={file:'github-signup-entry.png',box:[44,20,49,62],caption:'在 GitHub 首頁找 Sign up',instruction:'新帳號點 Sign up。已有帳號可點旁邊的 Sign in。'};
+  const form:TutorialFrame={file:'github-signup-form.png',box:[5,20,76,12],caption:'選擇註冊方式',instruction:'可用自己的 Google 或 Apple 帳號。也可往下使用 Email，依表單填寫並完成驗證。'};
+  const google:TutorialFrame={file:'github-google-chooser-heading.png',box:[10,60,63,36],caption:'使用 Google 時，確認要繼續使用 GitHub',instruction:'在 Google 帳號選擇頁選自己的帳號。為保護個資，這張圖只保留頁面標題。使用 Email 註冊的人可依 GitHub 提示完成信箱驗證。'};
+  const finish:TutorialFrame={...form,box:[5,38,76,58],caption:'完成註冊與驗證後返回',instruction:'依 GitHub 畫面完成驗證。登入後核對是自己的帳號，再回 Aprico 繼續。'};
+  const frames=part==='account'?[entry,form,google]:[entry,form,finish];
+  return supplied(frames[0],'https://docs.github.com/en/account-and-profile/how-tos/account-management/creating-an-account-on-github',frames);
+ }
  if(page==='supabase-signup'&&['open','account','verified'].includes(part)){
   const signup={...mobile('supabase-signup-mobile.png',[18,28,78,6],'https://supabase.com/dashboard/sign-up'),credit:'Aprico 拍攝 · Supabase 公開註冊頁',note:'公開表單以手機視窗擷取。驗證郵件或授權確認畫面會因登入方式而異，圖中只示範表單入口。'};
   return {...signup,frames:[
@@ -30,7 +39,9 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
    {...signup,box:[63,78,15,5],caption:'已有帳號可從 Sign in 登入',instruction:'已有帳號就按 Sign in。完成登入後回 Aprico 確認，再到下一關建立或選擇專案。'}]};
  }
  if(page==='github-create'){
-  if(['public','readme','created'].includes(part))return mobile('github-create-options-mobile.jpg',part==='readme'?[14,37.5,78,14]:part==='created'?[56,81.5,37,6]:[14,23.5,78,13]);
+  if(part==='open')return supplied({file:'github-new-menu.png',box:[4,26,91,12]},githubDocs);
+  if(part==='public'||part==='created')return supplied({file:'github-repository-options.png',box:part==='public'?[79,7,18,12]:[78,86,21,13]},githubDocs);
+  if(part==='readme')return mobile('github-create-options-mobile.jpg',[14,37.5,78,14]);
   return mobile('github-create-mobile.jpg',part==='name'?[14,36,78,8]:[14,27,78,8]);
  }
  if(page==='githubRepo')return {...mobile('github-repository-mobile.jpg',[4,4,90,16]),note:'這張實拍用來辨識 Repository 頁面。手機瀏覽器的網址列不在網頁截圖內；請用瀏覽器選單複製網址，不要按 Code 複製 .git。'};
@@ -49,6 +60,13 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
   return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:reviewing?'https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job':'https://supabase.com/docs/guides/platform/personal-access-tokens',credit:reviewing?'使用者提供與 Supabase 官方範例':'使用者提供 · 2026-11-05',note:'桌面版介面實拍。展開後的個別權限下拉選項依文字步驟操作。官方核對頁示範畫面配置，請以自己的專案、期限及 Aprico 所需權限為準。'};
  }
  if(page==='lineSecret')return official('line-channel-secret.png',[1,14,80,70],'https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/','LINE Developers / LY Corporation','紅框是 Channel secret 與複製圖示。右邊 Issue 是重新發行，不要為了複製而按它。圖中的字串為官方範例。');
+ if(page==='lineToken'){
+  const tab:TutorialFrame={file:'line-channel-tabs.png',box:[27,9,26,62],caption:'開啟 Messaging API 分頁',instruction:'在本次 OA 的 Messaging API Channel 點選 Messaging API，往下捲到頁尾。'};
+  const label:TutorialFrame={file:'line-long-lived-token-label.png',box:[1,61,96,35],caption:'找到長效 Access Token',instruction:'找 Channel access token (long-lived)，確認與先前的 Channel ID 和 Channel Secret 屬於同一個 Channel。'};
+  const copy:TutorialFrame={file:'line-long-lived-token-controls.png',box:[1,20,17,58],caption:'複製既有 Token，填回 Aprico',instruction:'已有 Token 時按左側複製圖示。首次建立才按 Issue。右側 Reissue 是重發，會讓舊 Token 失效。'};
+  const frames=[tab,label,copy];
+  return supplied(frames[0],'https://developers.line.biz/en/docs/basics/channel-access-token/#long-lived-channel-access-token',frames);
+ }
  if(page==='messagingChannelId'){
   const id=official('line-channel-id.png',[21,69,24,6],'https://developers.line.biz/en/faq/tags/console/','LINE Developers / LY Corporation');
   return {...id,frames:[
@@ -56,7 +74,13 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
    {...id,caption:'在 Basic settings 複製 Channel ID',instruction:'找到 Basic settings 下的 Channel ID，按數字右側的複製圖示。使用本次 OA 的 Messaging API Channel ID。'},
    {...id,caption:'回 Aprico 貼上並保存',instruction:'在上方欄位貼上剛複製的數字，按保存。圖中的全零編號是官方範例。'}]};
  }
- if(page==='webhook')return official('line-webhook.png',part==='switch'?[2,72,33,23]:[2,20,60,42],'https://developers.line.biz/en/docs/messaging-api/building-bot/','LINE Developers / LY Corporation');
+ if(page==='webhook'){
+  const settings=official('line-webhook.png',part==='switch'?[2,72,33,23]:[2,20,60,42],'https://developers.line.biz/en/docs/messaging-api/building-bot/','LINE Developers / LY Corporation');
+  return {...settings,credit:'LINE Developers 與使用者提供',frames:[
+   {file:'line-channel-tabs.png',box:[27,9,26,62],caption:'開啟本次 Channel 的 Messaging API',instruction:'在 LINE Developers 進入自己的 Messaging API Channel，找到 Webhook settings。'},
+   {...settings,caption:'檢查 Webhook URL 與 Use webhook',instruction:'部署後確認 Webhook URL 對應本次專案，再開啟 Use webhook。'},
+   {file:'line-webhook-verify-controls.png',box:[4,12,39,78],caption:'按 Verify 核對部署結果',instruction:'按 Verify，看到成功後回 Aprico 繼續用手機實測。'}]};
+ }
  if(page==='liff'){
   const list=official('line-liff-list.webp',[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','清單是官方截圖，尺寸比較是官方示意圖。新增表單與個人 App 的實測畫面仍待補。');
   return {...list,frames:[

@@ -123,9 +123,8 @@ Secrets input is 1920 × 931. No artwork generation or UI text replacement occur
 
 Visual inspection confirmed no browser chrome, account/org header, usage figures,
 other project cards, existing function rows, existing secret names or values in
-these crops. The example card name and Project ID identify the already public
-example project, and instructions explicitly forbid copying them into a customer's
-setup. Project ID is not a credential; it is used to form the project API URL.
+these crops. The project card name and Project ID are covered with opaque pixels.
+The Project ID label and Copy button remain visible to explain how to find the project URL.
 New asset dimensions are tested so full untrimmed screenshots fail verification.
 
 The Project URL lesson now uses Project Settings → General → Project ID, with
