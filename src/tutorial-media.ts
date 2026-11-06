@@ -42,9 +42,28 @@ export function tutorialMedia(unit:{key?:string}):TutorialShot|null{
   return {...frames[0],frames,label:'Supabase 桌面版實際截圖',source:reviewing?'https://supabase.com/blog/scope-your-personal-access-tokens#building-a-token-for-the-job':'https://supabase.com/docs/guides/platform/personal-access-tokens',credit:reviewing?'使用者提供與 Supabase 官方範例':'使用者提供 · 2026-11-05',note:'桌面版介面實拍。展開後的個別權限下拉選項依文字步驟操作。官方核對頁示範畫面配置，請以自己的專案、期限及 Aprico 所需權限為準。'};
  }
  if(page==='lineSecret')return official('line-channel-secret.png',[1,14,80,70],'https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/','LINE Developers / LY Corporation','紅框是 Channel secret 與複製圖示。右邊 Issue 是重新發行，不要為了複製而按它。圖中的字串為官方範例。');
- if(page==='messagingChannelId')return official('line-channels.png',[53,44,45,53],'https://developers.line.biz/en/docs/messaging-api/getting-started/','LINE Developers / LY Corporation','先選 Messaging API Channel，再到 Basic settings 取得 Channel ID。此圖是選擇 Channel 的畫面，未顯示 Channel ID 欄位。');
+ if(page==='messagingChannelId'){
+  const id=official('line-channel-id.png',[21,69,24,6],'https://developers.line.biz/en/faq/tags/console/','LINE Developers / LY Corporation');
+  return {...id,frames:[
+   {file:'line-channels.png',box:[53,44,45,53],caption:'開啟本次的 Messaging API Channel',instruction:'在 LINE Developers 選自己的 Provider，再開啟本次 OA 的 Messaging API Channel。'},
+   {...id,caption:'在 Basic settings 複製 Channel ID',instruction:'找到 Basic settings 下的 Channel ID，按數字右側的複製圖示。使用本次 OA 的 Messaging API Channel ID。'},
+   {...id,caption:'回 Aprico 貼上並保存',instruction:'在上方欄位貼上剛複製的數字，按保存。圖中的全零編號是官方範例。'}]};
+ }
  if(page==='webhook')return official('line-webhook.png',part==='switch'?[2,72,33,23]:[2,20,60,42],'https://developers.line.biz/en/docs/messaging-api/building-bot/','LINE Developers / LY Corporation');
- if(page==='liff')return official('line-liff-list.webp',part==='open'?[14,1,6,8]:[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','此圖顯示 LIFF 清單；新增時另填 Size 與 Endpoint URL，這張圖沒有示範新增表單。');
+ if(page==='liff'){
+  const list=official('line-liff-list.webp',[35,40,23,14],'https://developers.line.biz/en/docs/liff/registering-liff-apps/','LINE Developers / LY Corporation','清單是官方截圖，尺寸比較是官方示意圖。新增表單與個人 App 的實測畫面仍待補。');
+  return {...list,frames:[
+   {...list,box:[14,1,6,8],caption:'在 LINE Login Channel 開啟 LIFF',instruction:'選本次使用的 LINE Login Channel，開啟 LIFF 分頁。建立新 App 時按 Add，並填入部署後的 HTTPS Endpoint URL。'},
+   {file:'line-liff-sizes.png',box:[2,3,96,93],caption:'手機顯示尺寸（官方示意）',instruction:'全頁選 Full。半頁依專案需求選 Tall 或 Compact。用自己的 LINE 在手機實際開啟，確認顯示高度與內容。'},
+   {...list,caption:'核對自己的 LIFF ID 與 App 入口',instruction:'在清單確認本次 App 的 LIFF ID。用手機逐一開啟使用到的 App 入口，完成後回到 Aprico 保存實測結果。'}]};
+ }
+ if(page==='menu'){
+  const mobileMenu=official('line-menu-mobile.png',[4,56,93,31],'https://www.lycbiz.com/jp/manual/OfficialAccountManager/rich-menus/','LINE for Business / LY Corporation','手機版官方範例。實際驗收請使用自己的 LINE OA 與選單配置。');
+  return {...mobileMenu,frames:[
+   {file:'line-menu-manager.png',box:[3,62,24,10],caption:'找到圖文選單管理入口',instruction:'需要在 OA Manager 手動管理的選單，可從主頁選圖文選單。驗收時請切到手機 LINE 的官方帳號聊天室。'},
+   {...mobileMenu,caption:'在手機 LINE 展開圖文選單',instruction:'在自己的 OA 聊天室展開下方選單，依本格標示的編號點選對應入口。'},
+   {...mobileMenu,caption:'確認結果並回 Aprico 記錄',instruction:'比對按鈕名稱、開啟的頁面或訊息回覆，符合預期後再回到本格確認。'}]};
+ }
  return null;
 }
 export function tutorialFrame(media:TutorialShot|null,index:number):TutorialFrame|null{
