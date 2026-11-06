@@ -112,6 +112,11 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.match(JSON.stringify(reply!),/繼續未完成設計/);
  await send('resume',true);
  assert.match(JSON.stringify(reply!),/LINE OA 名稱/);
+ const oaAction=reply![0].contents.footer.contents[0].action;
+ assert.equal(oaAction.label,'輸入 LINE OA 名稱');
+ assert.equal(oaAction.inputOption,'openKeyboard');
+ assert.equal(oaAction.fillInText,'填寫 ');
+ await send('open_name',true);assert.equal(session.state.step,'oaName');
  await send('填寫 秘書服務');await send('personal',true);await send('填寫 記錄行程');await send('填寫 本人確認');await send('save',true);
  assert.equal(project.line_subject,owner);
  assert.equal(project.config.secretary.features,'記錄行程');

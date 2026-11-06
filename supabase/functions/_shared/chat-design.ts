@@ -32,7 +32,10 @@ const fields:Partial<Record<Step,[string,string,number]>>={
  ,demo:['試一句給秘書','例如「明天下午 3 點跟客戶開會」。目前可試用行程整理。',160]
 };
 function show(s:State,v:string){
- if(s.step==='name')return card('專案名稱','點「輸入專案名稱」，在下方輸入名稱後送出。也可直接傳送「填寫 你的專案名稱」。',[['輸入專案名稱','open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
+ if(s.step==='name'||s.step==='oaName'){
+  const title=fields[s.step]![0],label=s.step==='name'?'輸入專案名稱':'輸入 LINE OA 名稱';
+  return card(title,'點「'+label+'」，在下方輸入名稱後送出。也可直接傳送「填寫 你的'+title+'」。',[[label,'open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
+ }
  const field=fields[s.step];
  if(field)return card((['label','content'].includes(s.step)?'第 '+(s.index+1)+' 格 · ':'')+field[0],field[1]+'\n請在聊天室輸入「填寫 你的內容」。');
  switch(s.step){
