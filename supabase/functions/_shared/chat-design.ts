@@ -11,16 +11,18 @@ type Choice=[string,string,{inputOption:'openKeyboard';fillInText:string}?];
 const choices=(items:Record<string,string>):Choice[]=>Object.entries(items).map(([value,label])=>[label,value]);
 const text=(value:string)=>({type:'text',text:value});
 const link=(id:string,page:string)=>CENTER_LIFF+'/'+page+'?project='+encodeURIComponent(id);
+const sigil='https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/summoning-sigil.png';
 function card(title:string,body:string,choices:Choice[]=[],revision='',links:Choice[]=[]){
  const buttons=[
   ...choices.map(([label,value,input])=>({type:'button',height:'sm',action:{type:'postback',label,data:new URLSearchParams({aprico_design:value,v:revision}).toString(),...input}})),
   ...links.map(([label,uri])=>({type:'button',height:'sm',action:{type:'uri',label,uri}}))
  ];
- return {type:'flex',altText:title,contents:{type:'bubble',body:{type:'box',layout:'vertical',spacing:'md',contents:[
+ return {type:'flex',altText:title,contents:{type:'bubble',body:{type:'box',layout:'vertical',spacing:'md',backgroundColor:'#FCFAFF',contents:[
   {type:'text',text:'APRICO · AI 宇宙召喚中心',size:'xs',color:'#52765F',weight:'bold'},
+  {type:'image',url:sigil,position:'absolute',offsetTop:'0px',offsetEnd:'0px',size:'136px',aspectRatio:'1:1'},
   {type:'text',text:title,size:'lg',weight:'bold',wrap:true},
   {type:'text',text:body,size:'sm',wrap:true,color:'#344B40'}
- ]},...(buttons.length?{footer:{type:'box',layout:'vertical',spacing:'sm',contents:buttons}}:{})}};
+ ]},...(buttons.length?{footer:{type:'box',layout:'vertical',spacing:'sm',backgroundColor:'#FCFAFF',contents:buttons}}:{})}};
 }
 const fields:Partial<Record<Step,[string,string,number,string]>>={
  name:['專案名稱','為你的召喚法陣命名。這個專案名稱會幫你找回這份設計。',80,'輸入專案名稱'],
