@@ -117,10 +117,16 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.equal(oaAction.inputOption,'openKeyboard');
  assert.equal(oaAction.fillInText,'填寫 ');
  await send('open_name',true);assert.equal(session.state.step,'oaName');
- await send('填寫 秘書服務');await send('personal',true);await send('填寫 記錄行程');await send('填寫 本人確認');await send('save',true);
+ await send('填寫 秘書服務');await send('personal',true);
+ assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');
+ await send('填寫 記錄行程');
+ assert.equal(reply![0].contents.footer.contents[0].action.fillInText,'填寫 ');
+ await send('填寫 本人確認');await send('save',true);
  assert.equal(project.line_subject,owner);
  assert.equal(project.config.secretary.features,'記錄行程');
- await send('demo',true);await send('填寫 明天下午 3 點跟客戶開會');
+ await send('demo',true);
+ assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');
+ await send('填寫 明天下午 3 點跟客戶開會');
  assert.match(JSON.stringify(reply!),/明天 15:00｜跟客戶開會/);
  await send('confirm',true);
  assert.equal(session.state.demo,undefined);

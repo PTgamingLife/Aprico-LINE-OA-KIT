@@ -22,22 +22,22 @@ function card(title:string,body:string,choices:Choice[]=[],revision='',links:Cho
   {type:'text',text:body,size:'sm',wrap:true,color:'#344B40'}
  ]},...(buttons.length?{footer:{type:'box',layout:'vertical',spacing:'sm',contents:buttons}}:{})}};
 }
-const fields:Partial<Record<Step,[string,string,number]>>={
- name:['專案名稱','為這份設計取個好辨識的名字。',80],
- oaName:['LINE OA 名稱','輸入預計在 LINE 顯示的官方帳號名稱。',80],
- label:['按鈕名稱','輸入使用者會看到的名稱。',30],
- content:['按鈕內容','填寫訊息內容、App 功能說明或 HTTPS 連結。',500],
- features:['想整理哪些紀錄？','例如行程、支出、目標、待辦，也可寫下圖片辨識或定時摘要需求。',500],
- policy:['何時整理、由誰確認？','例如只整理標記給秘書的訊息，由指定成員確認後存檔，保留 30 天。先取得群組成員同意。',500]
- ,demo:['試一句給秘書','例如「明天下午 3 點跟客戶開會」。目前可試用行程整理。',160]
+const fields:Partial<Record<Step,[string,string,number,string]>>={
+ name:['專案名稱','為這份設計取個好辨識的名字。',80,'輸入專案名稱'],
+ oaName:['LINE OA 名稱','輸入預計在 LINE 顯示的官方帳號名稱。',80,'輸入 LINE OA 名稱'],
+ label:['按鈕名稱','輸入使用者會看到的名稱。',30,'輸入按鈕名稱'],
+ content:['按鈕內容','填寫訊息內容、App 功能說明或 HTTPS 連結。',500,'輸入按鈕內容'],
+ features:['想整理哪些紀錄？','例如行程、支出、目標、待辦，也可寫下圖片辨識或定時摘要需求。',500,'輸入想整理的紀錄'],
+ policy:['何時整理、由誰確認？','例如只整理標記給秘書的訊息，由指定成員確認後存檔，保留 30 天。先取得群組成員同意。',500,'輸入整理與確認規則'],
+ demo:['試一句給秘書','例如「明天下午 3 點跟客戶開會」。目前可試用行程整理。',160,'輸入試用訊息']
 };
 function show(s:State,v:string){
- if(s.step==='name'||s.step==='oaName'){
-  const title=fields[s.step]![0],label=s.step==='name'?'輸入專案名稱':'輸入 LINE OA 名稱';
-  return card(title,'點「'+label+'」，在下方輸入名稱後送出。也可直接傳送「填寫 你的'+title+'」。',[[label,'open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
- }
  const field=fields[s.step];
- if(field)return card((['label','content'].includes(s.step)?'第 '+(s.index+1)+' 格 · ':'')+field[0],field[1]+'\n請在聊天室輸入「填寫 你的內容」。');
+ if(field){
+  const [title,hint,,label]=field;
+  const prefix=['label','content'].includes(s.step)?'第 '+(s.index+1)+' 格 · ':'';
+  return card(prefix+title,hint+'\n點下方按鈕即可輸入。也可直接傳送「填寫 你的內容」。',[[label,'open_name',{inputOption:'openKeyboard',fillInText:'填寫 '}]],v);
+ }
  switch(s.step){
   case 'intro':return card('第 1 步 · 認識你的 AI 生活秘書','把 AI 結合 LINE，成為你的個人生活秘書，減少生活雜訊與來回溝通的成本。',[['開始規劃','next']],v);
   case 'direction':return card('第 2 步 · 你想怎麼使用？','官方帳號可用卡片與介面按鈕做紀錄、聯絡、接洽、資訊傳遞或個人資訊服務。也能規劃個人或群組對話紀錄。',choices(directions),v);
