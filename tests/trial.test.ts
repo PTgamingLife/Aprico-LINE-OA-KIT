@@ -130,7 +130,7 @@ test('chat design resumes after 24 hours and saves a records design before simul
  const portrait=session.state.portrait;
  assert.ok(['male','female'].includes(portrait));
  assert.match(reply![0].contents.hero.url,new RegExp('summon-'+portrait+'\\.jpg$'));
- assert.match(JSON.stringify(reply!),/打造可以為你工作的工具/);
+ assert.ok(JSON.stringify(reply!).includes('給他裝備,帶她/他回家'));
  await send('summon',true);assert.equal(session.state.portrait,portrait);
  await send('demo',true);
  assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');

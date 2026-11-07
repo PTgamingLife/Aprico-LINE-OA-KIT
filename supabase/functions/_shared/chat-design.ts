@@ -72,7 +72,7 @@ function show(s:State,v:string){
    const options:Choice[]=s.portrait?[]:[['召喚秘書','summon']];
    if(s.draft.secretary!.direction!=='oa')options.push(['試用秘書回覆','demo']);
    const links:Choice[]=[];
-   if(s.portrait)links.push(['打造可以為你工作的工具',link(s.id,'build.html')]);
+   if(s.portrait)links.push(['給他裝備,帶她/他回家',link(s.id,'build.html')]);
    if(s.draft.secretary!.direction!=='records')links.push(['開啟個人選單試用',link(s.id,'design.html')+'&preview=chat']);
    links.push(['查看設計',link(s.id,'design.html')]);
    if(!s.portrait)return card('設計已保存','召喚法陣準備好了。點下方按鈕，揭曉你的 LINE AI 秘書。',options,v,links);
