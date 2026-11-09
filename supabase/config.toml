@@ -14,3 +14,7 @@ verify_jwt = false
 verify_jwt = false
 # POST verifies LINE ID + project ownership; OAuth GET requires single-use PKCE
 # state; /webhook verifies GitHub's raw-body HMAC before writing anything.
+
+[functions.line-oa-kit-runtime-ai]
+verify_jwt = false
+# Server-to-server API with revocable per-project bearer credentials.

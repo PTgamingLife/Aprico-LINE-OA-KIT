@@ -1,8 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {credentials,deploymentTarget,preflight,executeDeployment,webhookSource} from '../supabase/functions/_shared/deploy-engine.ts';
-import {deploymentAction} from '../supabase/functions/_shared/deploy-handler.ts';
+import {credentials,deploymentTarget,preflight,executeDeployment,webhookSource,interactiveReply} from '../supabase/functions/_shared/deploy-engine.ts';
+import {deploymentAction,deploymentIssue} from '../supabase/functions/_shared/deploy-handler.ts';
 import {emptyDraft} from '../src/model.ts';
 import {emptySetup} from '../src/build-model.ts';
 const project='11111111-1111-4111-8111-111111111111';
@@ -65,4 +65,46 @@ test('trusted webhook actually verifies HMAC before processing events',async()=>
  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)))));
  assert.equal((await handler(new Request('https://example.test',{method:'POST',body,headers:{'x-line-signature':sig}}))).status,200);assert.equal(replies,1);
  const altered=body.replace('預約','其他');assert.equal((await handler(new Request('https://example.test',{method:'POST',body:altered,headers:{'x-line-signature':sig}}))).status,401);assert.equal(replies,1);
+});
+
+test('private secretary calls platform AI only for the selected LINE user and keeps credentials out of generated files',async()=>{
+ const owner='U'+'a'.repeat(32),endpoint='https://aprico.example/runtime',secret='fixture-secret',runtimeKey='aprico-fixture';
+ const design=emptyDraft();
+ design.secretary={direction:'records',conversation:'personal',routes:[{id:'calendar',notes:'',format:'card',recipient:'private',destination:'none'}]};
+ assert.equal(deploymentIssue(design,{runtimeAiProvider:'platform'},true),'');
+ assert.match(deploymentIssue(design,{runtimeAiProvider:'platform'},false),/點數/);
+ design.secretary.routes![0].destination='database';assert.match(deploymentIssue(design,{runtimeAiProvider:'platform'},true),/資料留存/);
+ design.secretary.routes![0].destination='none';
+ const m=mock(),snap={setup:{...setup,runtimeOwnerId:owner},design};
+ const plan=await preflight(project,snap,c,m.fetcher);
+ await executeDeployment(plan,snap,artifact,c,async()=>{},m.fetcher,{endpoint,key:runtimeKey,revoke:async()=>{}});
+ const secrets=JSON.parse(m.calls.find(x=>x.url.endsWith('/secrets')).body);
+ assert.equal(secrets.find((s:any)=>s.name.endsWith('_APRICO_RUNTIME_OWNER')).value,owner);
+ assert.equal(secrets.find((s:any)=>s.name.endsWith('_APRICO_RUNTIME_KEY')).value,runtimeKey);
+ const source=await m.calls.find(x=>x.url.includes('functions/deploy')).body.get('file').text();
+ assert.doesNotMatch(source,new RegExp(owner+'|'+runtimeKey));
+ const calls:any[]=[];let handler:any;
+ vm.runInNewContext(source,{Deno:{serve(fn:any){handler=fn;},env:{get(name:string){
+  return name.endsWith('_OWNER')?owner:name.endsWith('_SECRET')?secret:name.endsWith('_RUNTIME_KEY')?runtimeKey:'line-fixture';
+ }}},crypto,TextEncoder,TextDecoder,Uint8Array,Response,AbortSignal,atob,fetch:async(url:string,init:any)=>{
+  calls.push({url,data:JSON.parse(init.body)});
+  return Response.json(url===endpoint?{reply:'行程摘要'}:{});
+ }});
+ async function deliver(userId:string,type='user'){
+  const body=JSON.stringify({events:[{type:'message',source:{type,userId},message:{type:'text',text:'秘書 行程 明天開會'},replyToken:'fixture',webhookEventId:'fixture-event-001'}]});
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)))));
+  assert.equal((await handler(new Request('https://example.test',{method:'POST',body,headers:{'x-line-signature':sig}}))).status,200);
+ }
+ await deliver('U'+'b'.repeat(32));await deliver(owner,'group');
+ assert.equal(calls.filter(c=>c.url===endpoint).length,0);
+ await deliver(owner);
+ assert.deepEqual(calls.find(c=>c.url===endpoint).data,{requestId:'fixture-event-001',text:'明天開會',task:'行程'});
+ assert.equal(calls.at(-1).data.messages[0].type,'flex');
+});
+
+test('interactive cards keep only valid HTTPS buttons',()=>{
+ const result=interactiveReply('服務','歡迎查看\n按鈕：了解更多|https://example.com/service\n按鈕：不安全|https://user@evil.example');
+ assert.deepEqual(result.buttons,[{label:'了解更多',uri:'https://example.com/service'}]);
+ assert.match(result.body,/歡迎查看/);
 });

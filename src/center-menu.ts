@@ -1,6 +1,8 @@
 export const CENTER_LIFF='https://liff.line.me/2012197506-Vmb4O5iT';
 export const CENTER_LEARNING=CENTER_LIFF+'/learning.html';
 export const DESIGN_COMMAND='打造我的 LINE OA';
+export const REVIEW_COMMAND='確認我的建置設計';
+export const buildReviewUrl=(projectId:string)=>'https://line.me/R/oaMessage/%40228srwlt/?'+encodeURIComponent(REVIEW_COMMAND+' '+projectId);
 export function centerMenu(learningUrl:string){
  const url=new URL(learningUrl);if(url.protocol!=='https:'||url.username||url.password)throw Error('請先提供正確的 AI 教學 HTTPS 網址');
  const entries=[

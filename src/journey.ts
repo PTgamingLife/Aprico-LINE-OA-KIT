@@ -4,7 +4,7 @@ export const questSteps=[
  {id:'purpose',title:'這個 OA 要幫你做什麼？',kind:'field',label:'主要目的',hint:'例如：預約服務、介紹商品、互動活動',topic:'demand'},
  {id:'scenario',title:'顧客會怎麼使用？',kind:'field',label:'使用情境',hint:'描述顧客從點選按鈕到得到結果的過程',topic:'demand'},
  {id:'success',title:'怎樣算完成服務？',kind:'field',label:'成功條件',hint:'例如：顧客完成表單，看到確認訊息',topic:'demand'},
- {id:'failure',title:'遇到問題時怎麼處理？',kind:'field',label:'失敗處理',hint:'例如：提示補齊資料，提供重新操作入口',topic:'demand'},
+ {id:'failure',title:'服務遇到問題該如何處理？',kind:'field',label:'服務遇到問題該如何處理？',hint:'例如：提示補齊資料，提供重新操作入口',topic:'demand'},
  {id:'human',title:'需要真人時找誰？',kind:'field',label:'轉人工方式',hint:'說明轉人工條件與聯絡方式',topic:'demand'},
  {id:'github-signup',title:'登入自己的 GitHub',kind:'guide',guide:0},
  {id:'github-create',title:'建立專用 GitHub 專案',kind:'guide',guide:1},

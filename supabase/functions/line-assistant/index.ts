@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
   const work = Promise.all(
     [...introFirstJobs.map(id=>processIntroJob(trialDb,trialToken,id)),...(payload.events ?? []).filter(e=>!introHandled.has(e)).map(async(e) => {
       if(await broadcastGateway(e,{authenticated:trialAuthenticated,owner:Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID')||'',db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
-      if(await chatDesignGateway(e,{authenticated:trialAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
+      if(await chatDesignGateway(e,{authenticated:trialAuthenticated,db:trialDb,aiKey:Deno.env.get('LINE_OA_KIT_POINTS_OFFER_ENABLED')==='true'?Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY'):undefined,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages})}))return;
       return routeAssistantEvent(e,{trialAuthenticated,assistantAuthenticated,db:trialDb,reply:(token,messages)=>trialLine(trialToken)("/v2/bot/message/reply","POST",{replyToken:token,messages}),exit:(subject)=>exitTrial(trialDb,subject,trialToken),assistant:handleEvent});
     })].map(p=>p.catch(() => console.error("LINE event routing failed"))),
   );

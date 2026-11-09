@@ -45,8 +45,9 @@ test('paid generation is only explicit; resume stores no intents and system inte
 test('existing draft can resume deployment without a new paid generation request',()=>{
  const ui=readFileSync(new URL('../src/BuildJourney.jsx',import.meta.url),'utf8');
  assert.match(ui,/job\?\.status==='draft_ready'\?\{jobId:job.id\}:await api\(\{action:'generate_source'/);
- assert.match(ui,/credits.remaining===0&&job\?\.status!=='draft_ready'/);
- assert.match(ui,/沿用已保存的同版本草稿，不再扣 AI 次數/);
+ assert.match(ui,/insufficient&&job\?\.status!=='draft_ready'/);
+ assert.match(ui,/credits.remaining<credits.estimateMax/);
+ assert.match(ui,/沿用已保存的同版本草稿/);
 });
 test('every page has distinct granular actions and AI stays one combined unit',()=>{
  for(const mode of ['app','token'])for(const q of questSteps){const ds=detailDefinitions(q,mode,8);assert.ok(ds.length>0,q.id);assert.equal(new Set(ds.map(d=>d.id)).size,ds.length);for(const d of ds){assert.ok(d.title);assert.ok(d.text);}}

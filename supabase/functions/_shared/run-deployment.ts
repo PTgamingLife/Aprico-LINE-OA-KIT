@@ -1,10 +1,13 @@
-import {executeDeployment,type DeployCredentials} from './deploy-engine.ts';
-export async function runDeployment(db:any,id:string,plan:any,snapshot:any,artifact:unknown,c:DeployCredentials){
+import {executeDeployment,type DeployCredentials,type RuntimeDeployment} from './deploy-engine.ts';
+export async function runDeployment(db:any,id:string,plan:any,snapshot:any,artifact:unknown,c:DeployCredentials,provisionRuntime?:()=>Promise<RuntimeDeployment>){
+ let runtime:RuntimeDeployment|undefined;
  try{
   const {data,error}=await db.from('line_oa_kit_deployments').update({status:'running',stage:'checking',updated_at:new Date().toISOString()}).eq('id',id).eq('status','queued').select('id').maybeSingle();if(error||!data)return;
-  await executeDeployment(plan,snapshot,artifact,c,async(stage,extra={})=>{const {data,error}=await db.from('line_oa_kit_deployments').update({stage,...extra,status:stage==='awaiting_acceptance'?'awaiting_acceptance':'running',updated_at:new Date().toISOString()}).eq('id',id).eq('status','running').select('id').maybeSingle();if(error||!data)throw Error('progress_persist_failed');});
+  runtime=await provisionRuntime?.();
+  await executeDeployment(plan,snapshot,artifact,c,async(stage,extra={})=>{const {data,error}=await db.from('line_oa_kit_deployments').update({stage,...extra,status:stage==='awaiting_acceptance'?'awaiting_acceptance':'running',updated_at:new Date().toISOString()}).eq('id',id).eq('status','running').select('id').maybeSingle();if(error||!data)throw Error('progress_persist_failed');},fetch,runtime);
  }catch(e){
+  await runtime?.revoke().catch(()=>{});
   const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_request_failed';
   await db.from('line_oa_kit_deployments').update({status:'failed',error_code:code,updated_at:new Date().toISOString()}).eq('id',id).in('status',['queued','running']);
- }finally{for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';}
+ }finally{if(runtime)runtime.key='';for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';}
 }

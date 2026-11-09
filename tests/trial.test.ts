@@ -83,8 +83,8 @@ test('webhook verifies exact HMAC and rejects malformed or changed content',asyn
  const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,raw))));
  assert.equal(await validLineSignature(raw,sig,secret),true);assert.equal(await validLineSignature(new TextEncoder().encode('changed'),sig,secret),false);assert.equal(await validLineSignature(raw,'bad!',secret),false);
 });
-import {chatDesignGateway} from '../supabase/functions/_shared/chat-design.ts';
-import {themes} from '../src/model.ts';
+import {chatDesignGateway,pushReviewNotice} from '../supabase/functions/_shared/chat-design.ts';
+import {secretaryPortraits,themes} from '../src/model.ts';
 
 test('chat design resumes after 24 hours and saves a records design before simulating a calendar reply',async()=>{
  const owner='U'+'a'.repeat(32);
@@ -118,17 +118,25 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.equal(oaAction.inputOption,'openKeyboard');
  assert.equal(oaAction.fillInText,'填寫 ');
  await send('open_name',true);assert.equal(session.state.step,'oaName');
- await send('填寫 秘書服務');await send('personal',true);
+ await send('填寫 秘書服務');
+ assert.match(JSON.stringify(reply!),/主要設計目標/);
+ await send('填寫 減少整理客戶行程的時間');await send('personal',true);
+ assert.equal(session.state.step,'recordList');
+ assert.equal(reply![0].contents.footer.contents.flatMap((row:any)=>row.contents).length,6);
+ await send('calendar',true);await send('tune',true);
  assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');
- await send('填寫 記錄行程');
+ await send('填寫 記錄行程');await send('confirm',true);await send('card',true);
+ await send('private',true);await send('database',true);await send('finish',true);
  assert.equal(reply![0].contents.footer.contents[0].action.fillInText,'填寫 ');
  await send('填寫 本人確認');await send('save',true);
  assert.equal(project.line_subject,owner);
- assert.equal(project.config.secretary.features,'記錄行程');
+ assert.equal(project.config.goal,'減少整理客戶行程的時間');
+ assert.deepEqual(project.config.secretary.routes,[{id:'calendar',notes:'記錄行程',format:'card',recipient:'private',destination:'database'}]);
  assert.match(JSON.stringify(reply!),/召喚秘書/);
  await send('summon',true);
  const portrait=session.state.portrait;
- assert.ok(['male','female'].includes(portrait));
+ assert.ok(secretaryPortraits.includes(portrait));
+ assert.equal(project.config.portrait,portrait);
  assert.match(reply![0].contents.hero.url,new RegExp('summon-'+portrait+'\\.jpg$'));
  assert.ok(JSON.stringify(reply!).includes('給他裝備,帶她/他回家'));
  await send('summon',true);assert.equal(session.state.portrait,portrait);
@@ -140,7 +148,7 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.equal(session.state.demo,undefined);
  assert.match(JSON.stringify(reply!),/示範行程已確認/);
  await send('new',true);await send('next',true);await send('oa',true);
- await send('填寫 新設計');await send('填寫 測試 OA');await send('4',true);
+ await send('填寫 新設計');await send('填寫 測試 OA');await send('填寫 讓顧客找到品牌服務');await send('4',true);
  const rows=reply![0].contents.contents.flatMap((bubble:any)=>bubble.footer.contents);
  assert.deepEqual(rows.map((row:any)=>row.contents[1].contents.map((swatch:any)=>swatch.backgroundColor)),themes.map(theme=>theme.colors));
  assert.deepEqual(rows.map((row:any)=>new URLSearchParams(row.action.data).get('aprico_design')),themes.map((_,index)=>String(index)));
@@ -149,4 +157,62 @@ test('chat design resumes after 24 hours and saves a records design before simul
  assert.equal(reply![0].contents.contents.flatMap((bubble:any)=>bubble.footer.contents).length,9);
  await send('image',true);assert.equal(session.state.step,'pattern');
  await send('arches',true);assert.equal(session.state.draft.pattern,'arches');assert.equal(session.state.step,'purpose');
+ const [presets,other]=reply![0].contents.contents;
+ assert.equal(presets.footer.contents.flatMap((row:any)=>row.contents).length,8);
+ assert.match(JSON.stringify(other),/待辦清單.*圖片轉紀錄.*自行設計/);
+ await send('games',true);await send('confirm',true);
+ assert.equal(reply![0].contents.footer.contents.length,1);
+ await send('text',true);assert.equal(session.state.step,'format');
+ await send('web',true);assert.equal(session.state.draft.cells[0].responseFormat,'web');
+ assert.equal(session.state.index,1);
+});
+
+test('paid review opens owner-scoped cards, preserves edits, and rejects earlier confirmation buttons',async()=>{
+ const owner='U'+'a'.repeat(32),id='00000000-0000-4000-8000-000000000092';
+ const config=emptyDraft();
+ config.oaName='示範帳號';config.pattern='arches';
+ config.cells[0]={label:'卜卦',action:'message',template:'custom',content:'示範文字',preset:'divination',responseFormat:'text'};
+ config.secretary={direction:'both',conversation:'group',routes:[{id:'calendar',notes:'',format:'card',recipient:'private',destination:'database'}]};
+ let current:any,access='manual_password',reply:any[]=[],approved:any[]=[],sequence=0;
+ const db={from(table:string){
+  const filters=new Map();let write:any;
+  const query:any={select:()=>query,eq:(key:string,value:string)=>{filters.set(key,value);return query;},
+   insert:(data:any)=>{write=data;return query;},update:(data:any)=>{write=data;return query;},
+   single:()=>query.maybeSingle(),maybeSingle:async()=>{
+    if(table==='line_oa_kit_designs')return {data:filters.get('line_subject')===owner?{id,config,revision:1,confirmed_revision:null}:null};
+    if(table==='line_oa_kit_build_access')return {data:{grant_method:access}};
+    assert.equal(table,'line_oa_kit_chat_review_sessions');
+    if(write)current=structuredClone(write);return {data:current};
+   }};
+  return query;
+ },rpc:async(name:string,args:any)=>{assert.equal(name,'line_oa_kit_confirm_chat_design');approved.push(args);return {data:2};}};
+ async function send(data:Record<string,string>,subject=owner){
+  reply=[];
+  return chatDesignGateway({type:'postback',source:{type:'user',userId:subject},postback:{data:new URLSearchParams(data).toString()},replyToken:'fixture',webhookEventId:'review-event-'+(++sequence)},{
+   authenticated:true,db,reply:async(_token,messages)=>{reply=messages;}
+  });
+ }
+ await send({aprico_review:id});assert.match(reply[0].text,/已付款/);assert.equal(current,undefined);
+ access='line_pay';
+ await send({aprico_review:id},'U'+'b'.repeat(32));assert.equal(current,undefined);
+ await send({aprico_review:id});
+ assert.equal(reply.length,4);assert.match(JSON.stringify(reply),/示範帳號.*卜卦.*已授權群組.*本人／管理員私訊/);
+ const old='p.'+current.revision;
+ const click=(aprico_design:string,v='p.'+current.revision)=>send({aprico_design,v});
+ await click('menu');await click('cell:0');await click('divination');await click('confirm');await click('card');
+ await click('approve',old);assert.equal(approved.length,0);
+ await click('approve');assert.equal(approved.length,1);assert.equal(approved[0].p_config.cells[0].responseFormat,'card');
+ assert.match(JSON.stringify(reply),/前往建置中心/);
+});
+
+test('payment review notice sends one recipient a postback with the order retry key',async()=>{
+ const id='00000000-0000-4000-8000-000000000092',order='00000000-0000-4000-8000-000000000093';
+ await pushReviewNotice('fixture','U'+'a'.repeat(32),id,order,async(url,init)=>{
+  assert.equal(url,'https://api.line.me/v2/bot/message/push');
+  assert.equal(new Headers(init?.headers).get('X-Line-Retry-Key'),order);
+  const data=JSON.parse(String(init?.body));
+  assert.equal(data.to,'U'+'a'.repeat(32));
+  assert.equal(data.messages[0].contents.footer.contents[0].action.data,'aprico_review='+id);
+  return new Response(null,{status:409});
+ });
 });

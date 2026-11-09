@@ -28,11 +28,11 @@ function VectorSecretary({appearance='female',groups=[]}){
  {layer('badge',<g transform="translate(182 229)"><path d="M0-14L5-6L14-4L8 3L9 13L0 9L-9 13L-8 3L-14-4L-5-6Z" fill="#d8b76c" stroke="#fff0bd" strokeWidth="1.5"/><circle r="4" fill="#3e694b"/></g>)}
  </svg>;
 }
-export default function SecretaryCharacter({appearance='female',groups=[]}){
+export default function SecretaryCharacter({appearance='female',groups=[],portrait}){
  const gender=appearance==='male'?'male':'female',preview=useRef(null),label=gender==='male'?'男生秘書':'女生秘書';
- return <><PremiumSecretary key={gender} appearance={gender} groups={groups}/><button className="secretary-portrait-zoom" type="button" aria-label={'放大'+label+'形象'} onClick={()=>preview.current?.showModal()}>放大形象 ↗</button><dialog ref={preview} className="secretary-portrait-preview" aria-label={label+'立體形象'} onClick={e=>e.target===preview.current&&preview.current?.close()}><div className="secretary-preview-heading"><span>APRICO · {label}</span><button type="button" onClick={()=>preview.current?.close()} aria-label="關閉秘書形象">關閉 ×</button></div><PremiumSecretary key={'preview-'+gender} appearance={gender} groups={groups}/><p>完成任務後，對應裝備會由虛影變成實體。</p></dialog></>;
+ return <><PremiumSecretary key={portrait||gender} appearance={gender} groups={groups} portrait={portrait}/><button className="secretary-portrait-zoom" type="button" aria-label={'放大'+label+'形象'} onClick={()=>preview.current?.showModal()}>放大形象 ↗</button><dialog ref={preview} className="secretary-portrait-preview" aria-label={label+'立體形象'} onClick={e=>e.target===preview.current&&preview.current?.close()}><div className="secretary-preview-heading"><span>APRICO · {label}</span><button type="button" onClick={()=>preview.current?.close()} aria-label="關閉秘書形象">關閉 ×</button></div><PremiumSecretary key={'preview-'+(portrait||gender)} appearance={gender} groups={groups} portrait={portrait}/><p>完成任務後，對應裝備會由虛影變成實體。</p></dialog></>;
 }
-function PremiumSecretary({appearance,groups}){
+function PremiumSecretary({appearance,groups,portrait}){
  const id=useId().replaceAll(':',''),[failed,setFailed]=useState(false),done=key=>Boolean(groups.find(g=>g.id===key)?.complete);
  const layer=(key,children)=><g className={'secretary-item '+(done(key)?'equipped':'ghost')} data-equipment={key}>{children}</g>;
  if(failed)return <VectorSecretary appearance={appearance} groups={groups}/>;
@@ -43,7 +43,7 @@ function PremiumSecretary({appearance,groups}){
   <radialGradient id={id+'-jade'} cx=".3" cy=".25"><stop stopColor="#ecf7dd"/><stop offset=".3" stopColor="#a6d3b5"/><stop offset="1" stopColor="#3d826e"/></radialGradient>
   <radialGradient id={id+'-aura'}><stop stopColor="#dfe6cb" stopOpacity=".6"/><stop offset="1" stopColor="#dfe6cb" stopOpacity="0"/></radialGradient>
  </defs><ellipse cx="150" cy="275" rx="148" ry="245" fill={'url(#'+id+'-aura)'}/><ellipse cx="150" cy="542" rx="58" ry="6" fill="#244a37" opacity=".12"/>
- <svg x="0" y="0" width="300" height="550" viewBox={appearance==='male'?'780 0 480 1024':'245 0 480 1024'} preserveAspectRatio="xMidYMid meet" overflow="hidden"><image className={'secretary-premium-base '+(done('uniform')?'tailored':'preparing')} href={import.meta.env.BASE_URL+'secretaries/secretary-chibi-pair-v1.png'} width="1536" height="1024" onError={()=>setFailed(true)}/></svg>
+ {portrait?<image className={'secretary-premium-base '+(done('uniform')?'tailored':'preparing')} href={import.meta.env.BASE_URL+'secretaries/summon-'+portrait+'.jpg'} width="300" height="550" onError={()=>setFailed(true)}/>:<svg x="0" y="0" width="300" height="550" viewBox={appearance==='male'?'780 0 480 1024':'245 0 480 1024'} preserveAspectRatio="xMidYMid meet" overflow="hidden"><image className={'secretary-premium-base '+(done('uniform')?'tailored':'preparing')} href={import.meta.env.BASE_URL+'secretaries/secretary-chibi-pair-v1.png'} width="1536" height="1024" onError={()=>setFailed(true)}/></svg>}
  {layer('uniform',<g fill="none" stroke={brass} strokeWidth="1.2" opacity=".85"><path d="M124 234L111 252L130 279M177 235L191 252L172 279"/><path d="M107 348L128 350M175 350L196 348"/></g>)}
  {layer('name',<g transform="translate(110 280) rotate(3)"><rect width="24" height="15" rx="2.5" fill="#d9c28c" stroke="#f7e8bb" strokeWidth=".7"/><rect x="2" y="2" width="20" height="11" rx="1" fill="#f6edda"/><path d="M5 6H19M5 9H15" stroke="#55705c" strokeWidth="1.1"/><circle cx="21" cy="2" r="1.2" fill="#f9eac4"/></g>)}
  {layer('voice',<g transform="translate(180 264)"><circle r="6.5" fill={brass} stroke="#f3e3b8" strokeWidth=".7"/><circle r="4.5" fill="#375c46"/><path d="M-2-2V2M0-3V3M2-1V1" stroke="#e8d79d" strokeWidth=".9" strokeLinecap="round"/></g>)}

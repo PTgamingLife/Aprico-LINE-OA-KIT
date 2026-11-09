@@ -1,7 +1,22 @@
-import {credentials,preflight} from './deploy-engine.ts';
+import {credentials,preflight,type RuntimeDeployment} from './deploy-engine.ts';
 import {runDeployment} from './run-deployment.ts';
 import {validateSetup,requirementIssues} from '../../../src/build-model.ts';
-export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch,resolveGithub?:(()=>Promise<{token:string;repositoryId:number;release:()=>Promise<void>}>)){
+export function deploymentIssue(design:any,setup:any,platformReady:boolean){
+ const cells=design.cells.slice(0,design.grid);
+ const secretary=design.secretary;
+ if(cells.some((c:any)=>c.template==='health'||c.preset&&!['interactive','games'].includes(c.preset)))return '選單含需要專用後端的模板，目前可核對設計，請聯絡專員安排建置。';
+ if(!['none','platform'].includes(setup.runtimeAiProvider))return '目前營運 AI 自動部署使用 Aprico 平台點數方案。';
+ if(setup.runtimeAiProvider==='platform'&&!platformReady)return '請先完成 Aprico 平台 AI 點數方案與設計確認。';
+ if(secretary?.direction&&secretary.direction!=='oa'){
+  const routes=secretary.routes??[];
+  if(setup.runtimeAiProvider!=='platform'||secretary.conversation!=='personal'||!routes.length||routes.some((r:any)=>r.destination!=='none'||r.recipient==='dashboard'||r.format==='web'||['image-record','digest'].includes(r.id))){
+   return '對話秘書目前可自動建置私聊即時文字或卡片回覆。群組、資料留存、管理頁、圖片辨識與定時摘要需要另外串接。';
+  }
+ }
+ return '';
+}
+
+export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch,resolveGithub?:(()=>Promise<{token:string;repositoryId:number;release:()=>Promise<void>}>),provisionRuntime?:()=>Promise<RuntimeDeployment>){
  let release:(()=>Promise<void>)|undefined;
  async function readCredentials(){
   if(b.githubApp!==true)return credentials(b.credentials);
@@ -15,7 +30,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
   try{
    const setup=validateSetup(access.setup);
    if(requirementIssues(project.config,setup).length)return response({error:'請先保存並完成需求與帳號資料'},409);
-   if(setup.runtimeAiProvider!=='none'||project.config.cells.slice(0,project.config.grid).some((cell:any)=>cell.template==='health'))return response({error:'此版本尚未支援營運 AI 或健康檢測後端；不會先扣次數產生無法部署的草稿'},409);
+   const issue=deploymentIssue(project.config,setup,Boolean(provisionRuntime));if(issue)return response({error:issue},409);
    c=await readCredentials();
    const plan=await preflight(project.id,{setup,design:project.config},c,fetcher);
    return response({plan,designRevision:project.revision,setupRevision:access.setup_revision});
@@ -37,8 +52,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
  if(error)return response({error:'讀取草稿失敗'},503);
  if(!job||job.status!=='draft_ready')return response({error:'草稿尚未完成'},409);
  if(job.design_revision!==project.revision||job.setup_revision!==access.setup_revision)return response({error:'需求已修改，請重新產生相同版本的草稿再部署'},409);
- // First release: deploy static apps + fixed text replies only, never pretend AI/database features work.
- if(job.snapshot.setup.runtimeAiProvider!=='none'||job.snapshot.design.cells.slice(0,job.snapshot.design.grid).some((c:any)=>c.template==='health'))return response({error:'本版自動部署支援靜態互動與固定文字回覆；營運 AI／健康檢測後端尚未開放'},409);
+ const issue=deploymentIssue(job.snapshot.design,job.snapshot.setup,Boolean(provisionRuntime));if(issue)return response({error:issue},409);
  if(b.action==='deploy_start'){
   const{data:existing,error}=await db.from('line_oa_kit_deployments').select('id').eq('build_job_id',job.id).eq('line_subject',subject).maybeSingle();
   if(error)return response({error:'無法檢查部署紀錄'},503);if(existing)return response({deploymentId:existing.id,reused:true},202);
@@ -51,7 +65,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
   if(b.expectedBotId!==plan.botId||b.expectedGithub!==plan.githubRepo||b.expectedRef!==plan.ref)return response({error:'部署目標已變更，請重新檢查並確認'},409);
   const{data:started,error}=await db.rpc('line_oa_kit_begin_deployment',{p_job:job.id,p_subject:subject,p_target:plan});
   if(error)return response({error:'建立部署工作失敗'},503);if(started.error)return response({error:'版本已變更或已有部署正在執行，請重新整理'},409);
-  if(started.created){const captured=c,cleanup=release;c=undefined;release=undefined;background((async()=>{try{await runDeployment(db,started.id,plan,job.snapshot,job.artifact,captured);}finally{await cleanup?.().catch(()=>{});}})());}
+  if(started.created){const captured=c,cleanup=release;c=undefined;release=undefined;background((async()=>{try{await runDeployment(db,started.id,plan,job.snapshot,job.artifact,captured,job.snapshot.setup.runtimeAiProvider==='platform'?provisionRuntime:undefined);}finally{await cleanup?.().catch(()=>{});}})());}
   return response({deploymentId:started.id,reused:!started.created},202);
  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';return response({error:'部署檢查未通過：'+code,code},409);}
  finally{if(c)for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';await release?.().catch(()=>{});}
