@@ -29,7 +29,7 @@ function card(title:string,body:string,choices:Choice[]=[],revision='',links:Cho
      }))}
     ]
    };
-   if(columns>1)return {type:'box',layout:'vertical',flex:1,minHeight:'54px',justifyContent:'center',cornerRadius:'md',backgroundColor:'#E8EDE7',paddingAll:'6px',action,contents:[{type:'text',text:label,align:'center',size:'sm',weight:'bold',wrap:true,color:'#344B40'}]};
+   if(columns>1)return {type:'box',layout:'vertical',flex:1,height:'54px',justifyContent:'center',cornerRadius:'md',backgroundColor:'#E8EDE7',paddingAll:'6px',action,contents:[{type:'text',text:label,align:'center',size:'sm',weight:'bold',wrap:true,color:'#344B40'}]};
    return {type:'button',height:'sm',action:{...action,...options}};
   }),
   ...links.map(([label,uri])=>({type:'button',height:'sm',action:{type:'uri',label,uri}}))
@@ -241,7 +241,7 @@ function paidCards(s:State,v:string){
   const cells=d.cells.slice(0,d.grid);
   const columns=d.grid===6?3:d.grid===8?4:2;
   const rows=Array.from({length:d.grid/columns},(_,r)=>({type:'box',layout:'horizontal',spacing:'xs',contents:cells.slice(r*columns,(r+1)*columns).map((c,i)=>({
-   type:'box',layout:'vertical',paddingAll:'5px',minHeight:'46px',justifyContent:'center',cornerRadius:'sm',backgroundColor:palette.colors[(r*columns+i)%palette.colors.length],
+   type:'box',layout:'vertical',paddingAll:'5px',height:'46px',justifyContent:'center',cornerRadius:'sm',backgroundColor:palette.colors[(r*columns+i)%palette.colors.length],
    contents:[{type:'text',text:c.label||'未命名',size:'xs',align:'center',wrap:true,color:'#203A2A'}]
   }))}));
   const preview=card('我的 LINE OA 示意圖',palette.name+' · '+(prints.find(p=>p.key===d.pattern)?.name||(d.pattern==='image'?'上傳背景':'不加印花'))+' · '+d.grid+' 格');

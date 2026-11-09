@@ -96,9 +96,9 @@ test('chat design resumes after 24 hours and saves a records design before simul
    upsert:async(data:any)=>{assert.equal(table,'line_oa_kit_designs');project=data;return {};}};
   return query;
  }};
- async function send(value:string,button=false,group=false){
+ async function send(value:string,button=false,group=false,revision=session?.revision||''){
   const event={source:{type:group?'group':'user',userId:owner},replyToken:'fixture',webhookEventId:'chat-event-'+(++sequence),
-   ...(button?{type:'postback',postback:{data:new URLSearchParams({aprico_design:value,v:session?.revision||''}).toString()}}:{type:'message',message:{type:'text',text:value}})};
+   ...(button?{type:'postback',postback:{data:new URLSearchParams({aprico_design:value,v:revision}).toString()}}:{type:'message',message:{type:'text',text:value}})};
   reply=[];
   return chatDesignGateway(event,{authenticated:true,db,reply:async(_token,messages)=>{reply=messages;}});
  }
@@ -120,9 +120,17 @@ test('chat design resumes after 24 hours and saves a records design before simul
  await send('open_name',true);assert.equal(session.state.step,'oaName');
  await send('填寫 秘書服務');
  assert.match(JSON.stringify(reply!),/主要設計目標/);
- await send('填寫 減少整理客戶行程的時間');await send('personal',true);
+ await send('填寫 減少整理客戶行程的時間');
+ const scopeRevision=session.revision;
+ await send('personal',true);
  assert.equal(session.state.step,'recordList');
- assert.equal(reply![0].contents.footer.contents.flatMap((row:any)=>row.contents).length,6);
+ // Re-tapping the previous card recovers when LINE did not display the next one.
+ await send('personal',true,false,scopeRevision);
+ assert.equal(session.state.step,'recordList');
+ const capabilities=reply![0].contents.footer.contents.flatMap((row:any)=>row.contents);
+ assert.equal(capabilities.length,6);
+ assert.ok(capabilities.every((item:any)=>item.height==='54px'&&item.action.type==='postback'));
+ assert.doesNotMatch(JSON.stringify(reply),/"minHeight"/);
  await send('calendar',true);await send('tune',true);
  assert.equal(reply![0].contents.footer.contents[0].action.inputOption,'openKeyboard');
  await send('填寫 記錄行程');await send('confirm',true);await send('card',true);
@@ -197,6 +205,7 @@ test('paid review opens owner-scoped cards, preserves edits, and rejects earlier
  await send({aprico_review:id},'U'+'b'.repeat(32));assert.equal(current,undefined);
  await send({aprico_review:id});
  assert.equal(reply.length,4);assert.match(JSON.stringify(reply),/示範帳號.*卜卦.*已授權群組.*本人／管理員私訊/);
+ assert.doesNotMatch(JSON.stringify(reply),/"minHeight"/);
  const old='p.'+current.revision;
  const click=(aprico_design:string,v='p.'+current.revision)=>send({aprico_design,v});
  await click('menu');await click('cell:0');await click('divination');await click('confirm');await click('card');
