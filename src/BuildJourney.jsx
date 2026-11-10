@@ -61,15 +61,23 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  useEffect(()=>{if(record?.status==='awaiting_acceptance'&&q.id==='automatic'){setStatus('系統處理完成，接下來請完成手機實測關卡。');setStep('webhook');}},[record?.status,q.id]);
  function change(key,value,secret=false){if(secret)setSecrets(s=>({...s,[key]:value}));else setSetup(s=>({...s,[key]:value}));setPlan(null);setReady(false);setConsent(false);setError('');}
  function acknowledge(unit,value=!unit.done){setDetails(s=>({...s,[unit.key]:value}));if(q.kind==='guide'&&!q.field||q.kind==='manual')setAcks(s=>({...s,[q.id]:false}));}
- async function save(){if(busy)return false;setBusy(true);setError('');try{
-  const snapshot=validateSetup(setup),r=await api({action:'save_build_setup',projectId,setupRevision:revision,setup:snapshot});setSetup(snapshot);setRevision(r.access.setup_revision);setBaseline(JSON.stringify(snapshot));setStatus('這一關的資料已保存到你的專案。');return r.access.setup_revision;
+ async function save(nextSetup=setup){if(busy)return false;setBusy(true);setError('');try{
+  const snapshot=validateSetup(nextSetup),r=await api({action:'save_build_setup',projectId,setupRevision:revision,setup:snapshot});setSetup(snapshot);setRevision(r.access.setup_revision);setBaseline(JSON.stringify(snapshot));setStatus('這一關的資料已保存到你的專案。');return r.access.setup_revision;
  }catch(e){setError(e.message);return false;}finally{setBusy(false);}}
  async function go(id){if(running&&id!=='automatic')return;if(dirty&&!await save())return;setStep(id);setError('');panel.current?.scrollIntoView({block:'start',behavior:'smooth'});}
  async function openEquipment(id){const group=groups.find(g=>g.id===id);if(!group)return;if(group.pages.length){const candidates=steps.filter((s,i)=>group.pages.includes(s.id)&&(firstOpen===-1||i<=firstOpen));const target=candidates.find(s=>s.id===q.id)||candidates.find(s=>!progress.pages.find(p=>p.id===s.id).complete)||candidates[0];if(target){if(dirty&&!await save())return;if(running&&target.id!=='automatic'){setSelectedEquipment(id);return;}setStep(target.id);}}setSelectedEquipment(id);}
  async function next(){if(q.kind==='guide'&&!q.field||q.kind==='manual')setAcks(s=>({...s,[q.id]:true}));if(dirty&&!await save())return;setStep(steps[Math.min(index+1,steps.length-1)].id);panel.current?.scrollIntoView({block:'start',behavior:'smooth'});}
+ async function saveRuntimeProvider(provider){
+  setPlan(null);setReady(false);setConsent(false);setStatus('');
+  if(await save({...setup,runtimeAiProvider:provider}))setStatus('已保存營運 AI 選擇，請重新核對本次帳號與授權。');
+ }
  async function verify(){
   if(busy||record)return;
   setPlan(null);setReady(false);setConsent(false);setStatus('');
+  if(legacyRuntime||setup.runtimeAiProvider==='platform'&&!runtimeAvailable){
+   setError('請在下方選擇這個專案上線後的 AI 方案。');
+   return;
+  }
   if(verificationMissing.length){
    setError('請先補齊下方欄位，再重新核對。');
    return;
@@ -106,6 +114,10 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  }catch(e){setError(e.message);}finally{setBusy(false);}}
  const guide=q.kind==='guide'?projectGuides[q.guide]:null;
  const canNext=units.every(d=>d.done);
+ const legacyRuntime=['openai','anthropic'].includes(setup.runtimeAiProvider);
+ const runtimePlanBlocked=setup.runtimeAiProvider==='platform'&&(!runtimeAvailable||error==='請先完成 Aprico 平台 AI 點數方案與設計確認。');
+ const canDisableRuntime=(!draft.secretary?.direction||draft.secretary.direction==='oa')&&!draft.cells.slice(0,draft.grid).some(cell=>cell.template==='health');
+ const needsRuntimeOwner=setup.runtimeAiProvider==='platform'&&!/^U[0-9a-f]{32}$/.test(setup.runtimeOwnerId||'');
  const verificationMissing=steps.filter(s=>{
   if(s.id==='githubToken'&&(usingApp||githubMode==='app'))return !usingApp;
   return (s.kind==='field'||s.kind==='secret'||s.kind==='guide'&&s.field)&&!entered(s,setup,secrets);
@@ -121,16 +133,25 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   if(unit.kind==='confirm')return <button type="button" aria-pressed={unit.done} disabled={disabled} onClick={()=>acknowledge(unit)}>{unit.done?'✓ 已完成，點此取消':'完成這一項請點選✅'}</button>;
   if(unit.kind==='field')return <label>{unit.label}<textarea rows={q.id==='messagingChannelId'?1:3} value={setup[unit.field]||''} maxLength={2000} placeholder={unit.hint} onChange={e=>change(unit.field,e.target.value)}/></label>;
   if(unit.kind==='credential')return <label>{unit.label}<input type="password" autoComplete="off" value={secrets[unit.field]} maxLength={q.id==='lineSecret'?32:6000} onChange={e=>change(unit.field,e.target.value,true)}/><small>僅留在目前頁面，未保存憑證原文。</small></label>;
-  if(unit.kind==='save')return <button className="primary" disabled={busy||!units.find(d=>d.kind==='field')?.done} onClick={save}>{busy?'保存中…':unit.done?'✓ 已保存，再次保存':'保存這項資料'}</button>;
+  if(unit.kind==='save')return <button className="primary" disabled={busy||!units.find(d=>d.kind==='field')?.done} onClick={()=>save()}>{busy?'保存中…':unit.done?'✓ 已保存，再次保存':'保存這項資料'}</button>;
   if(unit.kind==='verify')return <><button disabled={busy||Boolean(record)} type="button" onClick={verify}>{busy?'核對中…':unit.done?'✓ 本次帳號已核對':'核對本次帳號與授權'}</button>
    {error&&<p role="alert" className="notice error">{error}</p>}
+   {!record&&(legacyRuntime||runtimePlanBlocked)&&<section aria-label="營運 AI 方案">
+    <p>{legacyRuntime?'這個專案先前選了自備 AI 金鑰。請選擇上線後的 AI 方案。':'目前無法使用 Aprico 營運 AI 點數。'}</p>
+    {legacyRuntime&&runtimeAvailable&&<><button type="button" disabled={busy} onClick={()=>saveRuntimeProvider('platform')}>改用 Aprico AI 點數</button><p>上線後使用 AI 秘書會依用量扣點。</p></>}
+    {canDisableRuntime?<><button type="button" disabled={busy} onClick={()=>saveRuntimeProvider('none')}>本次先停用營運 AI</button><p>上線後仍可使用圖文選單和固定回覆，建置時的 AI 仍可使用。</p></>:<p>此設計包含需要 AI 的功能。請啟用 Aprico 點數方案，或回設計頁調整功能。</p>}
+   </section>}
+   {!record&&needsRuntimeOwner&&runtimeAvailable&&<label>可使用秘書的 LINE 使用者 ID
+    <input type="text" maxLength={33} autoComplete="off" autoCapitalize="none" value={setup.runtimeOwnerId||''} onChange={e=>change('runtimeOwnerId',e.target.value)}/>
+    <small>從同一個 Messaging API Channel 的 Basic settings → Your user ID 複製。填完後按「核對本次帳號與授權」即可保存並核對。</small>
+   </label>}
    {!record&&verificationMissing.length>0&&<div>
     <p>需要補齊的資料。若剛重新整理或切換頁面，請重新填入一次性憑證。</p>
     <ul>{verificationMissing.map(s=><li key={s.id}><button type="button" disabled={running} onClick={async()=>{
      await go(s.id);setSelectedEquipment(equipmentForStep(s.id));
     }}>{s.title} →</button></li>)}</ul>
    </div>}
-   {plan&&status&&<p role="status" className="notice">{status}</p>}
+   {status&&<p role="status" className="notice">{status}</p>}
    {(plan||record?.target)&&<dl>{[['GitHub',(plan||record.target).githubRepo],['Supabase',(plan||record.target).supabaseName],['LINE OA',(plan||record.target).botName]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}</>;
   if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計，同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
   if(unit.kind==='start'){
