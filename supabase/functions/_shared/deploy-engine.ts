@@ -25,16 +25,36 @@ export function apiClient(c:DeployCredentials,fetcher:typeof fetch=fetch){
  }
  return request;
 }
+type DeploymentCall=ReturnType<typeof apiClient>;
+async function githubHead(call:DeploymentCall,repoPath:string,branch:string):Promise<string|null>{
+ if(typeof branch!=='string'||!branch)throw Error('repository_default_branch_unavailable');
+ let head;
+ try{head=await call('github',repoPath+'/git/ref/heads/'+encodeURIComponent(branch),'GET',undefined,true);}
+ catch(e){if(!(e instanceof Error)||e.message!=='github_409')throw e;}
+ if(typeof head?.object?.sha==='string'&&head.object.sha)return head.object.sha;
+ const branches=await call('github',repoPath+'/branches?per_page=1');
+ if(Array.isArray(branches)&&branches.length===0)return null;
+ throw Error('repository_default_branch_unavailable');
+}
+async function initializeGithub(call:DeploymentCall,target:any){
+ const current=await githubHead(call,target.repoPath,target.defaultBranch);
+ if(await call('github',target.repoPath+'/pages','GET',undefined,true))throw Error('existing_pages_requires_review');
+ if(current)return current;
+ const created=await call('github',target.repoPath+'/contents/README.md','PUT',{
+  message:'Initialize repository for Aprico deployment',
+  content:btoa('# Aprico deployment\n\nThe LINE OA website is published from the deployment branch.\n')
+ });
+ if(!/^[a-f0-9]{40}$/.test(created?.commit?.sha||''))throw Error('repository_initialization_failed');
+ return created.commit.sha as string;
+}
 export async function preflight(projectId:string,snapshot:any,c:DeployCredentials,fetcher:typeof fetch=fetch){
  const t=deploymentTarget(projectId,snapshot.setup,snapshot.design.name),call=apiClient(c,fetcher);
  const repo=await call('github',t.repoPath);
  const canPush=c.githubRepositoryId?repo.id===c.githubRepositoryId:repo.permissions?.push;
  if(repo.full_name?.toLowerCase()!==`${t.owner}/${t.repo}`.toLowerCase()||!canPush||repo.private||repo.archived)throw Error('repository_not_public_writable');
- // Refuse empty repos: never initialize or rewrite the user's default branch implicitly.
- const head=await call('github',`${t.repoPath}/git/ref/heads/${encodeURIComponent(repo.default_branch)}`);
- if(!head.object?.sha)throw Error('repository_initialize_readme');
+ const headSha=await githubHead(call,t.repoPath,repo.default_branch);
  if(await call('github',`${t.repoPath}/pages`,'GET',undefined,true))throw Error('existing_pages_requires_review');
- if(await call('github',`${t.repoPath}/git/ref/heads/${t.branch}`,'GET',undefined,true))throw Error('existing_branch_requires_review');
+ if(headSha&&await call('github',`${t.repoPath}/git/ref/heads/${t.branch}`,'GET',undefined,true))throw Error('existing_branch_requires_review');
  const supa=await call('supabase',`/v1/projects/${t.ref}`);
  if(supa.id!==t.ref&&supa.ref!==t.ref)throw Error('supabase_project_mismatch');
  if(await call('supabase',`/v1/projects/${t.ref}/functions/${t.slug}`,'GET',undefined,true))throw Error('existing_function_requires_review');
@@ -45,7 +65,7 @@ export async function preflight(projectId:string,snapshot:any,c:DeployCredential
  if(String(tokenInfo.client_id)!==snapshot.setup.messagingChannelId)throw Error('line_channel_mismatch');
  const webhook=await call('line','/v2/bot/channel/webhook/endpoint','GET',undefined,true)??{};
  if(webhook.endpoint)throw Error('existing_webhook_requires_review');
- return{...t,headSha:head.object.sha,botId:bot.userId,botName:bot.displayName,botBasicId:bot.basicId,supabaseName:supa.name,githubRepo:repo.full_name,appUrl:`https://${t.owner.toLowerCase()}.github.io/${t.repo}/`,webhookUrl:`https://${t.ref}.supabase.co/functions/v1/${t.slug}`};
+ return{...t,headSha,defaultBranch:repo.default_branch,botId:bot.userId,botName:bot.displayName,botBasicId:bot.basicId,supabaseName:supa.name,githubRepo:repo.full_name,appUrl:`https://${t.owner.toLowerCase()}.github.io/${t.repo}/`,webhookUrl:`https://${t.ref}.supabase.co/functions/v1/${t.slug}`};
 }
 // Trusted, deterministic backend. AI-generated files never run on the server.
 type FixedReply=string|{title:string;body:string;buttons?:{label:string;uri:string}[]};
@@ -107,9 +127,10 @@ return processEvents();});`;
 export async function executeDeployment(plan:any,snapshot:any,artifact:unknown,c:DeployCredentials,report:(stage:string,extra?:any)=>Promise<void>,fetcher:typeof fetch=fetch,runtime?:RuntimeDeployment){
  const a=validateArtifact(artifact),call=apiClient(c,fetcher),t=plan;
  await report('github_files');
+ const headSha=t.headSha===null?await initializeGithub(call,t):t.headSha;
  const files=a.files.filter(f=>f.path!=='.nojekyll');files.push({path:'.nojekyll',content:''});
  const tree=await call('github',`${t.repoPath}/git/trees`,'POST',{tree:files.map(f=>({path:f.path,mode:'100644',type:'blob',content:f.content}))});
- const commit=await call('github',`${t.repoPath}/git/commits`,'POST',{message:'Aprico: publish reviewed website draft',tree:tree.sha,parents:[t.headSha]});
+ const commit=await call('github',`${t.repoPath}/git/commits`,'POST',{message:'Aprico: publish reviewed website draft',tree:tree.sha,parents:[headSha]});
  await call('github',`${t.repoPath}/git/refs`,'POST',{ref:`refs/heads/${t.branch}`,sha:commit.sha});
  await report('github_pages',{commit_sha:commit.sha});
  await call('github',`${t.repoPath}/pages`,'POST',{build_type:'legacy',source:{branch:t.branch,path:'/'}});

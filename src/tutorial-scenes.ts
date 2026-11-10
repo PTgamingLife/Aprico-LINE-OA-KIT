@@ -5,7 +5,7 @@ export function tutorialScene(unit:{key?:string;title:string;text:string;rows?:s
   platform='Supabase';address='supabase.com/dashboard';heading='系統部署的位置';rows=['自己的專案 → Edge Functions','Functions：本次後端','Secrets：系統配置的 LINE 金鑰','等待任務結果，再開始實測'];focus=1;source='https://supabase.com/docs/guides/functions/secrets';
  }else if(page.startsWith('github')){
   platform='GitHub';source='https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository';address='github.com';
-  if(page==='github-create'){heading='Create a new repository';rows=['Owner：你的帳號','Repository name：你的專案','Visibility：Public','Add README：On','Create repository'];focus=({owner:0,name:1,public:2,readme:3,created:4} as Record<string,number>)[part]??0;address='github.com/new';}
+  if(page==='github-create'){heading='Create a new repository';rows=['Owner：你的帳號','Repository name：你的專案','Visibility：Public','Add README：選填','Create repository'];focus=({owner:0,name:1,public:2,readme:3,created:4} as Record<string,number>)[part]??0;address='github.com/new';}
   else if(page==='github-signup'){heading='Sign up / Sign in';rows=['建立帳號，或 Sign in','Email／帳號與密碼（自己填）','依要求完成驗證','你的帳號 · Repositories'];focus=part==='verified'?2:part==='owner'?3:0;}
   else if(page==='githubToken'){heading='Aprico GitHub App';rows=['Install Aprico GitHub App','Only select repositories','選擇本次專用 repo','Authorize / Install','回 Aprico 核對與綁定'];focus=part==='limited'?1:part==='account'?3:part==='repository'?4:0;source='https://docs.github.com/en/apps/using-github-apps/installing-a-github-app-from-a-third-party';}
   else{heading='你的帳號 / 你的專案';rows=['網址列：github.com/帳號/專案','Code · Issues · Settings','README.md','回 Aprico 貼上 repository 網址'];focus=part==='input'||part==='save'?3:0;}

@@ -52,7 +52,7 @@ test('existing draft can resume deployment without a new paid generation request
 test('every page has distinct granular actions and AI stays one combined unit',()=>{
  for(const mode of ['app','token'])for(const q of questSteps){const ds=detailDefinitions(q,mode,8);assert.ok(ds.length>0,q.id);assert.equal(new Set(ds.map(d=>d.id)).size,ds.length);for(const d of ds){assert.ok(d.title);assert.ok(d.text);}}
  assert.equal(detailDefinitions(questSteps.find(q=>q.id==='automatic')).length,1);
- const create=detailDefinitions(questSteps.find(q=>q.id==='github-create'));assert.ok(create.some(d=>d.id==='readme'));assert.ok(create.some(d=>d.id==='public'));assert.ok(create.some(d=>d.kind==='link'&&d.url==='https://github.com/new'));
+ const create=detailDefinitions(questSteps.find(q=>q.id==='github-create'));assert.ok(!create.some(d=>d.id==='readme'));assert.ok(create.some(d=>d.id==='public'));assert.ok(create.some(d=>d.kind==='link'&&d.url==='https://github.com/new'));
 });
 test('every completed point advances one equal unit, page navigation does not change the denominator',()=>{
  const c=detailContext(),steps=journeySteps(emptyDraft()),q=questSteps.find(q=>q.id==='github-create')!;const start=detailProgress(steps,c);let previous=start.percent;
@@ -78,7 +78,7 @@ test('100 percent requires automatic completion and persisted user acceptance; r
  let p=detailProgress(steps,c);assert.equal(p.percent,100);assert.equal(p.done,p.total);c.deployment.status='running';p=detailProgress(steps,c);assert.ok(p.percent<100);assert.ok(!p.pages.find(p=>p.id==='automatic')?.complete);
 });
 test('local checklist resume stores only recognized nonsecret acknowledgement keys',()=>{
- const clean=safeDetailAcks({'github-create.readme':true,'github-create.public':true,token:'secret','audience.input':'private text','supabaseToken.input':true,plan:true});assert.deepEqual(clean,{'github-create.readme':true,'github-create.public':true});assert.deepEqual(safeDetailAcks(JSON.parse(JSON.stringify(clean))),clean);assert.ok(!JSON.stringify(clean).includes('secret'));
+ const clean=safeDetailAcks({'github-create.created':true,'github-create.public':true,token:'secret','audience.input':'private text','supabaseToken.input':true,plan:true});assert.deepEqual(clean,{'github-create.created':true,'github-create.public':true});assert.deepEqual(safeDetailAcks(JSON.parse(JSON.stringify(clean))),clean);assert.ok(!JSON.stringify(clean).includes('secret'));
 });
 
 test('equipment covers each human/system step once and keeps Supabase as storage ring',()=>{

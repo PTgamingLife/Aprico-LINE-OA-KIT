@@ -3,7 +3,7 @@ const boards={
  journeyAuto:{title:'這一關交給系統',rows:['你已完成所有準備','系統正在整理與設定','留在本頁等待完成提示','完成後開始手機實測'],focus:1},
  demand:{title:'先填需求，再確認',rows:['服務對象：誰會使用？','主要目的：要解決什麼事？','成功、失敗與轉人工規則','保存設定 → 下一步'],focus:2},
  line:{title:'LINE Developers',rows:['選相同的 Messaging API Channel','Basic settings → Channel ID','不是 LINE Login Channel ID','把 Channel ID 填回本頁'],focus:1},
- targets:{title:'你的部署專案',rows:['GitHub → New repository','勾選 Add a README file','Supabase → 選自己的專案','複製 Project URL，填回本頁'],focus:1},
+ targets:{title:'你的部署專案',rows:['GitHub → New repository','按 Create repository','Supabase → 選自己的專案','複製 Project URL，填回本頁'],focus:1},
  check:{title:'確認建置需求',rows:['逐格檢查名稱、內容及用途','保存 → 檢查建置準備','勾選同意 → 產生網站草稿','草稿完成後 → 一次性授權部署'],focus:2},
  github:{title:'GitHub · 限權 Token',rows:['Settings → Developer settings','Fine-grained tokens → Generate','Only select repositories：只選本專案','Contents / Pages / Administration：Read and write'],focus:2},
  supabase:{title:'Supabase · 限權 Token',rows:['Account → Access Tokens','新增短效、限專案的 Token','Project Settings：Read；Edge Functions：Read-write','Edge Function Secrets：Read-write'],focus:2},

@@ -12,8 +12,7 @@ const guideTasks:Record<string,Detail[]>={
   {id:'owner',kind:'confirm',title:'Owner 選自己的帳號',text:'確認新專案會建立在你自己的 GitHub 帳號底下。'},
   {id:'name',kind:'confirm',title:'填入 Repository name',text:'在 GitHub 填這個 OA 的專案名稱，建議用英文、數字與連字號。'},
   {id:'public',kind:'confirm',title:'Visibility 選 Public',text:'目前的部署流程需要公開 repo。公開程式碼中不能放金鑰。'},
-  {id:'readme',kind:'confirm',title:'開啟 Add README',text:'先讓專案有第一個 commit，部署器才有安全的起始版本。'},
-  {id:'created',kind:'confirm',title:'按 Create repository，看到 README',text:'已有專案時，確認檔案列表看得到 README，且尚未啟用 Pages。'}],
+  {id:'created',kind:'confirm',title:'按 Create repository，開啟專案頁',text:'可以保留空白，部署時會自動建立第一筆提交。已有專案時，確認尚未啟用 Pages。'}],
  'githubRepo':[
   {id:'open',kind:'link',title:'開啟自己的 Repository',url:'https://github.com/',text:'在 GitHub 進入本次專用專案，不是個人帳號首頁。'},
   {id:'copy',kind:'confirm',title:'複製專案頁上方的網址',text:'格式是 https://github.com/帳號/專案；不用複製 .git 或 .github.io 網址。'},

@@ -32,12 +32,14 @@ test('failed App preflight revokes its token and cannot fall back to a supplied 
  assert.equal((credentials({...c,githubRepositoryId:8}) as any).githubRepositoryId,undefined);
 });
 function mock(options:any={}){
- const calls:any[]=[];
+ const calls:any[]=[];let head=options.emptyRepo?'':'initial';
  const fetcher=(async(url:any,init:any={})=>{const u=new URL(url),path=u.pathname;calls.push({url:String(url),method:init.method||'GET',body:init.body,headers:init.headers,redirect:init.redirect});
   if(options.error)return new Response('sensitive provider details',{status:403});
   let value:any={};let status=200;
   if(path==='/repos/customer/demo')value={full_name:'customer/demo',permissions:{push:true},private:false,default_branch:'main'};
-  else if(path.endsWith('/git/ref/heads/main'))value={object:{sha:'initial'}};
+  else if(path.endsWith('/git/ref/heads/main')){if(head)value={object:{sha:head}};else status=409;}
+  else if(path.endsWith('/branches'))value=head||options.otherBranch?[{name:'feature'}]:[];
+  else if(path.endsWith('/contents/README.md')){head='a'.repeat(40);value={commit:{sha:head}};status=201;}
   else if(path.endsWith('/pages')&&init.method==='GET'){if(options.existingPages)value={source:{branch:'main'}};else status=404;}
   else if(path.includes('/git/ref/heads/aprico-')||path.includes('/functions/aprico-'))status=404;
   else if(path==='/v1/projects/abcdefghijklmnopqrst')value={id:'abcdefghijklmnopqrst',name:'Customer project'};
@@ -53,6 +55,23 @@ function mock(options:any={}){
 test('credentials and target validation reject missing secrets and SSRF',()=>{assert.throws(()=>credentials({...c,lineSecret:'wrong'}));assert.throws(()=>deploymentTarget(project,{...setup,supabaseUrl:'https://attacker.example'}));assert.throws(()=>deploymentTarget(project,{...setup,githubRepo:'https://github.com@attacker.example/a/b'}));assert.equal(deploymentTarget(project,setup,'My project').prefix.startsWith('MY_PROJECT_'),true);});
 test('preflight makes no resource writes and never returns credentials',async()=>{const{fetcher,calls}=mock();const plan=await preflight(project,snapshot,c,fetcher);assert.equal(plan.botName,'Customer OA');assert.ok(!JSON.stringify(plan).includes(c.lineToken));assert.ok(calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));assert.ok(calls.every(x=>x.redirect==='error'));});
 test('existing website, mismatched channel and existing webhook block deployment',async()=>{for(const options of [{existingPages:true},{wrongChannel:true},{existingWebhook:true}]){const{fetcher,calls}=mock(options);await assert.rejects(preflight(project,snapshot,c,fetcher));assert.ok(calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));}});
+test('empty repo passes read-only verification and gets its first commit only at deployment',async()=>{
+ const {fetcher,calls}=mock({emptyRepo:true});
+ const plan=await preflight(project,snapshot,c,fetcher);
+ assert.equal(plan.headSha,null);
+ assert.ok(!calls.some(call=>call.method==='PUT'));
+ await executeDeployment(plan,snapshot,artifact,c,async()=>{},fetcher);
+ const created=calls.find(call=>call.url.endsWith('/contents/README.md'));
+ assert.equal(created.method,'PUT');
+ assert.equal(JSON.parse(created.body).sha,undefined);
+ const commit=calls.find(call=>call.url.endsWith('/git/commits'));
+ assert.deepEqual(JSON.parse(commit.body).parents,['a'.repeat(40)]);
+});
+test('GitHub conflicts with an existing branch do not authorize initialization',async()=>{
+ const {fetcher,calls}=mock({emptyRepo:true,otherBranch:true});
+ await assert.rejects(preflight(project,snapshot,c,fetcher),/repository_default_branch_unavailable/);
+ assert.ok(!calls.some(call=>call.method==='PUT'));
+});
 test('deployment writes only isolated branch, project secrets and signed webhook',async()=>{const{fetcher,calls}=mock();const plan=await preflight(project,snapshot,c,fetcher),stages:string[]=[];await executeDeployment(plan,snapshot,artifact,c,async s=>{stages.push(s);},fetcher);assert.equal(stages.at(-1),'awaiting_acceptance');const ref=calls.find(x=>x.url.endsWith('/git/refs'));assert.ok(JSON.parse(ref.body).ref.startsWith('refs/heads/aprico-'));assert.ok(!calls.some(x=>x.method==='PATCH'||x.method==='DELETE'));const tree=calls.find(x=>x.url.endsWith('/git/trees'));assert.ok(!tree.body.includes(c.lineSecret));const form=calls.find(x=>x.url.includes('functions/deploy')).body;assert.equal(JSON.parse(form.get('metadata')).verify_jwt,false);const source=await form.get('file').text();assert.ok(source.includes("crypto.subtle.verify('HMAC'"));assert.ok(!source.includes(c.lineSecret));});
 test('wrong Channel Secret test stops before switching OA webhook',async()=>{const{fetcher,calls}=mock({badSignature:true});const plan=await preflight(project,snapshot,c,fetcher);await assert.rejects(executeDeployment(plan,snapshot,artifact,c,async()=>{},fetcher),/webhook_signature_or_readiness_failed/);assert.ok(!calls.some(x=>x.method==='PUT'));});
 test('upstream error responses never disclose credentials or response bodies',async()=>{const{fetcher}=mock({error:true});await assert.rejects(preflight(project,snapshot,c,fetcher),e=>e instanceof Error&&e.message==='github_403');});

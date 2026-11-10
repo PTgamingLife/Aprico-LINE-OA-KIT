@@ -99,9 +99,9 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
     github_installation_unavailable:'GitHub App 的專案授權已失效或權限不足。請回 GitHub 關卡重新連接並選取本次 repo。',
     github_binding_mismatch:'已授權的 GitHub repo 和專案網址不同。請回 GitHub 關卡重新選取。',
     github_403:'GitHub 拒絕存取。請確認 Aprico App 或限權 Token 已授權本次 repo。',
-    github_404:'GitHub 找不到專案或預設分支。請確認 repo 網址、專案授權，以及 repo 已有第一筆提交。',
-    github_409:'GitHub 專案可能還是空的或正在建立。請打開本次 repo，確認已經有 README 或第一筆提交。',
-    repository_initialize_readme:'請在本次 GitHub repo 建立 README 或第一筆提交後，再重新核對。',
+    github_404:'GitHub 找不到專案或預設分支。請確認 repo 網址及授權。',
+    github_409:'GitHub 專案暫時無法讀取，可能還在建立。請等 GitHub 顯示專案頁後再核對。',
+    repository_default_branch_unavailable:'GitHub 已有分支，但目前讀不到預設分支。請回 GitHub 核對預設分支。',
     repository_not_public_writable:'請選用可寫入、公開且未封存的 GitHub 專用 repo。',
     existing_branch_requires_review:'這個 repo 已有本專案的部署分支。請保留現有資料並聯絡專員核對。',
     supabase_404:'找不到 Supabase 專案，或 Token 無權存取。請核對 Project URL，並確認 Token 只選了本次專案。',
@@ -183,7 +183,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    </div>}
    {status&&<p role="status" className="notice">{status}</p>}
    {(plan||record?.target)&&<dl>{[['GitHub',(plan||record.target).githubRepo],['Supabase',(plan||record.target).supabaseName],['LINE OA',(plan||record.target).botName]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}</>;
-  if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計，同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
+  if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計。{plan?.headSha===null&&<strong> GitHub repo 目前是空的，開始部署時會先建立 README 和第一筆提交。</strong>} 同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
   if(unit.kind==='start'){
    const points=credits?.mode==='points';
    const insufficient=points?credits.estimateMax===null||credits.remaining<credits.estimateMax:credits?.remaining===0;
