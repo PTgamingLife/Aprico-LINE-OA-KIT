@@ -34,7 +34,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
    c=await readCredentials();
    const plan=await preflight(project.id,{setup,design:project.config},c,fetcher);
    return response({plan,designRevision:project.revision,setupRevision:access.setup_revision});
-  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';return response({error:'授權檢查未通過，請確認本關資料',code},409);}
+  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';console.warn('aprico deployment preflight:',code);return response({error:'授權檢查未通過，請確認本關資料',code},409);}
   finally{if(c)for(const key of ['githubToken','supabaseToken','lineToken','lineSecret'] as const)c[key]='';await release?.().catch(()=>{});}
  }
  if(b.action==='deploy_status'){

@@ -43,7 +43,7 @@ export async function preflight(projectId:string,snapshot:any,c:DeployCredential
  const verified=await fetcher('https://api.line.me/v2/oauth/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({access_token:c.lineToken}),redirect:'error',signal:AbortSignal.timeout(10000)});
  if(!verified.ok)throw Error('line_token_verify_failed');const tokenInfo=await verified.json();
  if(String(tokenInfo.client_id)!==snapshot.setup.messagingChannelId)throw Error('line_channel_mismatch');
- const webhook=await call('line','/v2/bot/channel/webhook/endpoint');
+ const webhook=await call('line','/v2/bot/channel/webhook/endpoint','GET',undefined,true)??{};
  if(webhook.endpoint)throw Error('existing_webhook_requires_review');
  return{...t,headSha:head.object.sha,botId:bot.userId,botName:bot.displayName,botBasicId:bot.basicId,supabaseName:supa.name,githubRepo:repo.full_name,appUrl:`https://${t.owner.toLowerCase()}.github.io/${t.repo}/`,webhookUrl:`https://${t.ref}.supabase.co/functions/v1/${t.slug}`};
 }
@@ -130,7 +130,7 @@ export async function executeDeployment(plan:any,snapshot:any,artifact:unknown,c
  if(tested.success!==true)throw Error('webhook_signature_or_readiness_failed');
  await report('webhook_connect');
  // Recheck before replacing an endpoint; never overwrite a service that appeared meanwhile.
- const current=await call('line','/v2/bot/channel/webhook/endpoint');if(current.endpoint)throw Error('existing_webhook_requires_review');
+ const current=await call('line','/v2/bot/channel/webhook/endpoint','GET',undefined,true)??{};if(current.endpoint)throw Error('existing_webhook_requires_review');
  await call('line','/v2/bot/channel/webhook/endpoint','PUT',{endpoint:t.webhookUrl});
  await report('awaiting_acceptance',{app_url:t.appUrl,webhook_url:t.webhookUrl,commit_sha:commit.sha,system_checks:{webhookSignature:true,sourceCommitted:true,pagesRequested:true}});
 }

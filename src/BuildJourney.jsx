@@ -18,6 +18,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  const [secrets,setSecrets]=useState(emptyCredentials),[plan,setPlan]=useState(null),[ready,setReady]=useState(false),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
  const [job,setJob]=useState(null),[record,setRecord]=useState(null),[credits,setCredits]=useState(null),[intent,setIntent]=useState(null),[refresh,setRefresh]=useState(0);
  const [usage,setUsage]=useState([]);
+ const [verificationCode,setVerificationCode]=useState('');
  const [github,setGithub]=useState(null);
  const [selectedEquipment,setSelectedEquipment]=useState(null);
  const attempted=useRef(new Set()),mounted=useRef(true),panel=useRef(null),secretRef=useRef(secrets);secretRef.current=secrets;
@@ -73,7 +74,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  }
  async function verify(){
   if(busy||record)return;
-  setPlan(null);setReady(false);setConsent(false);setStatus('');
+  setPlan(null);setReady(false);setConsent(false);setStatus('');setVerificationCode('');
   if(legacyRuntime||setup.runtimeAiProvider==='platform'&&!runtimeAvailable){
    setError('請在下方選擇這個專案上線後的 AI 方案。');
    return;
@@ -90,6 +91,25 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   setPlan(r.plan);setReady(Boolean(requirements.generationAvailable));setStatus('目標帳號已由系統核對，尚未建置或修改。');
  }catch(e){
    const messages={
+    credentials_required:'部署憑證格式不完整。請核對 GitHub、LINE 和 Supabase 的授權欄位，並移除換行。',
+    line_secret_format:'請回 LINE 關卡，從 Messaging API Channel 的 Basic settings 複製 Channel Secret。',
+    invalid_target:'GitHub 或 Supabase 專案網址的格式不正確。請核對先前保存的兩個網址。',
+    github_app_not_configured:'Aprico GitHub App 暫時無法使用，請回 GitHub 關卡更新連線。',
+    github_access_unavailable:'GitHub 拒絕 Aprico App 的授權。請到 GitHub 確認 App 已安裝且允許操作本次 repo，再回來重新連接。',
+    github_installation_unavailable:'GitHub App 的專案授權已失效或權限不足。請回 GitHub 關卡重新連接並選取本次 repo。',
+    github_binding_mismatch:'已授權的 GitHub repo 和專案網址不同。請回 GitHub 關卡重新選取。',
+    github_403:'GitHub 拒絕存取。請確認 Aprico App 或限權 Token 已授權本次 repo。',
+    github_404:'GitHub 找不到專案或預設分支。請確認 repo 網址、專案授權，以及 repo 已有第一筆提交。',
+    github_409:'GitHub 專案可能還是空的或正在建立。請打開本次 repo，確認已經有 README 或第一筆提交。',
+    repository_initialize_readme:'請在本次 GitHub repo 建立 README 或第一筆提交後，再重新核對。',
+    repository_not_public_writable:'請選用可寫入、公開且未封存的 GitHub 專用 repo。',
+    existing_branch_requires_review:'這個 repo 已有本專案的部署分支。請保留現有資料並聯絡專員核對。',
+    supabase_404:'找不到 Supabase 專案，或 Token 無權存取。請核對 Project URL，並確認 Token 只選了本次專案。',
+    supabase_project_mismatch:'Supabase 回傳的專案和保存的 Project URL 不同，請回去確認專案網址。',
+    existing_function_requires_review:'這個 Supabase 專案已有同名部署。請保留現有功能並聯絡專員核對。',
+    line_403:'LINE 拒絕存取，請檢查 Messaging API 的授權及 Channel Access Token。',
+    line_404:'LINE 無法取得本次 OA 的 Messaging API 資料。請確認使用的是這個 OA 的憑證。',
+    deployment_preflight_failed:'這次未能取得平台的核對結果，請稍後重試。如果再次失敗，請提供下方代碼給專員。',
     github_binding_required:'請回 GitHub 授權關卡，選取本次專用 repo 後重新核對。',
     github_workflows_permission_required:'請在 GitHub 更新 Aprico App 的工作流程權限，再返回重新連接。',
     github_401:'GitHub 授權已失效，請重新連接或更新 Token。',
@@ -102,7 +122,9 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
     existing_webhook_requires_review:'這個 LINE OA 已有 Webhook。請確認選的是本次要建置的 OA。',
     existing_pages_requires_review:'這個 GitHub repo 已有 Pages。請選擇本次建置的專用 repo。'
    };
-   setError(messages[e.code]||e.message);
+   const code=typeof e.code==='string'&&/^[a-z][a-z0-9_]{0,90}$/.test(e.code)?e.code:'';
+   setVerificationCode(code);
+   setError(messages[code]||e.message);
   }finally{setBusy(false);}
  }
  async function start(){if(!consent||!ready||!plan||busy)return;setBusy(true);setError('');try{
@@ -118,6 +140,9 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  const runtimePlanBlocked=setup.runtimeAiProvider==='platform'&&(!runtimeAvailable||error==='請先完成 Aprico 平台 AI 點數方案與設計確認。');
  const canDisableRuntime=(!draft.secretary?.direction||draft.secretary.direction==='oa')&&!draft.cells.slice(0,draft.grid).some(cell=>cell.template==='health');
  const needsRuntimeOwner=setup.runtimeAiProvider==='platform'&&!/^U[0-9a-f]{32}$/.test(setup.runtimeOwnerId||'');
+ const recoveryStep=verificationCode.startsWith('github_')||verificationCode.startsWith('repository_')||verificationCode==='existing_pages_requires_review'?'githubToken':
+  verificationCode.startsWith('supabase_')?'supabaseToken':
+  verificationCode.startsWith('line_')?'lineSecret':null;
  const verificationMissing=steps.filter(s=>{
   if(s.id==='githubToken'&&(usingApp||githubMode==='app'))return !usingApp;
   return (s.kind==='field'||s.kind==='secret'||s.kind==='guide'&&s.field)&&!entered(s,setup,secrets);
@@ -135,7 +160,12 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   if(unit.kind==='credential')return <label>{unit.label}<input type="password" autoComplete="off" value={secrets[unit.field]} maxLength={q.id==='lineSecret'?32:6000} onChange={e=>change(unit.field,e.target.value,true)}/><small>僅留在目前頁面，未保存憑證原文。</small></label>;
   if(unit.kind==='save')return <button className="primary" disabled={busy||!units.find(d=>d.kind==='field')?.done} onClick={()=>save()}>{busy?'保存中…':unit.done?'✓ 已保存，再次保存':'保存這項資料'}</button>;
   if(unit.kind==='verify')return <><button disabled={busy||Boolean(record)} type="button" onClick={verify}>{busy?'核對中…':unit.done?'✓ 本次帳號已核對':'核對本次帳號與授權'}</button>
-   {error&&<p role="alert" className="notice error">{error}</p>}
+   {error&&<div role="alert" className="notice error">
+    <p>{error}</p>
+    {verificationCode&&<p><small>核對代碼 <code>{verificationCode}</code></small></p>}
+    {recoveryStep&&<button type="button" disabled={running} onClick={async()=>{await go(recoveryStep);setSelectedEquipment(equipmentForStep(recoveryStep));}}>前往授權關卡 →</button>}
+   </div>}
+
    {!record&&(legacyRuntime||runtimePlanBlocked)&&<section aria-label="營運 AI 方案">
     <p>{legacyRuntime?'這個專案先前選了自備 AI 金鑰。請選擇上線後的 AI 方案。':'目前無法使用 Aprico 營運 AI 點數。'}</p>
     {legacyRuntime&&runtimeAvailable&&<><button type="button" disabled={busy} onClick={()=>saveRuntimeProvider('platform')}>改用 Aprico AI 點數</button><p>上線後使用 AI 秘書會依用量扣點。</p></>}
