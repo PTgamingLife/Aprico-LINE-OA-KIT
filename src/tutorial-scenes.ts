@@ -15,13 +15,14 @@ export function tutorialScene(unit:{key?:string;title:string;text:string;rows?:s
   else if(page==='supabase-create'){heading='Create a new project';rows=['Organization：自己的組織','Project name：你的專案','Database password：自行保管','Region：選服務區域','核對 Plan → Create new project'];focus=({organization:0,name:1,password:2,region:3,plan:4,created:4} as Record<string,number>)[part]??0;}
   else if(page==='supabaseToken'){heading='Account · Access Tokens';rows=['Generate new token','Project：選組織與本次專案','Project Settings：Read','Edge Functions / Secrets：Read-write','Review access → 確認後產生'];focus=part==='input'?4:part==='scope'?1:0;source='https://supabase.com/docs/guides/platform/personal-access-tokens';}
   else{heading='你的專案 · Project Settings';rows=['Project Settings → General','Project ID → Copy','https:// 加上代碼，再加 .supabase.co','或使用 Connect 核對 Project URL','回 Aprico 貼上完整網址並保存'];focus=part==='connect'?1:part==='input'||part==='save'?4:0;}
- }else if(['messagingChannelId','lineSecret','lineToken','webhook','liff'].includes(page)){
+ }else if(['messagingChannelId','lineSecret','lineToken','webhook','liff','loginChannelId','loginSecret','loginPublish'].includes(page)){
   platform='LINE Developers';address='developers.line.biz/console';source='https://developers.line.biz/en/docs/messaging-api/building-bot/';
   heading='你的 Channel';
   if(page==='lineSecret'||page==='messagingChannelId'){rows=['Messaging API Channel','Basic settings','Channel ID：你的編號','Channel secret：••••••••','回 Aprico 的對應安全欄位'];focus=page==='lineSecret'?part==='input'?4:3:2;}
   else if(page==='lineToken'){heading='Messaging API';rows=['Messaging API 分頁','Channel access token（long-lived）','已有 Token：沿用現有值','沒有 Token：Issue','回 Aprico 安全貼上'];focus=part==='input'?4:1;}
-  else if(page==='webhook'){heading='Messaging API · Webhook settings';rows=['Webhook URL：部署後取得','Use webhook：Enabled','Verify','手機傳訊息測試'];focus=part==='switch'?1:0;}
-  else{heading='LINE Login Channel · LIFF';rows=['LIFF → Add / 選擇 App','選擇所需 Size','Endpoint URL：部署後網站','保存 → 記下 LIFF ID','手機開啟測試'];focus=part==='tested'?4:part==='report'?4:2;source='https://developers.line.biz/en/docs/liff/registering-liff-apps/';}
- }else if(page==='menu'){platform='LINE OA Manager';address='manager.line.biz';heading='圖文選單';rows=['開啟本次官方帳號','建立／設定對應選單','填入部署後的功能網址','在手機逐格點選測試','回 Aprico 保存實測回報'];focus=part==='open'?0:part==='report'?4:3;source='https://developers.line.biz/en/docs/messaging-api/using-rich-menus/';}
+  else if(page==='webhook'){heading='Messaging API · Webhook settings';rows=['開啟同一個 Messaging API Channel','Use webhook：有開關就開啟','網址由 Aprico 部署後設定','手機傳訊息測試'];focus=1;}
+  else if(page.startsWith('login')){heading='LINE Login Channel';rows=['進入自己的 Provider → LINE Login Channel','Basic settings：複製 Channel ID','Basic settings：複製 Channel Secret','一般好友要使用時，發布 Channel'];focus=page==='loginPublish'?3:page==='loginSecret'?2:1;source='https://developers.line.biz/en/docs/line-login/developing-a-line-login-channel/';}
+  else{heading='LINE · App 入口驗收';rows=['回到自己的官方帳號','點開半頁／全頁 App','操作並確認顯示的內容','回 Aprico 保存結果'];focus=1;source='https://developers.line.biz/en/docs/liff/opening-liff-app/';}
+ }else if(page==='menu'){platform='LINE OA Manager';address='manager.line.biz';heading='圖文選單';rows=['開啟本次官方帳號','開啟由系統建立的圖文選單','核對每格名稱','在手機逐格點選測試','回 Aprico 保存實測回報'];focus=part==='open'?0:part==='report'?4:3;source='https://developers.line.biz/en/docs/messaging-api/using-rich-menus/';}
  return {platform,address,heading,rows,focus,source};
 }

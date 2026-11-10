@@ -142,8 +142,11 @@ Deno.serve(async(req:Request)=>{
         const settings=githubSettings(k=>Deno.env.get(k));if(!settings)throw Error('github_app_not_configured');
         const r=await db.from('line_oa_kit_github_connections').select('installation_id,repository_id,full_name,revoked_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
         if(r.error||!r.data)throw Error('github_binding_required');
-        const token=await installationToken(settings,r.data,access.setup.githubRepo);
-        return {token,repositoryId:r.data.repository_id,release:async()=>{await ghRequest('/installation/token',token,'DELETE');}};
+        const actionsPages=b.flowVersion===2;
+        let token:string;
+        try{token=await installationToken(settings,r.data,access.setup.githubRepo,fetch,actionsPages);}
+        catch(e){if(actionsPages)throw Error('github_workflows_permission_required');throw e;}
+        return {token,repositoryId:r.data.repository_id,actionsPages,release:async()=>{await ghRequest('/installation/token',token,'DELETE');}};
       },runtimeReady?async()=>({endpoint:runtimeEndpoint,...await issueKey()}):undefined);
       if(b.action==='build_jobs'||b.action==='build_job'){
         // A stopped worker must never be silently retried with another paid request.

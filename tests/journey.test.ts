@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {questSteps,journeySteps,safeJourneyState,questProof,sameTarget,entered} from '../src/journey.ts';
+import {questSteps,journeySteps,journeyLevels,safeJourneyState,questProof,sameTarget,entered} from '../src/journey.ts';
 import {emptyDraft} from '../src/model.ts';
 import {emptySetup} from '../src/build-model.ts';
 import {detailDefinitions,detailKey,pageDetails,detailProgress,safeDetailAcks} from '../src/journey-details.ts';
@@ -14,6 +14,19 @@ test('one system square, distinct human actions, optional LIFF only when needed'
  assert.equal(questSteps.filter(q=>q.kind==='automatic').length,1);assert.equal(new Set(questSteps.map(q=>q.id)).size,questSteps.length);
  const d=emptyDraft();d.cells.forEach(c=>c.action='message');assert.ok(!journeySteps(d).some(q=>q.id==='liff'));d.cells[0].action='half';assert.ok(journeySteps(d).some(q=>q.id==='liff'));
  for(const q of questSteps)assert.ok('topic'in q||'guide'in q);
+});
+test('five levels put LINE switch and optional Login fields in one visit',()=>{
+ const draft=emptyDraft();
+ assert.equal(journeyLevels.length,5);
+ assert.ok(!journeySteps(draft).some(q=>q.id==='lineToken'||q.id==='loginPublish'));
+ assert.ok(journeyLevels[2].ids.includes('webhook'));
+ draft.cells[0].action='half';
+ assert.ok(journeySteps(draft).some(q=>q.id==='loginPublish'));
+ assert.ok(journeyLevels[2].ids.includes('loginPublish'));
+ const q=questSteps.find(q=>q.id==='webhook')!;
+ const context={...detailContext(),details:{'webhook.switch':true}};
+ assert.equal(pageDetails(q,context)[0].done,true);
+ assert.equal(questProof(questSteps.find(q=>q.id==='automatic'),{deployment:{status:'awaiting_acceptance',system_checks:{pagesMode:'actions'}}}).done,false);
 });
 test('resume whitelist never stores credentials or browser privilege claims',()=>{
  const stored=safeJourneyState({step:'automatic',secrets:{githubToken:'private'},plan:{},acks:{'github-signup':true,website:true,automatic:true,lineSecret:true}});
@@ -55,7 +68,7 @@ test('every page has distinct granular actions and AI stays one combined unit',(
  const create=detailDefinitions(questSteps.find(q=>q.id==='github-create'));assert.ok(!create.some(d=>d.id==='readme'));assert.ok(create.some(d=>d.id==='public'));assert.ok(create.some(d=>d.kind==='link'&&d.url==='https://github.com/new'));
 });
 test('every completed point advances one equal unit, page navigation does not change the denominator',()=>{
- const c=detailContext(),steps=journeySteps(emptyDraft()),q=questSteps.find(q=>q.id==='github-create')!;const start=detailProgress(steps,c);let previous=start.percent;
+ const c=detailContext(),steps=journeySteps(emptyDraft()),q=questSteps.find(q=>q.id==='webhook')!;const start=detailProgress(steps,c);let previous=start.percent;
  const details:any={};for(const d of detailDefinitions(q)){details[detailKey(q,d)]=true;const p=detailProgress(steps,{...c,details});assert.equal(p.total,start.total);assert.ok(p.percent>previous);previous=p.percent;}
  assert.ok(detailProgress(steps,{...c,details}).pages.find(p=>p.id===q.id)?.complete);
 });

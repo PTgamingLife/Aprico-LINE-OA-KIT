@@ -13,6 +13,9 @@ export const questSteps=[
  {id:'messagingChannelId',title:'確認你的 LINE OA',kind:'field',label:'Messaging API Channel ID',hint:'請填 Messaging API 的 Channel ID，不是 LINE Login',topic:'line',url:'https://developers.line.biz/console/'},
  {id:'lineSecret',title:'填入 LINE Channel Secret',kind:'secret',label:'Messaging API Channel Secret',topic:'secrets',url:'https://developers.line.biz/console/'},
  {id:'lineToken',title:'填入 LINE Access Token',kind:'secret',label:'Channel Access Token（長效）',topic:'secrets',url:'https://developers.line.biz/console/'},
+ {id:'loginChannelId',title:'連接 LINE Login（LIFF）',kind:'field',label:'LINE Login Channel ID',hint:'在同一個 Provider 下選 LINE Login Channel → Basic settings',topic:'line',url:'https://developers.line.biz/console/'},
+ {id:'loginSecret',title:'填入 LINE Login Channel Secret',kind:'secret',label:'LINE Login Channel Secret',topic:'secrets',url:'https://developers.line.biz/console/'},
+ {id:'loginPublish',title:'檢查 LINE Login 發布狀態',kind:'manual',topic:'line',url:'https://developers.line.biz/console/'},
  {id:'supabase-signup',title:'登入自己的 Supabase',kind:'guide',guide:3},
  {id:'supabase-create',title:'準備專用 Supabase 專案',kind:'guide',guide:4},
  {id:'supabaseUrl',title:'填入 Supabase 專案網址',kind:'guide',guide:5,field:'supabaseUrl'},
@@ -25,27 +28,38 @@ export const questSteps=[
  {id:'menu',title:'設定並測試每個選單入口',kind:'acceptance',topic:'acceptance'},
  {id:'liff',title:'設定並測試 App 入口',kind:'acceptance',topic:'acceptance'}
 ] as const;
-export const emptyCredentials=()=>({githubToken:'',supabaseToken:'',lineSecret:'',lineToken:''});
-export function needsLiff(draft:any){return draft.cells.slice(0,draft.grid).some((c:any)=>['half','full'].includes(c.action));}
-export function journeySteps(draft:any){return questSteps.filter(q=>q.id!=='liff'||needsLiff(draft));}
+export const emptyCredentials=()=>({supabaseToken:'',lineSecret:'',loginSecret:''});
+export function needsLiff(draft:any){return draft.secretary?.direction!=='records'&&draft.cells.slice(0,draft.grid).some((c:any)=>['half','full'].includes(c.action));}
+export const journeyLevels=[
+ {title:'確認設計',ids:['audience','purpose','scenario','success','failure','human']},
+ {title:'連接 GitHub',ids:['githubToken']},
+ {title:'連接 LINE',ids:['messagingChannelId','lineSecret','webhook','loginChannelId','loginSecret','loginPublish']},
+ {title:'連接 Supabase',ids:['supabaseUrl','supabaseToken']},
+ {title:'部署與驗收',ids:['review','automatic','website','lineMessage','menu','liff']}
+];
+export function journeySteps(draft:any){
+ return journeyLevels.flatMap(level=>level.ids).filter(id=>
+  (!['loginChannelId','loginSecret','loginPublish','liff'].includes(id)||needsLiff(draft))&&(id!=='menu'||draft.secretary?.direction!=='records')
+ ).map(id=>questSteps.find(q=>q.id===id)!);
+}
 export function entered(q:any,setup:any,secrets:any){
  const value=(q.kind==='secret'?secrets[q.id]:setup[q.field||q.id])||'';
  if(q.field)return Boolean(value.trim())&&!projectFieldIssue(q.field,value);
- if(q.id==='messagingChannelId')return /^\d{6,20}$/.test(value.trim());
- if(q.id==='lineSecret')return /^[a-f\d]{32}$/i.test(value.trim());
+ if(['messagingChannelId','loginChannelId'].includes(q.id))return /^\d{6,20}$/.test(value.trim());
+ if(['lineSecret','loginSecret'].includes(q.id))return /^[a-f\d]{32}$/i.test(value.trim());
  return Boolean(value.trim());
 }
 export function safeJourneyState(value:any){
  const allowed=questSteps.filter(q=>q.kind==='guide'&&!('field'in q)||q.kind==='manual').map(q=>q.id);
  return {step:questSteps.some(q=>q.id===value?.step)?value.step:'audience',acks:Object.fromEntries(allowed.filter(id=>value?.acks?.[id]===true).map(id=>[id,true]))};
 }
-export function sameTarget(a:any,b:any){return Boolean(a&&b&&a.botId===b.botId&&a.githubRepo===b.githubRepo&&a.ref===b.ref);}
+export function sameTarget(a:any,b:any){return Boolean(a&&b&&a.botId===b.botId&&a.githubRepo===b.githubRepo&&a.ref===b.ref&&a.loginId===b.loginId&&a.previousWebhook===b.previousWebhook&&a.previousMenuId===b.previousMenuId);}
 export function questProof(q:any,c:any){
- const deployed=c.deployment?.status==='awaiting_acceptance';
+ const deployed=c.deployment?.status==='awaiting_acceptance'&&(c.deployment.system_checks?.pagesMode!=='actions'||c.deployment.system_checks.pagesLive===true);
  if(q.id==='githubToken'&&c.githubApp)return {done:true,label:'GitHub App 已綁定；執行前重驗'};
  if(q.kind==='automatic')return {done:deployed,label:deployed?'系統處理完成':c.running?'系統處理中':'等待前置關卡'};
  if(q.kind==='acceptance')return {done:deployed&&c.deployment?.user_checks?.[q.id]===true,label:'本人實測回報'};
- if(q.kind==='manual')return {done:deployed&&c.acks[q.id]===true,label:'本人操作確認'};
+ if(q.kind==='manual')return {done:deployed||c.acks[q.id]===true,label:'本人操作確認'};
  if(q.kind==='review')return {done:Boolean(c.plan)||Boolean(c.deployment),label:'系統已核對目標'};
  if(q.kind==='guide'&&!q.field)return {done:Boolean(c.acks[q.id])||Boolean(c.deployment),label:'本人確認／已有帳號'};
  if(q.kind==='secret'&&c.deployment)return {done:true,label:'授權已使用；原文已清空'};

@@ -2,8 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {credentials,deploymentTarget,preflight,executeDeployment,webhookSource,interactiveReply} from '../supabase/functions/_shared/deploy-engine.ts';
+import {pagesReleaseLive} from '../supabase/functions/_shared/deploy-integrations.ts';
 import {deploymentAction,deploymentIssue} from '../supabase/functions/_shared/deploy-handler.ts';
 import {emptyDraft} from '../src/model.ts';
+import {trialAreas} from '../src/trial-model.ts';
 import {emptySetup} from '../src/build-model.ts';
 const project='11111111-1111-4111-8111-111111111111';
 const setup={githubRepo:'https://github.com/customer/demo',supabaseUrl:'https://abcdefghijklmnopqrst.supabase.co',messagingChannelId:'1234567890',failure:'請聯絡專員'};
@@ -32,7 +34,7 @@ test('failed App preflight revokes its token and cannot fall back to a supplied 
  assert.equal((credentials({...c,githubRepositoryId:8}) as any).githubRepositoryId,undefined);
 });
 function mock(options:any={}){
- const calls:any[]=[];let head=options.emptyRepo?'':'initial';
+ const calls:any[]=[];let head=options.emptyRepo?'':'initial';let menu:string|null=options.menu||null,webhook=options.existingWebhook?'https://existing.example/hook?private=redact':'';
  const fetcher=(async(url:any,init:any={})=>{const u=new URL(url),path=u.pathname;calls.push({url:String(url),method:init.method||'GET',body:init.body,headers:init.headers,redirect:init.redirect});
   if(options.error)return new Response('sensitive provider details',{status:403});
   let value:any={};let status=200;
@@ -44,8 +46,13 @@ function mock(options:any={}){
   else if(path.includes('/git/ref/heads/aprico-')||path.includes('/functions/aprico-'))status=404;
   else if(path==='/v1/projects/abcdefghijklmnopqrst')value={id:'abcdefghijklmnopqrst',name:'Customer project'};
   else if(path==='/v2/bot/info')value={userId:'U'+'1'.repeat(32),displayName:'Customer OA',basicId:'@demo'};
+  else if(path==='/oauth2/v3/token')value={access_token:'stateless-'+init.body.get('client_id')};
+  else if(path==='/liff/v1/apps'){if(init.method==='GET')status=404;else value={liffId:'1234567891-'+JSON.parse(init.body).view.type};}
+  else if(path==='/v2/bot/user/all/richmenu'&&init.method==='GET'){if(menu)value={richMenuId:menu};else status=404;}
+  else if(path.startsWith('/v2/bot/user/all/richmenu/')&&init.method==='POST'){menu=path.split('/').at(-1)!;}
+  else if(path==='/v2/bot/richmenu'&&init.method==='POST')value={richMenuId:'richmenu-'+'b'.repeat(32)};
   else if(path==='/v2/oauth/verify')value={client_id:options.wrongChannel?'55555555':setup.messagingChannelId};
-  else if(path==='/v2/bot/channel/webhook/endpoint')value={endpoint:init.method==='GET'&&options.existingWebhook?'https://existing.example/hook':''};
+  else if(path==='/v2/bot/channel/webhook/endpoint'){if(init.method==='PUT')webhook=JSON.parse(init.body).endpoint;if(init.method==='GET'&&!webhook)status=404;value={endpoint:webhook,active:options.active===true};}
   else if(path.endsWith('/git/trees'))value={sha:'tree'};
   else if(path.endsWith('/git/commits'))value={sha:'commit'};
   else if(path==='/v2/bot/channel/webhook/test')value={success:options.badSignature?false:true};
@@ -77,6 +84,48 @@ test('GitHub conflicts with an existing branch do not authorize initialization',
  assert.ok(!calls.some(call=>call.method==='PUT'));
 });
 test('deployment writes only isolated branch, project secrets and signed webhook',async()=>{const{fetcher,calls}=mock();const plan=await preflight(project,snapshot,c,fetcher),stages:string[]=[];await executeDeployment(plan,snapshot,artifact,c,async s=>{stages.push(s);},fetcher);assert.equal(stages.at(-1),'awaiting_acceptance');const ref=calls.find(x=>x.url.endsWith('/git/refs'));assert.ok(JSON.parse(ref.body).ref.startsWith('refs/heads/aprico-'));assert.ok(!calls.some(x=>x.method==='PATCH'||x.method==='DELETE'));const tree=calls.find(x=>x.url.endsWith('/git/trees'));assert.ok(!tree.body.includes(c.lineSecret));const form=calls.find(x=>x.url.includes('functions/deploy')).body;assert.equal(JSON.parse(form.get('metadata')).verify_jwt,false);const source=await form.get('file').text();assert.ok(source.includes("crypto.subtle.verify('HMAC'"));assert.ok(!source.includes(c.lineSecret));});
+test('new deployment requests workflow Pages and configures LIFF and menu without storing an access token',async()=>{
+ const {fetcher,calls}=mock({active:true,existingWebhook:true,menu:'richmenu-'+'a'.repeat(32)});
+ const design=emptyDraft();design.name='Test OA';
+ design.cells[0]={action:'half',template:'custom',label:'半頁',content:'半頁入口'};
+ design.cells[1]={action:'full',template:'custom',label:'全頁',content:'全頁入口'};
+ const fixture={design,setup:{...setup,loginChannelId:'1234567891'}},creds={...c,lineToken:'',loginSecret:'1'.repeat(32),actionsPages:true};
+ const t=await preflight(project,fixture,creds,fetcher,true);
+ assert.equal(t.webhookActive,true);assert.equal(t.previousMenuId,'richmenu-'+'a'.repeat(32));assert.ok(t.previousWebhook);assert.ok(!JSON.stringify(t).includes('redact'));
+ const img=Buffer.alloc(33);img.set([137,80,78,71,13,10,26,10]);img.write('IHDR',12);img.writeUInt32BE(1200,16);img.writeUInt32BE(810,20);
+ const reports:any[]=[];
+ await executeDeployment(t,fixture,artifact,creds,async(s,details)=>{reports.push({s,details});},fetcher,undefined,'data:image/png;base64,'+img.toString('base64'));
+ const {system_checks:checks}=reports.at(-1).details;
+ assert.deepEqual(checks.liff,{tall:'1234567891-tall',full:'1234567891-full'});assert.equal(checks.pagesMode,'actions');assert.equal(checks.webhookActive,true);
+ assert.equal(calls.some(call=>call.url.endsWith('/pages')&&call.method==='POST'&&JSON.parse(call.body).build_type==='workflow'),true);
+ const tree=JSON.parse(calls.find(call=>call.url.endsWith('/git/trees')).body).tree;
+ assert.ok(tree.find((file:any)=>file.path==='.github/workflows/aprico-pages.yml'));
+ assert.ok(tree.find((file:any)=>file.path==='liff-tall.html').content.includes('1234567891-tall'));
+ assert.ok(!JSON.stringify(tree).includes(creds.lineSecret));
+ const values=JSON.parse(calls.find(call=>call.url.endsWith('/secrets')).body);
+ assert.ok(values.some((entry:any)=>entry.name.endsWith('_LINE_CHANNEL_ID')));
+ assert.ok(!values.some((entry:any)=>entry.name.endsWith('_LINE_TOKEN')||entry.value===creds.loginSecret));
+ const menu=JSON.parse(calls.find(call=>call.url.endsWith('/richmenu')&&call.method==='POST').body);
+ assert.equal(menu.areas[0].action.uri,'https://liff.line.me/1234567891-tall?apricoCell=1');
+ assert.ok(calls.findIndex(call=>call.url.endsWith('/content'))<calls.findIndex(call=>call.method==='PUT'&&call.url.endsWith('/endpoint')));
+ assert.ok(calls.findIndex(call=>call.method==='PUT'&&call.url.endsWith('/endpoint'))<calls.findIndex(call=>call.method==='POST'&&call.url.includes('/user/all/richmenu/')));
+});
+test('an eight-button published menu covers the image with integer bounds accepted by LINE',()=>{
+ const draft=emptyDraft();draft.grid=8;
+ const bounds=trialAreas(draft,true).map(area=>area.bounds);
+ assert.ok(bounds.every(b=>Object.values(b).every(Number.isInteger)));
+ assert.equal(bounds.at(-1)!.y+bounds.at(-1)!.height,810);
+ assert.equal(bounds.reduce((sum,b)=>sum+b.width*b.height,0),1200*810);
+});
+test('Pages readiness only trusts the deployment-specific marker on the customer Pages URL',async()=>{
+ const target=deploymentTarget(project,setup);
+ assert.equal(await pagesReleaseLive({target},async(url)=>{
+  assert.equal(url,'https://customer.github.io/demo/aprico-release.json');
+  return Response.json({release:target.branch});
+ }),true);
+ assert.equal(await pagesReleaseLive({target},async()=>Response.json({release:'other'})),false);
+ assert.equal(await pagesReleaseLive({target:{...target,owner:'customer.example'}},async()=>{throw Error('must not request');}),false);
+});
 test('wrong Channel Secret test stops before switching OA webhook',async()=>{const{fetcher,calls}=mock({badSignature:true});const plan=await preflight(project,snapshot,c,fetcher);await assert.rejects(executeDeployment(plan,snapshot,artifact,c,async()=>{},fetcher),/webhook_signature_or_readiness_failed/);assert.ok(!calls.some(x=>x.method==='PUT'));});
 test('upstream error responses never disclose credentials or response bodies',async()=>{const{fetcher}=mock({error:true});await assert.rejects(preflight(project,snapshot,c,fetcher),e=>e instanceof Error&&e.message==='github_403');});
 test('backend ignores unsigned events, redirects and repeat delivery',()=>{const source=webhookSource('TEST',{'__proto__':'safe'},'fallback');assert.ok(source.includes('Object.hasOwn'));assert.ok(source.includes('isRedelivery'));assert.ok(source.includes('status:401'));assert.ok(!source.includes('console.log'));});

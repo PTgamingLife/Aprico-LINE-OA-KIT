@@ -72,11 +72,12 @@ export async function appJwt(settings:GithubSettings,now=Date.now()){
  const key=await crypto.subtle.importKey('pkcs8',privateKeyBytes(settings.privateKey),{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
  return head+'.'+body+'.'+base64url(new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,bytes(head+'.'+body))));
 }
-export async function installationToken(settings:GithubSettings,connection:any,repoUrl:string,fetcher:typeof fetch=fetch){
+export async function installationToken(settings:GithubSettings,connection:any,repoUrl:string,fetcher:typeof fetch=fetch,actionsPages=false){
  if(connection?.revoked_at||!Number.isSafeInteger(connection?.installation_id)||!Number.isSafeInteger(connection?.repository_id)||repoUrl.replace(/\/$/,'').toLowerCase()!==('https://github.com/'+connection.full_name).toLowerCase())throw Error('github_binding_mismatch');
  const jwt=await appJwt(settings);
- const issued=await ghRequest(`/app/installations/${connection.installation_id}/access_tokens`,jwt,'POST',{repository_ids:[connection.repository_id],permissions:appPermissions},fetcher);
- if(typeof issued.token!=='string'||!issued.token||!Number.isFinite(Date.parse(issued.expires_at))||Date.parse(issued.expires_at)<=Date.now()||Object.keys(appPermissions).some(key=>issued.permissions?.[key]!=='write'))throw Error('github_installation_unavailable');
+ const permissions=actionsPages?{...appPermissions,workflows:'write'}:appPermissions;
+ const issued=await ghRequest(`/app/installations/${connection.installation_id}/access_tokens`,jwt,'POST',{repository_ids:[connection.repository_id],permissions},fetcher);
+ if(typeof issued.token!=='string'||!issued.token||!Number.isFinite(Date.parse(issued.expires_at))||Date.parse(issued.expires_at)<=Date.now()||Object.keys(permissions).some(key=>issued.permissions?.[key]!=='write'))throw Error('github_installation_unavailable');
  return issued.token as string;
 }
 export async function webhookValid(raw:Uint8Array,signature:string,secret:string){

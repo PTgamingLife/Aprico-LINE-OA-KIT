@@ -1,10 +1,14 @@
-export type BuildSetup={audience:string;purpose:string;scenario:string;success:string;failure:string;human:string;githubRepo:string;supabaseUrl:string;messagingChannelId:string;contactUrl:string;runtimeOwnerId?:string;runtimeAiProvider:'none'|'openai'|'anthropic'|'platform'};
+export type BuildSetup={audience:string;purpose:string;scenario:string;success:string;failure:string;human:string;githubRepo:string;supabaseUrl:string;messagingChannelId:string;contactUrl:string;runtimeOwnerId?:string;loginChannelId?:string;runtimeAiProvider:'none'|'openai'|'anthropic'|'platform'};
 export function emptySetup():BuildSetup{return {audience:'',purpose:'',scenario:'',success:'',failure:'',human:'',githubRepo:'',supabaseUrl:'',messagingChannelId:'',contactUrl:'',runtimeAiProvider:'none'};}
 export function validateSetup(value:unknown):BuildSetup{
  if(!value||typeof value!=='object')throw Error('設定格式不正確');const v=value as BuildSetup;const result=emptySetup();
  for(const key of Object.keys(result) as (keyof BuildSetup)[]){if(key==='runtimeAiProvider')continue;const s=v[key];if(typeof s!=='string'||s.length>2000)throw Error('欄位過長或格式錯誤');result[key]=s.trim();}
  if(!['none','openai','anthropic','platform'].includes(v.runtimeAiProvider))throw Error('AI 供應商不正確');
  if(v.runtimeOwnerId!==undefined&&(typeof v.runtimeOwnerId!=='string'||v.runtimeOwnerId.length>33))throw Error('LINE 使用者 ID 格式錯誤');
+ if(v.loginChannelId!==undefined){
+  if(typeof v.loginChannelId!=='string'||!/^\d{0,20}$/.test(v.loginChannelId.trim()))throw Error('LINE Login Channel ID 格式錯誤');
+  if(v.loginChannelId.trim())result.loginChannelId=v.loginChannelId.trim();
+ }
  result.runtimeAiProvider=v.runtimeAiProvider;
  if(v.runtimeAiProvider==='platform'&&v.runtimeOwnerId)result.runtimeOwnerId=v.runtimeOwnerId.trim();
  return result;

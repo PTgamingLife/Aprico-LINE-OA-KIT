@@ -5,8 +5,8 @@ export const equipment=[
  {id:'voice',name:'聲音與知識',description:'查看各格已保存的功能與回覆需求；需要變更時回到設計頁。',pages:[]},
  {id:'tools',name:'工具包',description:'用自己的 GitHub 專用專案保存程式，並核對授權。',pages:['github-signup','github-create','githubRepo','githubToken']},
  {id:'ring',name:'儲物戒',description:'連接自己的 Supabase 專案，安全保存資料與後端設定。',pages:['supabase-signup','supabase-create','supabaseUrl','supabaseToken']},
- {id:'headset',name:'通訊耳機',description:'核對 LINE OA、Channel Secret 與 Access Token。',pages:['messagingChannelId','lineSecret','lineToken']},
- {id:'badge',name:'啟用徽章',description:'確認任務、等系統完成，再用手機逐項實測。',pages:['review','automatic','webhook','website','lineMessage','menu','liff']}
+ {id:'headset',name:'通訊耳機',description:'核對 LINE OA、Channel ID、Secret 及 LINE 後台設定。',pages:['messagingChannelId','lineSecret','lineToken','webhook','loginChannelId','loginSecret','loginPublish']},
+ {id:'badge',name:'啟用徽章',description:'確認任務、等系統完成，再用手機逐項實測。',pages:['review','automatic','website','lineMessage','menu','liff']}
 ] as const;
 export const equipmentForStep=(id:string)=>equipment.find(e=>(e.pages as readonly string[]).includes(id))?.id||'name';
 export function equipmentProgress(pages:{id:string;done:number;total:number}[],draft:any,saved:boolean){
