@@ -40,9 +40,9 @@ async function initializeGithub(call:DeploymentCall,target:any){
  const current=await githubHead(call,target.repoPath,target.defaultBranch);
  if(await call('github',target.repoPath+'/pages','GET',undefined,true))throw Error('existing_pages_requires_review');
  if(current)return current;
- const created=await call('github',target.repoPath+'/contents/README.md','PUT',{
+ const created=await call('github',target.repoPath+'/contents/.nojekyll','PUT',{
   message:'Initialize repository for Aprico deployment',
-  content:btoa('# Aprico deployment\n\nThe LINE OA website is published from the deployment branch.\n')
+  content:btoa('\n')
  });
  if(!/^[a-f0-9]{40}$/.test(created?.commit?.sha||''))throw Error('repository_initialization_failed');
  return created.commit.sha as string;
@@ -128,7 +128,7 @@ export async function executeDeployment(plan:any,snapshot:any,artifact:unknown,c
  const a=validateArtifact(artifact),call=apiClient(c,fetcher),t=plan;
  await report('github_files');
  const headSha=t.headSha===null?await initializeGithub(call,t):t.headSha;
- const files=a.files.filter(f=>f.path!=='.nojekyll');files.push({path:'.nojekyll',content:''});
+ const files=a.files.filter(f=>!['.nojekyll','README.md'].includes(f.path));files.push({path:'.nojekyll',content:''});
  const tree=await call('github',`${t.repoPath}/git/trees`,'POST',{tree:files.map(f=>({path:f.path,mode:'100644',type:'blob',content:f.content}))});
  const commit=await call('github',`${t.repoPath}/git/commits`,'POST',{message:'Aprico: publish reviewed website draft',tree:tree.sha,parents:[headSha]});
  await call('github',`${t.repoPath}/git/refs`,'POST',{ref:`refs/heads/${t.branch}`,sha:commit.sha});

@@ -183,7 +183,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    </div>}
    {status&&<p role="status" className="notice">{status}</p>}
    {(plan||record?.target)&&<dl>{[['GitHub',(plan||record.target).githubRepo],['Supabase',(plan||record.target).supabaseName],['LINE OA',(plan||record.target).botName]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}</>;
-  if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計。{plan?.headSha===null&&<strong> GitHub repo 目前是空的，開始部署時會先建立 README 和第一筆提交。</strong>} 同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
+  if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計。{plan?.headSha===null&&<strong> GitHub repo 目前是空的，開始部署時會自動建立第一筆提交。</strong>} 同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
   if(unit.kind==='start'){
    const points=credits?.mode==='points';
    const insufficient=points?credits.estimateMax===null||credits.remaining<credits.estimateMax:credits?.remaining===0;

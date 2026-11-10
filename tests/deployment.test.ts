@@ -39,7 +39,7 @@ function mock(options:any={}){
   if(path==='/repos/customer/demo')value={full_name:'customer/demo',permissions:{push:true},private:false,default_branch:'main'};
   else if(path.endsWith('/git/ref/heads/main')){if(head)value={object:{sha:head}};else status=409;}
   else if(path.endsWith('/branches'))value=head||options.otherBranch?[{name:'feature'}]:[];
-  else if(path.endsWith('/contents/README.md')){head='a'.repeat(40);value={commit:{sha:head}};status=201;}
+  else if(path.endsWith('/contents/.nojekyll')){head='a'.repeat(40);value={commit:{sha:head}};status=201;}
   else if(path.endsWith('/pages')&&init.method==='GET'){if(options.existingPages)value={source:{branch:'main'}};else status=404;}
   else if(path.includes('/git/ref/heads/aprico-')||path.includes('/functions/aprico-'))status=404;
   else if(path==='/v1/projects/abcdefghijklmnopqrst')value={id:'abcdefghijklmnopqrst',name:'Customer project'};
@@ -60,10 +60,14 @@ test('empty repo passes read-only verification and gets its first commit only at
  const plan=await preflight(project,snapshot,c,fetcher);
  assert.equal(plan.headSha,null);
  assert.ok(!calls.some(call=>call.method==='PUT'));
- await executeDeployment(plan,snapshot,artifact,c,async()=>{},fetcher);
- const created=calls.find(call=>call.url.endsWith('/contents/README.md'));
+ const legacy={...artifact,files:[...artifact.files,{path:'README.md',content:'Old build notes'}]};
+ await executeDeployment(plan,snapshot,legacy,c,async()=>{},fetcher);
+ const created=calls.find(call=>call.url.endsWith('/contents/.nojekyll'));
  assert.equal(created.method,'PUT');
  assert.equal(JSON.parse(created.body).sha,undefined);
+ assert.equal(atob(JSON.parse(created.body).content),'\n');
+ const tree=calls.find(call=>call.url.endsWith('/git/trees'));
+ assert.ok(JSON.parse(tree.body).tree.every((file:any)=>file.path!=='README.md'));
  const commit=calls.find(call=>call.url.endsWith('/git/commits'));
  assert.deepEqual(JSON.parse(commit.body).parents,['a'.repeat(40)]);
 });
