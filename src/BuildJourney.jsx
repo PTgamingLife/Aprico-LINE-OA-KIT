@@ -90,7 +90,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    const href=unit.url||(q.id==='website'?record?.app_url:q.id==='lineMessage'&&basicId?'https://line.me/R/ti/p/'+encodeURIComponent(basicId):null);
    return <>{href&&!disabled?<a className="detail-link-button" href={href} target="_blank" rel="noreferrer" onClick={()=>acknowledge(unit,true)}>{unit.title} ↗</a>:<button disabled={disabled} aria-pressed={unit.done} onClick={()=>acknowledge(unit,true)}>{liveNeeded&&!deployed?'完成系統關卡後開啟':q.id==='lineMessage'?'我已在手機開啟自己的 OA':unit.title}</button>}{unit.done&&<button className="detail-reset" disabled={disabled} onClick={()=>acknowledge(unit,false)}>取消此項確認</button>}</>;
   }
-  if(unit.kind==='confirm')return <button type="button" aria-pressed={unit.done} disabled={disabled} onClick={()=>acknowledge(unit)}>{unit.done?'✓ 已完成，點此取消':'我已完成這一項 ✓'}</button>;
+  if(unit.kind==='confirm')return <button type="button" aria-pressed={unit.done} disabled={disabled} onClick={()=>acknowledge(unit)}>{unit.done?'✓ 已完成，點此取消':'完成這一項請點選✅'}</button>;
   if(unit.kind==='field')return <label>{unit.label}<textarea rows={q.id==='messagingChannelId'?1:3} value={setup[unit.field]||''} maxLength={2000} placeholder={unit.hint} onChange={e=>change(unit.field,e.target.value)}/></label>;
   if(unit.kind==='credential')return <label>{unit.label}<input type="password" autoComplete="off" value={secrets[unit.field]} maxLength={q.id==='lineSecret'?32:6000} onChange={e=>change(unit.field,e.target.value,true)}/><small>僅留在目前頁面，未保存憑證原文。</small></label>;
   if(unit.kind==='save')return <button className="primary" disabled={busy||!units.find(d=>d.kind==='field')?.done} onClick={save}>{busy?'保存中…':unit.done?'✓ 已保存，再次保存':'保存這項資料'}</button>;
