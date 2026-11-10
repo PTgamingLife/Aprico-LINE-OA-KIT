@@ -1,182 +1,666 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {credentials,deploymentTarget,preflight,executeDeployment,webhookSource,interactiveReply} from '../supabase/functions/_shared/deploy-engine.ts';
-import {pagesReleaseLive} from '../supabase/functions/_shared/deploy-integrations.ts';
-import {deploymentAction,deploymentIssue} from '../supabase/functions/_shared/deploy-handler.ts';
-import {emptyDraft} from '../src/model.ts';
-import {trialAreas} from '../src/trial-model.ts';
-import {emptySetup} from '../src/build-model.ts';
-const project='11111111-1111-4111-8111-111111111111';
-const setup={githubRepo:'https://github.com/customer/demo',supabaseUrl:'https://abcdefghijklmnopqrst.supabase.co',messagingChannelId:'1234567890',failure:'請聯絡專員'};
-const snapshot={setup,design:{name:'My project',grid:4,cells:[{label:'預約',action:'message',content:'請留下時間'}]}};
-const c={githubToken:'github-fixture',supabaseToken:'supabase-fixture',lineToken:'line-fixture',lineSecret:'0'.repeat(32)};
-const artifact={summary:'draft',files:[{path:'index.html',content:'<h1>hello</h1>'}],manualSteps:[]};
-function completeTargets(){const design=emptyDraft();design.name='Fixture';design.oaName='Fixture OA';design.cells.forEach(cell=>{cell.label='服務';cell.content='固定文字';});const s={...emptySetup(),...setup,audience:'顧客',purpose:'服務',scenario:'詢問',success:'收到回覆',human:'客服'};return{project:{id:project,revision:7,config:design},access:{setup:s,setup_revision:4}};}
-test('pre-generation target check is read-only, uses saved targets and returns no credentials',async()=>{
- const f=completeTargets(),m=mock();const r=await deploymentAction({action:'deploy_target_check',credentials:c,setup:{githubRepo:'https://evil.example'}},{},'verified-subject',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{throw Error('must not start work');},m.fetcher);
- assert.equal(r.status,200);const out=await r.json();assert.equal(out.plan.githubRepo,'customer/demo');assert.equal(out.designRevision,7);assert.equal(out.setupRevision,4);assert.ok(!JSON.stringify(out).includes(c.lineToken));assert.ok(m.calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));
-});
-test('unsupported runtime modules are refused before any network or paid generation',async()=>{
- const f=completeTargets();f.access.setup.runtimeAiProvider='openai';let calls=0;
- const r=await deploymentAction({action:'deploy_target_check',credentials:c},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{throw Error('must not start work');},async()=>{calls++;throw Error('must not call');});assert.equal(r.status,409);assert.equal(calls,0);
-});
-test('App preflight uses a server-resolved repository identity and revokes its token after checking',async()=>{
- const f=completeTargets(),m=mock();let released=0,resolved=0;
- const fetcher=(async(url:any,init:any)=>{const r=await m.fetcher(url,init);if(new URL(url).pathname==='/repos/customer/demo')return Response.json({...await r.json(),id:8,permissions:undefined});return r;}) as typeof fetch;
- const result=await deploymentAction({action:'deploy_target_check',githubApp:true,credentials:{...c,githubToken:''}},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{},fetcher,async()=>{resolved++;return {token:'installation-fixture',repositoryId:8,release:async()=>{released++;}};});
- assert.equal(result.status,200);assert.equal(resolved,1);assert.equal(released,1);assert.ok(m.calls.filter(x=>x.url.startsWith('https://api.github.com')).every(x=>x.headers.Authorization==='Bearer installation-fixture'));assert.ok(!(await result.text()).includes('installation-fixture'));
-});
-test('failed App preflight revokes its token and cannot fall back to a supplied manual token',async()=>{
- const f=completeTargets(),m=mock({error:true});let released=0;
- const result=await deploymentAction({action:'deploy_target_check',githubApp:true,credentials:c},{},'verified',f.project,f.access,(v,s=200)=>Response.json(v,{status:s}),()=>{},m.fetcher,async()=>({token:'app-fixture',repositoryId:8,release:async()=>{released++;}}));
- assert.equal(result.status,409);assert.equal(released,1);assert.ok(m.calls.every(x=>x.headers.Authorization!=='Bearer '+c.githubToken));
- assert.equal((credentials({...c,githubRepositoryId:8}) as any).githubRepositoryId,undefined);
-});
-function mock(options:any={}){
- const calls:any[]=[];let head=options.emptyRepo?'':'initial';let menu:string|null=options.menu||null,webhook=options.existingWebhook?'https://existing.example/hook?private=redact':'';
- const fetcher=(async(url:any,init:any={})=>{const u=new URL(url),path=u.pathname;calls.push({url:String(url),method:init.method||'GET',body:init.body,headers:init.headers,redirect:init.redirect});
-  if(options.error)return new Response('sensitive provider details',{status:403});
-  let value:any={};let status=200;
-  if(path==='/repos/customer/demo')value={full_name:'customer/demo',permissions:{push:true},private:false,default_branch:'main'};
-  else if(path.endsWith('/git/ref/heads/main')){if(head)value={object:{sha:head}};else status=409;}
-  else if(path.endsWith('/branches'))value=head||options.otherBranch?[{name:'feature'}]:[];
-  else if(path.endsWith('/contents/.nojekyll')){head='a'.repeat(40);value={commit:{sha:head}};status=201;}
-  else if(path.endsWith('/pages')&&init.method==='GET'){if(options.existingPages)value={source:{branch:'main'}};else status=404;}
-  else if(path.includes('/git/ref/heads/aprico-')||path.includes('/functions/aprico-'))status=404;
-  else if(path==='/v1/projects/abcdefghijklmnopqrst')value={id:'abcdefghijklmnopqrst',name:'Customer project'};
-  else if(path==='/v2/bot/info')value={userId:'U'+'1'.repeat(32),displayName:'Customer OA',basicId:'@demo'};
-  else if(path==='/oauth2/v3/token')value={access_token:'stateless-'+init.body.get('client_id')};
-  else if(path==='/liff/v1/apps'){if(init.method==='GET')status=404;else value={liffId:'1234567891-'+JSON.parse(init.body).view.type};}
-  else if(path==='/v2/bot/user/all/richmenu'&&init.method==='GET'){if(menu)value={richMenuId:menu};else status=404;}
-  else if(path.startsWith('/v2/bot/user/all/richmenu/')&&init.method==='POST'){menu=path.split('/').at(-1)!;}
-  else if(path==='/v2/bot/richmenu'&&init.method==='POST')value={richMenuId:'richmenu-'+'b'.repeat(32)};
-  else if(path==='/v2/oauth/verify')value={client_id:options.wrongChannel?'55555555':setup.messagingChannelId};
-  else if(path==='/v2/bot/channel/webhook/endpoint'){if(init.method==='PUT')webhook=JSON.parse(init.body).endpoint;if(init.method==='GET'&&!webhook)status=404;value={endpoint:webhook,active:options.active===true};}
-  else if(path.endsWith('/git/trees'))value={sha:'tree'};
-  else if(path.endsWith('/git/commits'))value={sha:'commit'};
-  else if(path==='/v2/bot/channel/webhook/test')value={success:options.badSignature?false:true};
-  return Response.json(value,{status});}) as typeof fetch;
- return{fetcher,calls};
+import {
+  credentials,
+  deploymentTarget,
+  preflight,
+  executeDeployment,
+  webhookSource,
+  interactiveReply,
+} from '../supabase/functions/_shared/deploy-engine.ts';
+import { pagesReleaseLive } from '../supabase/functions/_shared/deploy-integrations.ts';
+import { deploymentAction, deploymentIssue } from '../supabase/functions/_shared/deploy-handler.ts';
+import { emptyDraft } from '../src/model.ts';
+import { trialAreas } from '../src/trial-model.ts';
+import { emptySetup } from '../src/build-model.ts';
+const project = '11111111-1111-4111-8111-111111111111';
+const setup = {
+  githubRepo: 'https://github.com/customer/demo',
+  supabaseUrl: 'https://abcdefghijklmnopqrst.supabase.co',
+  messagingChannelId: '1234567890',
+  failure: '請聯絡專員',
+};
+const snapshot = {
+  setup,
+  design: {
+    name: 'My project',
+    grid: 4,
+    cells: [{ label: '預約', action: 'message', content: '請留下時間' }],
+  },
+};
+const c = {
+  githubToken: 'github-fixture',
+  supabaseToken: 'supabase-fixture',
+  lineToken: 'line-fixture',
+  lineSecret: '0'.repeat(32),
+};
+const artifact = {
+  summary: 'draft',
+  files: [{ path: 'index.html', content: '<h1>hello</h1>' }],
+  manualSteps: [],
+};
+function completeTargets() {
+  const design = emptyDraft();
+  design.name = 'Fixture';
+  design.oaName = 'Fixture OA';
+  design.cells.forEach((cell) => {
+    cell.label = '服務';
+    cell.content = '固定文字';
+  });
+  const s = {
+    ...emptySetup(),
+    ...setup,
+    audience: '顧客',
+    purpose: '服務',
+    scenario: '詢問',
+    success: '收到回覆',
+    human: '客服',
+  };
+  return {
+    project: { id: project, revision: 7, config: design },
+    access: { setup: s, setup_revision: 4 },
+  };
 }
-test('credentials and target validation reject missing secrets and SSRF',()=>{assert.throws(()=>credentials({...c,lineSecret:'wrong'}));assert.throws(()=>deploymentTarget(project,{...setup,supabaseUrl:'https://attacker.example'}));assert.throws(()=>deploymentTarget(project,{...setup,githubRepo:'https://github.com@attacker.example/a/b'}));assert.equal(deploymentTarget(project,setup,'My project').prefix.startsWith('MY_PROJECT_'),true);});
-test('preflight makes no resource writes and never returns credentials',async()=>{const{fetcher,calls}=mock();const plan=await preflight(project,snapshot,c,fetcher);assert.equal(plan.botName,'Customer OA');assert.ok(!JSON.stringify(plan).includes(c.lineToken));assert.ok(calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));assert.ok(calls.every(x=>x.redirect==='error'));});
-test('existing website, mismatched channel and existing webhook block deployment',async()=>{for(const options of [{existingPages:true},{wrongChannel:true},{existingWebhook:true}]){const{fetcher,calls}=mock(options);await assert.rejects(preflight(project,snapshot,c,fetcher));assert.ok(calls.every(x=>x.method==='GET'||x.url==='https://api.line.me/v2/oauth/verify'));}});
-test('empty repo passes read-only verification and gets its first commit only at deployment',async()=>{
- const {fetcher,calls}=mock({emptyRepo:true});
- const plan=await preflight(project,snapshot,c,fetcher);
- assert.equal(plan.headSha,null);
- assert.ok(!calls.some(call=>call.method==='PUT'));
- const legacy={...artifact,files:[...artifact.files,{path:'README.md',content:'Old build notes'}]};
- await executeDeployment(plan,snapshot,legacy,c,async()=>{},fetcher);
- const created=calls.find(call=>call.url.endsWith('/contents/.nojekyll'));
- assert.equal(created.method,'PUT');
- assert.equal(JSON.parse(created.body).sha,undefined);
- assert.equal(atob(JSON.parse(created.body).content),'\n');
- const tree=calls.find(call=>call.url.endsWith('/git/trees'));
- assert.ok(JSON.parse(tree.body).tree.every((file:any)=>file.path!=='README.md'));
- const commit=calls.find(call=>call.url.endsWith('/git/commits'));
- assert.deepEqual(JSON.parse(commit.body).parents,['a'.repeat(40)]);
+test('pre-generation target check is read-only, uses saved targets and returns no credentials', async () => {
+  const f = completeTargets(),
+    m = mock();
+  const r = await deploymentAction(
+    {
+      action: 'deploy_target_check',
+      credentials: c,
+      setup: { githubRepo: 'https://evil.example' },
+    },
+    {},
+    'verified-subject',
+    f.project,
+    f.access,
+    (v, s = 200) => Response.json(v, { status: s }),
+    () => {
+      throw Error('must not start work');
+    },
+    m.fetcher,
+  );
+  assert.equal(r.status, 200);
+  const out = await r.json();
+  assert.equal(out.plan.githubRepo, 'customer/demo');
+  assert.equal(out.designRevision, 7);
+  assert.equal(out.setupRevision, 4);
+  assert.ok(!JSON.stringify(out).includes(c.lineToken));
+  assert.ok(
+    m.calls.every((x) => x.method === 'GET' || x.url === 'https://api.line.me/v2/oauth/verify'),
+  );
 });
-test('GitHub conflicts with an existing branch do not authorize initialization',async()=>{
- const {fetcher,calls}=mock({emptyRepo:true,otherBranch:true});
- await assert.rejects(preflight(project,snapshot,c,fetcher),/repository_default_branch_unavailable/);
- assert.ok(!calls.some(call=>call.method==='PUT'));
+test('unsupported runtime modules are refused before any network or paid generation', async () => {
+  const f = completeTargets();
+  f.access.setup.runtimeAiProvider = 'openai';
+  let calls = 0;
+  const r = await deploymentAction(
+    { action: 'deploy_target_check', credentials: c },
+    {},
+    'verified',
+    f.project,
+    f.access,
+    (v, s = 200) => Response.json(v, { status: s }),
+    () => {
+      throw Error('must not start work');
+    },
+    async () => {
+      calls++;
+      throw Error('must not call');
+    },
+  );
+  assert.equal(r.status, 409);
+  assert.equal(calls, 0);
 });
-test('deployment writes only isolated branch, project secrets and signed webhook',async()=>{const{fetcher,calls}=mock();const plan=await preflight(project,snapshot,c,fetcher),stages:string[]=[];await executeDeployment(plan,snapshot,artifact,c,async s=>{stages.push(s);},fetcher);assert.equal(stages.at(-1),'awaiting_acceptance');const ref=calls.find(x=>x.url.endsWith('/git/refs'));assert.ok(JSON.parse(ref.body).ref.startsWith('refs/heads/aprico-'));assert.ok(!calls.some(x=>x.method==='PATCH'||x.method==='DELETE'));const tree=calls.find(x=>x.url.endsWith('/git/trees'));assert.ok(!tree.body.includes(c.lineSecret));const form=calls.find(x=>x.url.includes('functions/deploy')).body;assert.equal(JSON.parse(form.get('metadata')).verify_jwt,false);const source=await form.get('file').text();assert.ok(source.includes("crypto.subtle.verify('HMAC'"));assert.ok(!source.includes(c.lineSecret));});
-test('new deployment requests workflow Pages and configures LIFF and menu without storing an access token',async()=>{
- const {fetcher,calls}=mock({active:true,existingWebhook:true,menu:'richmenu-'+'a'.repeat(32)});
- const design=emptyDraft();design.name='Test OA';
- design.cells[0]={action:'half',template:'custom',label:'半頁',content:'半頁入口'};
- design.cells[1]={action:'full',template:'custom',label:'全頁',content:'全頁入口'};
- const fixture={design,setup:{...setup,loginChannelId:'1234567891'}},creds={...c,lineToken:'',loginSecret:'1'.repeat(32),actionsPages:true};
- const t=await preflight(project,fixture,creds,fetcher,true);
- assert.equal(t.webhookActive,true);assert.equal(t.previousMenuId,'richmenu-'+'a'.repeat(32));assert.ok(t.previousWebhook);assert.ok(!JSON.stringify(t).includes('redact'));
- const img=Buffer.alloc(33);img.set([137,80,78,71,13,10,26,10]);img.write('IHDR',12);img.writeUInt32BE(1200,16);img.writeUInt32BE(810,20);
- const reports:any[]=[];
- await executeDeployment(t,fixture,artifact,creds,async(s,details)=>{reports.push({s,details});},fetcher,undefined,'data:image/png;base64,'+img.toString('base64'));
- const {system_checks:checks}=reports.at(-1).details;
- assert.deepEqual(checks.liff,{tall:'1234567891-tall',full:'1234567891-full'});assert.equal(checks.pagesMode,'actions');assert.equal(checks.webhookActive,true);
- assert.equal(calls.some(call=>call.url.endsWith('/pages')&&call.method==='POST'&&JSON.parse(call.body).build_type==='workflow'),true);
- const tree=JSON.parse(calls.find(call=>call.url.endsWith('/git/trees')).body).tree;
- assert.ok(tree.find((file:any)=>file.path==='.github/workflows/aprico-pages.yml'));
- assert.ok(tree.find((file:any)=>file.path==='liff-tall.html').content.includes('1234567891-tall'));
- assert.ok(!JSON.stringify(tree).includes(creds.lineSecret));
- const values=JSON.parse(calls.find(call=>call.url.endsWith('/secrets')).body);
- assert.ok(values.some((entry:any)=>entry.name.endsWith('_LINE_CHANNEL_ID')));
- assert.ok(!values.some((entry:any)=>entry.name.endsWith('_LINE_TOKEN')||entry.value===creds.loginSecret));
- const menu=JSON.parse(calls.find(call=>call.url.endsWith('/richmenu')&&call.method==='POST').body);
- assert.equal(menu.areas[0].action.uri,'https://liff.line.me/1234567891-tall?apricoCell=1');
- assert.ok(calls.findIndex(call=>call.url.endsWith('/content'))<calls.findIndex(call=>call.method==='PUT'&&call.url.endsWith('/endpoint')));
- assert.ok(calls.findIndex(call=>call.method==='PUT'&&call.url.endsWith('/endpoint'))<calls.findIndex(call=>call.method==='POST'&&call.url.includes('/user/all/richmenu/')));
+test('App preflight uses a server-resolved repository identity and revokes its token after checking', async () => {
+  const f = completeTargets(),
+    m = mock();
+  let released = 0,
+    resolved = 0;
+  const fetcher = (async (url: any, init: any) => {
+    const r = await m.fetcher(url, init);
+    if (new URL(url).pathname === '/repos/customer/demo')
+      return Response.json({ ...(await r.json()), id: 8, permissions: undefined });
+    return r;
+  }) as typeof fetch;
+  const result = await deploymentAction(
+    { action: 'deploy_target_check', githubApp: true, credentials: { ...c, githubToken: '' } },
+    {},
+    'verified',
+    f.project,
+    f.access,
+    (v, s = 200) => Response.json(v, { status: s }),
+    () => {},
+    fetcher,
+    async () => {
+      resolved++;
+      return {
+        token: 'installation-fixture',
+        repositoryId: 8,
+        release: async () => {
+          released++;
+        },
+      };
+    },
+  );
+  assert.equal(result.status, 200);
+  assert.equal(resolved, 1);
+  assert.equal(released, 1);
+  assert.ok(
+    m.calls
+      .filter((x) => x.url.startsWith('https://api.github.com'))
+      .every((x) => x.headers.Authorization === 'Bearer installation-fixture'),
+  );
+  assert.ok(!(await result.text()).includes('installation-fixture'));
 });
-test('an eight-button published menu covers the image with integer bounds accepted by LINE',()=>{
- const draft=emptyDraft();draft.grid=8;
- const bounds=trialAreas(draft,true).map(area=>area.bounds);
- assert.ok(bounds.every(b=>Object.values(b).every(Number.isInteger)));
- assert.equal(bounds.at(-1)!.y+bounds.at(-1)!.height,810);
- assert.equal(bounds.reduce((sum,b)=>sum+b.width*b.height,0),1200*810);
+test('failed App preflight revokes its token and cannot fall back to a supplied manual token', async () => {
+  const f = completeTargets(),
+    m = mock({ error: true });
+  let released = 0;
+  const result = await deploymentAction(
+    { action: 'deploy_target_check', githubApp: true, credentials: c },
+    {},
+    'verified',
+    f.project,
+    f.access,
+    (v, s = 200) => Response.json(v, { status: s }),
+    () => {},
+    m.fetcher,
+    async () => ({
+      token: 'app-fixture',
+      repositoryId: 8,
+      release: async () => {
+        released++;
+      },
+    }),
+  );
+  assert.equal(result.status, 409);
+  assert.equal(released, 1);
+  assert.ok(m.calls.every((x) => x.headers.Authorization !== 'Bearer ' + c.githubToken));
+  assert.equal((credentials({ ...c, githubRepositoryId: 8 }) as any).githubRepositoryId, undefined);
 });
-test('Pages readiness only trusts the deployment-specific marker on the customer Pages URL',async()=>{
- const target=deploymentTarget(project,setup);
- assert.equal(await pagesReleaseLive({target},async(url)=>{
-  assert.equal(url,'https://customer.github.io/demo/aprico-release.json');
-  return Response.json({release:target.branch});
- }),true);
- assert.equal(await pagesReleaseLive({target},async()=>Response.json({release:'other'})),false);
- assert.equal(await pagesReleaseLive({target:{...target,owner:'customer.example'}},async()=>{throw Error('must not request');}),false);
+function mock(options: any = {}) {
+  const calls: any[] = [];
+  let head = options.emptyRepo ? '' : 'initial';
+  let menu: string | null = options.menu || null,
+    webhook = options.existingWebhook ? 'https://existing.example/hook?private=redact' : '';
+  const fetcher = (async (url: any, init: any = {}) => {
+    const u = new URL(url),
+      path = u.pathname;
+    calls.push({
+      url: String(url),
+      method: init.method || 'GET',
+      body: init.body,
+      headers: init.headers,
+      redirect: init.redirect,
+    });
+    if (options.error) return new Response('sensitive provider details', { status: 403 });
+    let value: any = {};
+    let status = 200;
+    if (path === '/repos/customer/demo')
+      value = {
+        full_name: 'customer/demo',
+        permissions: { push: true },
+        private: false,
+        default_branch: 'main',
+      };
+    else if (path.endsWith('/git/ref/heads/main')) {
+      if (head) value = { object: { sha: head } };
+      else status = 409;
+    } else if (path.endsWith('/branches'))
+      value = head || options.otherBranch ? [{ name: 'feature' }] : [];
+    else if (path.endsWith('/contents/.nojekyll')) {
+      head = 'a'.repeat(40);
+      value = { commit: { sha: head } };
+      status = 201;
+    } else if (path.endsWith('/pages') && init.method === 'GET') {
+      if (options.existingPages) value = { source: { branch: 'main' } };
+      else status = 404;
+    } else if (path.includes('/git/ref/heads/aprico-') || path.includes('/functions/aprico-'))
+      status = 404;
+    else if (path === '/v1/projects/abcdefghijklmnopqrst')
+      value = { id: 'abcdefghijklmnopqrst', name: 'Customer project' };
+    else if (path === '/v2/bot/info')
+      value = { userId: 'U' + '1'.repeat(32), displayName: 'Customer OA', basicId: '@demo' };
+    else if (path === '/oauth2/v3/token')
+      value = { access_token: 'stateless-' + init.body.get('client_id') };
+    else if (path === '/liff/v1/apps') {
+      if (init.method === 'GET') status = 404;
+      else value = { liffId: '1234567891-' + JSON.parse(init.body).view.type };
+    } else if (path === '/v2/bot/user/all/richmenu' && init.method === 'GET') {
+      if (menu) value = { richMenuId: menu };
+      else status = 404;
+    } else if (path.startsWith('/v2/bot/user/all/richmenu/') && init.method === 'POST') {
+      menu = path.split('/').at(-1)!;
+    } else if (path === '/v2/bot/richmenu' && init.method === 'POST')
+      value = { richMenuId: 'richmenu-' + 'b'.repeat(32) };
+    else if (path === '/v2/oauth/verify')
+      value = { client_id: options.wrongChannel ? '55555555' : setup.messagingChannelId };
+    else if (path === '/v2/bot/channel/webhook/endpoint') {
+      if (init.method === 'PUT') webhook = JSON.parse(init.body).endpoint;
+      if (init.method === 'GET' && !webhook) status = 404;
+      value = { endpoint: webhook, active: options.active === true };
+    } else if (path.endsWith('/git/trees')) value = { sha: 'tree' };
+    else if (path.endsWith('/git/commits')) value = { sha: 'commit' };
+    else if (path === '/v2/bot/channel/webhook/test')
+      value = { success: options.badSignature ? false : true };
+    return Response.json(value, { status });
+  }) as typeof fetch;
+  return { fetcher, calls };
+}
+test('credentials and target validation reject missing secrets and SSRF', () => {
+  assert.throws(() => credentials({ ...c, lineSecret: 'wrong' }));
+  assert.throws(() =>
+    deploymentTarget(project, { ...setup, supabaseUrl: 'https://attacker.example' }),
+  );
+  assert.throws(() =>
+    deploymentTarget(project, { ...setup, githubRepo: 'https://github.com@attacker.example/a/b' }),
+  );
+  assert.equal(
+    deploymentTarget(project, setup, 'My project').prefix.startsWith('MY_PROJECT_'),
+    true,
+  );
 });
-test('wrong Channel Secret test stops before switching OA webhook',async()=>{const{fetcher,calls}=mock({badSignature:true});const plan=await preflight(project,snapshot,c,fetcher);await assert.rejects(executeDeployment(plan,snapshot,artifact,c,async()=>{},fetcher),/webhook_signature_or_readiness_failed/);assert.ok(!calls.some(x=>x.method==='PUT'));});
-test('upstream error responses never disclose credentials or response bodies',async()=>{const{fetcher}=mock({error:true});await assert.rejects(preflight(project,snapshot,c,fetcher),e=>e instanceof Error&&e.message==='github_403');});
-test('backend ignores unsigned events, redirects and repeat delivery',()=>{const source=webhookSource('TEST',{'__proto__':'safe'},'fallback');assert.ok(source.includes('Object.hasOwn'));assert.ok(source.includes('isRedelivery'));assert.ok(source.includes('status:401'));assert.ok(!source.includes('console.log'));});
-test('trusted webhook actually verifies HMAC before processing events',async()=>{
- let handler:any;let replies=0;const secret='fixture-secret';
- vm.runInNewContext(webhookSource('TEST',{'預約':'已收到預約'},'fallback'),{Deno:{serve(fn:any){handler=fn;},env:{get(key:string){return key.endsWith('_SECRET')?secret:'fixture-token';}}},crypto,TextEncoder,TextDecoder,Uint8Array,Response,AbortSignal,atob,fetch:async()=>{replies++;return new Response('{}');}});
- const body=JSON.stringify({events:[{type:'message',message:{type:'text',text:'預約'},replyToken:'fixture'}]});
- assert.equal((await handler(new Request('https://example.test',{method:'POST',body}))).status,401);assert.equal(replies,0);
- const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)))));
- assert.equal((await handler(new Request('https://example.test',{method:'POST',body,headers:{'x-line-signature':sig}}))).status,200);assert.equal(replies,1);
- const altered=body.replace('預約','其他');assert.equal((await handler(new Request('https://example.test',{method:'POST',body:altered,headers:{'x-line-signature':sig}}))).status,401);assert.equal(replies,1);
+test('preflight makes no resource writes and never returns credentials', async () => {
+  const { fetcher, calls } = mock();
+  const plan = await preflight(project, snapshot, c, fetcher);
+  assert.equal(plan.botName, 'Customer OA');
+  assert.ok(!JSON.stringify(plan).includes(c.lineToken));
+  assert.ok(
+    calls.every((x) => x.method === 'GET' || x.url === 'https://api.line.me/v2/oauth/verify'),
+  );
+  assert.ok(calls.every((x) => x.redirect === 'error'));
+});
+test('existing website, mismatched channel and existing webhook block deployment', async () => {
+  for (const options of [
+    { existingPages: true },
+    { wrongChannel: true },
+    { existingWebhook: true },
+  ]) {
+    const { fetcher, calls } = mock(options);
+    await assert.rejects(preflight(project, snapshot, c, fetcher));
+    assert.ok(
+      calls.every((x) => x.method === 'GET' || x.url === 'https://api.line.me/v2/oauth/verify'),
+    );
+  }
+});
+test('empty repo passes read-only verification and gets its first commit only at deployment', async () => {
+  const { fetcher, calls } = mock({ emptyRepo: true });
+  const plan = await preflight(project, snapshot, c, fetcher);
+  assert.equal(plan.headSha, null);
+  assert.ok(!calls.some((call) => call.method === 'PUT'));
+  const legacy = {
+    ...artifact,
+    files: [...artifact.files, { path: 'README.md', content: 'Old build notes' }],
+  };
+  await executeDeployment(plan, snapshot, legacy, c, async () => {}, fetcher);
+  const created = calls.find((call) => call.url.endsWith('/contents/.nojekyll'));
+  assert.equal(created.method, 'PUT');
+  assert.equal(JSON.parse(created.body).sha, undefined);
+  assert.equal(atob(JSON.parse(created.body).content), '\n');
+  const tree = calls.find((call) => call.url.endsWith('/git/trees'));
+  assert.ok(JSON.parse(tree.body).tree.every((file: any) => file.path !== 'README.md'));
+  const commit = calls.find((call) => call.url.endsWith('/git/commits'));
+  assert.deepEqual(JSON.parse(commit.body).parents, ['a'.repeat(40)]);
+});
+test('GitHub conflicts with an existing branch do not authorize initialization', async () => {
+  const { fetcher, calls } = mock({ emptyRepo: true, otherBranch: true });
+  await assert.rejects(
+    preflight(project, snapshot, c, fetcher),
+    /repository_default_branch_unavailable/,
+  );
+  assert.ok(!calls.some((call) => call.method === 'PUT'));
+});
+test('deployment writes only isolated branch, project secrets and signed webhook', async () => {
+  const { fetcher, calls } = mock();
+  const plan = await preflight(project, snapshot, c, fetcher),
+    stages: string[] = [];
+  await executeDeployment(
+    plan,
+    snapshot,
+    artifact,
+    c,
+    async (s) => {
+      stages.push(s);
+    },
+    fetcher,
+  );
+  assert.equal(stages.at(-1), 'awaiting_acceptance');
+  const ref = calls.find((x) => x.url.endsWith('/git/refs'));
+  assert.ok(JSON.parse(ref.body).ref.startsWith('refs/heads/aprico-'));
+  assert.ok(!calls.some((x) => x.method === 'PATCH' || x.method === 'DELETE'));
+  const tree = calls.find((x) => x.url.endsWith('/git/trees'));
+  assert.ok(!tree.body.includes(c.lineSecret));
+  const form = calls.find((x) => x.url.includes('functions/deploy')).body;
+  assert.equal(JSON.parse(form.get('metadata')).verify_jwt, false);
+  const source = await form.get('file').text();
+  assert.ok(source.includes("crypto.subtle.verify('HMAC'"));
+  assert.ok(!source.includes(c.lineSecret));
+});
+test('new deployment requests workflow Pages and configures LIFF and menu without storing an access token', async () => {
+  const { fetcher, calls } = mock({
+    active: true,
+    existingWebhook: true,
+    menu: 'richmenu-' + 'a'.repeat(32),
+  });
+  const design = emptyDraft();
+  design.name = 'Test OA';
+  design.cells[0] = { action: 'half', template: 'custom', label: '半頁', content: '半頁入口' };
+  design.cells[1] = { action: 'full', template: 'custom', label: '全頁', content: '全頁入口' };
+  const fixture = { design, setup: { ...setup, loginChannelId: '1234567891' } },
+    creds = { ...c, lineToken: '', loginSecret: '1'.repeat(32), actionsPages: true };
+  const t = await preflight(project, fixture, creds, fetcher, true);
+  assert.equal(t.webhookActive, true);
+  assert.equal(t.previousMenuId, 'richmenu-' + 'a'.repeat(32));
+  assert.ok(t.previousWebhook);
+  assert.ok(!JSON.stringify(t).includes('redact'));
+  const img = Buffer.alloc(33);
+  img.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  img.write('IHDR', 12);
+  img.writeUInt32BE(1200, 16);
+  img.writeUInt32BE(810, 20);
+  const reports: any[] = [];
+  await executeDeployment(
+    t,
+    fixture,
+    artifact,
+    creds,
+    async (s, details) => {
+      reports.push({ s, details });
+    },
+    fetcher,
+    undefined,
+    'data:image/png;base64,' + img.toString('base64'),
+  );
+  const { system_checks: checks } = reports.at(-1).details;
+  assert.deepEqual(checks.liff, { tall: '1234567891-tall', full: '1234567891-full' });
+  assert.equal(checks.pagesMode, 'actions');
+  assert.equal(checks.webhookActive, true);
+  assert.equal(
+    calls.some(
+      (call) =>
+        call.url.endsWith('/pages') &&
+        call.method === 'POST' &&
+        JSON.parse(call.body).build_type === 'workflow',
+    ),
+    true,
+  );
+  const tree = JSON.parse(calls.find((call) => call.url.endsWith('/git/trees')).body).tree;
+  assert.ok(tree.find((file: any) => file.path === '.github/workflows/aprico-pages.yml'));
+  assert.ok(
+    tree.find((file: any) => file.path === 'liff-tall.html').content.includes('1234567891-tall'),
+  );
+  assert.ok(!JSON.stringify(tree).includes(creds.lineSecret));
+  const values = JSON.parse(calls.find((call) => call.url.endsWith('/secrets')).body);
+  assert.ok(values.some((entry: any) => entry.name.endsWith('_LINE_CHANNEL_ID')));
+  assert.ok(
+    !values.some(
+      (entry: any) => entry.name.endsWith('_LINE_TOKEN') || entry.value === creds.loginSecret,
+    ),
+  );
+  const menu = JSON.parse(
+    calls.find((call) => call.url.endsWith('/richmenu') && call.method === 'POST').body,
+  );
+  assert.equal(menu.areas[0].action.uri, 'https://liff.line.me/1234567891-tall?apricoCell=1');
+  assert.ok(
+    calls.findIndex((call) => call.url.endsWith('/content')) <
+      calls.findIndex((call) => call.method === 'PUT' && call.url.endsWith('/endpoint')),
+  );
+  assert.ok(
+    calls.findIndex((call) => call.method === 'PUT' && call.url.endsWith('/endpoint')) <
+      calls.findIndex((call) => call.method === 'POST' && call.url.includes('/user/all/richmenu/')),
+  );
+});
+test('an eight-button published menu covers the image with integer bounds accepted by LINE', () => {
+  const draft = emptyDraft();
+  draft.grid = 8;
+  const bounds = trialAreas(draft, true).map((area) => area.bounds);
+  assert.ok(bounds.every((b) => Object.values(b).every(Number.isInteger)));
+  assert.equal(bounds.at(-1)!.y + bounds.at(-1)!.height, 810);
+  assert.equal(
+    bounds.reduce((sum, b) => sum + b.width * b.height, 0),
+    1200 * 810,
+  );
+});
+test('Pages readiness only trusts the deployment-specific marker on the customer Pages URL', async () => {
+  const target = deploymentTarget(project, setup);
+  assert.equal(
+    await pagesReleaseLive({ target }, async (url) => {
+      assert.equal(url, 'https://customer.github.io/demo/aprico-release.json');
+      return Response.json({ release: target.branch });
+    }),
+    true,
+  );
+  assert.equal(
+    await pagesReleaseLive({ target }, async () => Response.json({ release: 'other' })),
+    false,
+  );
+  assert.equal(
+    await pagesReleaseLive({ target: { ...target, owner: 'customer.example' } }, async () => {
+      throw Error('must not request');
+    }),
+    false,
+  );
+});
+test('wrong Channel Secret test stops before switching OA webhook', async () => {
+  const { fetcher, calls } = mock({ badSignature: true });
+  const plan = await preflight(project, snapshot, c, fetcher);
+  await assert.rejects(
+    executeDeployment(plan, snapshot, artifact, c, async () => {}, fetcher),
+    /webhook_signature_or_readiness_failed/,
+  );
+  assert.ok(!calls.some((x) => x.method === 'PUT'));
+});
+test('upstream error responses never disclose credentials or response bodies', async () => {
+  const { fetcher } = mock({ error: true });
+  await assert.rejects(
+    preflight(project, snapshot, c, fetcher),
+    (e) => e instanceof Error && e.message === 'github_403',
+  );
+});
+test('backend ignores unsigned events, redirects and repeat delivery', () => {
+  const source = webhookSource('TEST', { __proto__: 'safe' }, 'fallback');
+  assert.ok(source.includes('Object.hasOwn'));
+  assert.ok(source.includes('isRedelivery'));
+  assert.ok(source.includes('status:401'));
+  assert.ok(!source.includes('console.log'));
+});
+test('trusted webhook actually verifies HMAC before processing events', async () => {
+  let handler: any;
+  let replies = 0;
+  const secret = 'fixture-secret';
+  vm.runInNewContext(webhookSource('TEST', { 預約: '已收到預約' }, 'fallback'), {
+    Deno: {
+      serve(fn: any) {
+        handler = fn;
+      },
+      env: {
+        get(key: string) {
+          return key.endsWith('_SECRET') ? secret : 'fixture-token';
+        },
+      },
+    },
+    crypto,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    Response,
+    AbortSignal,
+    atob,
+    fetch: async () => {
+      replies++;
+      return new Response('{}');
+    },
+  });
+  const body = JSON.stringify({
+    events: [{ type: 'message', message: { type: 'text', text: '預約' }, replyToken: 'fixture' }],
+  });
+  assert.equal(
+    (await handler(new Request('https://example.test', { method: 'POST', body }))).status,
+    401,
+  );
+  assert.equal(replies, 0);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = btoa(
+    String.fromCharCode(
+      ...new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))),
+    ),
+  );
+  assert.equal(
+    (
+      await handler(
+        new Request('https://example.test', {
+          method: 'POST',
+          body,
+          headers: { 'x-line-signature': sig },
+        }),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(replies, 1);
+  const altered = body.replace('預約', '其他');
+  assert.equal(
+    (
+      await handler(
+        new Request('https://example.test', {
+          method: 'POST',
+          body: altered,
+          headers: { 'x-line-signature': sig },
+        }),
+      )
+    ).status,
+    401,
+  );
+  assert.equal(replies, 1);
 });
 
-test('private secretary calls platform AI only for the selected LINE user and keeps credentials out of generated files',async()=>{
- const owner='U'+'a'.repeat(32),endpoint='https://aprico.example/runtime',secret='fixture-secret',runtimeKey='aprico-fixture';
- const design=emptyDraft();
- design.secretary={direction:'records',conversation:'personal',routes:[{id:'calendar',notes:'',format:'card',recipient:'private',destination:'none'}]};
- assert.equal(deploymentIssue(design,{runtimeAiProvider:'platform'},true),'');
- assert.match(deploymentIssue(design,{runtimeAiProvider:'platform'},false),/點數/);
- design.secretary.routes![0].destination='database';assert.match(deploymentIssue(design,{runtimeAiProvider:'platform'},true),/資料留存/);
- design.secretary.routes![0].destination='none';
- const m=mock(),snap={setup:{...setup,runtimeOwnerId:owner},design};
- const plan=await preflight(project,snap,c,m.fetcher);
- await executeDeployment(plan,snap,artifact,c,async()=>{},m.fetcher,{endpoint,key:runtimeKey,revoke:async()=>{}});
- const secrets=JSON.parse(m.calls.find(x=>x.url.endsWith('/secrets')).body);
- assert.equal(secrets.find((s:any)=>s.name.endsWith('_APRICO_RUNTIME_OWNER')).value,owner);
- assert.equal(secrets.find((s:any)=>s.name.endsWith('_APRICO_RUNTIME_KEY')).value,runtimeKey);
- const source=await m.calls.find(x=>x.url.includes('functions/deploy')).body.get('file').text();
- assert.doesNotMatch(source,new RegExp(owner+'|'+runtimeKey));
- const calls:any[]=[];let handler:any;
- vm.runInNewContext(source,{Deno:{serve(fn:any){handler=fn;},env:{get(name:string){
-  return name.endsWith('_OWNER')?owner:name.endsWith('_SECRET')?secret:name.endsWith('_RUNTIME_KEY')?runtimeKey:'line-fixture';
- }}},crypto,TextEncoder,TextDecoder,Uint8Array,Response,AbortSignal,atob,fetch:async(url:string,init:any)=>{
-  calls.push({url,data:JSON.parse(init.body)});
-  return Response.json(url===endpoint?{reply:'行程摘要'}:{});
- }});
- async function deliver(userId:string,type='user'){
-  const body=JSON.stringify({events:[{type:'message',source:{type,userId},message:{type:'text',text:'秘書 行程 明天開會'},replyToken:'fixture',webhookEventId:'fixture-event-001'}]});
-  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
-  const sig=btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(body)))));
-  assert.equal((await handler(new Request('https://example.test',{method:'POST',body,headers:{'x-line-signature':sig}}))).status,200);
- }
- await deliver('U'+'b'.repeat(32));await deliver(owner,'group');
- assert.equal(calls.filter(c=>c.url===endpoint).length,0);
- await deliver(owner);
- assert.deepEqual(calls.find(c=>c.url===endpoint).data,{requestId:'fixture-event-001',text:'明天開會',task:'行程'});
- assert.equal(calls.at(-1).data.messages[0].type,'flex');
+test('private secretary calls platform AI only for the selected LINE user and keeps credentials out of generated files', async () => {
+  const owner = 'U' + 'a'.repeat(32),
+    endpoint = 'https://aprico.example/runtime',
+    secret = 'fixture-secret',
+    runtimeKey = 'aprico-fixture';
+  const design = emptyDraft();
+  design.secretary = {
+    direction: 'records',
+    conversation: 'personal',
+    routes: [
+      { id: 'calendar', notes: '', format: 'card', recipient: 'private', destination: 'none' },
+    ],
+  };
+  assert.equal(deploymentIssue(design, { runtimeAiProvider: 'platform' }, true), '');
+  assert.match(deploymentIssue(design, { runtimeAiProvider: 'platform' }, false), /點數/);
+  design.secretary.routes![0].destination = 'database';
+  assert.match(deploymentIssue(design, { runtimeAiProvider: 'platform' }, true), /資料留存/);
+  design.secretary.routes![0].destination = 'none';
+  const m = mock(),
+    snap = { setup: { ...setup, runtimeOwnerId: owner }, design };
+  const plan = await preflight(project, snap, c, m.fetcher);
+  await executeDeployment(plan, snap, artifact, c, async () => {}, m.fetcher, {
+    endpoint,
+    key: runtimeKey,
+    revoke: async () => {},
+  });
+  const secrets = JSON.parse(m.calls.find((x) => x.url.endsWith('/secrets')).body);
+  assert.equal(secrets.find((s: any) => s.name.endsWith('_APRICO_RUNTIME_OWNER')).value, owner);
+  assert.equal(secrets.find((s: any) => s.name.endsWith('_APRICO_RUNTIME_KEY')).value, runtimeKey);
+  const source = await m.calls
+    .find((x) => x.url.includes('functions/deploy'))
+    .body.get('file')
+    .text();
+  assert.doesNotMatch(source, new RegExp(owner + '|' + runtimeKey));
+  const calls: any[] = [];
+  let handler: any;
+  vm.runInNewContext(source, {
+    Deno: {
+      serve(fn: any) {
+        handler = fn;
+      },
+      env: {
+        get(name: string) {
+          return name.endsWith('_OWNER')
+            ? owner
+            : name.endsWith('_SECRET')
+              ? secret
+              : name.endsWith('_RUNTIME_KEY')
+                ? runtimeKey
+                : 'line-fixture';
+        },
+      },
+    },
+    crypto,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    Response,
+    AbortSignal,
+    atob,
+    fetch: async (url: string, init: any) => {
+      calls.push({ url, data: JSON.parse(init.body) });
+      return Response.json(url === endpoint ? { reply: '行程摘要' } : {});
+    },
+  });
+  async function deliver(userId: string, type = 'user') {
+    const body = JSON.stringify({
+      events: [
+        {
+          type: 'message',
+          source: { type, userId },
+          message: { type: 'text', text: '秘書 行程 明天開會' },
+          replyToken: 'fixture',
+          webhookEventId: 'fixture-event-001',
+        },
+      ],
+    });
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sig = btoa(
+      String.fromCharCode(
+        ...new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))),
+      ),
+    );
+    assert.equal(
+      (
+        await handler(
+          new Request('https://example.test', {
+            method: 'POST',
+            body,
+            headers: { 'x-line-signature': sig },
+          }),
+        )
+      ).status,
+      200,
+    );
+  }
+  await deliver('U' + 'b'.repeat(32));
+  await deliver(owner, 'group');
+  assert.equal(calls.filter((c) => c.url === endpoint).length, 0);
+  await deliver(owner);
+  assert.deepEqual(calls.find((c) => c.url === endpoint).data, {
+    requestId: 'fixture-event-001',
+    text: '明天開會',
+    task: '行程',
+  });
+  assert.equal(calls.at(-1).data.messages[0].type, 'flex');
 });
 
-test('interactive cards keep only valid HTTPS buttons',()=>{
- const result=interactiveReply('服務','歡迎查看\n按鈕：了解更多|https://example.com/service\n按鈕：不安全|https://user@evil.example');
- assert.deepEqual(result.buttons,[{label:'了解更多',uri:'https://example.com/service'}]);
- assert.match(result.body,/歡迎查看/);
+test('interactive cards keep only valid HTTPS buttons', () => {
+  const result = interactiveReply(
+    '服務',
+    '歡迎查看\n按鈕：了解更多|https://example.com/service\n按鈕：不安全|https://user@evil.example',
+  );
+  assert.deepEqual(result.buttons, [{ label: '了解更多', uri: 'https://example.com/service' }]);
+  assert.match(result.body, /歡迎查看/);
 });

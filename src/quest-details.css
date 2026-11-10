@@ -1,3 +1,297 @@
-.journey-meter{position:sticky;top:10px;z-index:25;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 15px;padding:18px 22px;border-radius:20px;background:#294b3c;color:#fffef6;margin:0 0 24px;box-shadow:0 8px 25px #203c3022;isolation:isolate}.journey-meter>div>span{font-size:12px;letter-spacing:1px;color:#e1d6bf}.journey-meter p{font-size:13px;line-height:1.5;margin:8px 0}.journey-meter small{display:block;font-size:10px;font-weight:400;color:#d2decb;margin-top:5px}.journey-meter strong{font-size:clamp(42px,5vw,70px);font-weight:700;letter-spacing:-3px;font-variant-numeric:tabular-nums;line-height:1.15;white-space:nowrap}.journey-meter strong>span{font-size:.4em;letter-spacing:0;padding-left:4px}.journey-meter progress{grid-column:1/-1;width:100%;height:6px;accent-color:#e0c49b;margin-top:7px}.quest-detail-list{display:grid;gap:16px}.quest-detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.85fr);gap:18px;padding:20px;border:2px solid #dedfd2;background:#fcfbf5;border-radius:20px;transition:background .18s,border-color .18s;scroll-margin-top:160px;overflow-wrap:anywhere}.quest-detail.is-complete{background:#e8f0e0;border-color:#a7bf99}.quest-detail .detail-operation{min-width:0}.quest-detail .detail-status{display:inline-block;font-size:10px;padding:6px 10px;border-radius:20px;color:#716c60;background:#eeeadd;line-height:1.5}.quest-detail.is-complete .detail-status{background:#cddfc0;color:#345b37}.quest-detail h4{font-size:18px;line-height:1.6;margin:14px 0}.quest-detail button{max-width:100%;display:block;white-space:normal;font-size:13px;margin:12px 0;line-height:1.7;overflow-wrap:anywhere}.quest-detail .detail-operation>button{width:100%}.quest-detail small{display:block;font-size:11px;line-height:1.7;color:#6d7b68}.quest-stage a.detail-link-button,.detail-link-button{display:block;padding:16px;border-radius:14px;border:1.5px solid #769479;text-align:center;color:#284e39;background:#f7fbf1;text-decoration:none;font-size:14px;font-weight:600;margin:14px 0;line-height:1.7}.quest-detail .detail-reset{background:transparent;border:0;text-decoration:underline;font-size:11px;color:#6c7864;padding:2px;text-align:left}.detail-help{padding-left:16px;border-left:1px dashed #c8d2be;min-width:0}.detail-help p{font-size:12px;line-height:1.8;margin:10px 0}.detail-thumbnail{max-width:220px;margin:0 auto}.detail-thumbnail svg{width:100%;height:auto;display:block}.quest-detail .detail-zoom{font-size:11px;border:0;background:transparent;text-decoration:underline;padding:0;color:#526e52;margin:8px 0}.detail-dialog{width:min(500px,calc(100vw - 32px));max-height:90vh;box-sizing:border-box;overflow:auto;border:0;border-radius:22px;background:#fffef7;color:#294b3c;padding:22px;box-shadow:0 20px 80px #142b2344}.detail-dialog::backdrop{background:#142b2377}.detail-dialog>svg{display:block;width:100%;max-height:65vh}.detail-dialog .detail-close{margin:0 0 10px auto;display:block;font-size:13px}.stage-reference{padding:12px 14px;border:1px dashed #c8d3bd;border-radius:14px;margin:18px 0 24px;font-size:12px}.stage-reference>summary{cursor:pointer}.detail-mode-switch{font-size:12px;margin:16px 0;text-decoration:underline}.quest-stage .github-connection{padding:0;background:transparent;border:0}.github-connection .quest-detail{margin:16px 0}.quest-stage .quest-machine{padding:16px}.quest-stage .quest-machine>span{font-size:34px}.quest-stage .quest-machine button{width:100%}.quest-stage .quest-machine h4{font-size:17px}.quest-stage{scroll-margin-top:150px}
-@media(max-width:760px){.quest-detail{grid-template-columns:minmax(0,1fr);gap:14px;padding:16px}.detail-help{display:grid;grid-template-columns:minmax(95px,130px) minmax(0,1fr);gap:0 12px;border-left:0;border-top:1px dashed #c6d2bb;padding:14px 0 0;align-items:start}.detail-thumbnail{grid-row:1/3;width:100%;max-width:130px}.detail-help p{margin:0;font-size:12px}.detail-help .detail-zoom{align-self:end;margin:8px 0 0}.journey-meter{top:8px;padding:15px 17px;border-radius:16px;gap:4px 12px}.journey-meter p{font-size:11px}.journey-meter>div>span{font-size:11px}.quest-stage{padding:16px}.quest-stage h3{font-size:21px}.quest-detail h4{font-size:17px}.quest-detail .detail-operation label{margin:12px 0}.quest-detail input,.quest-detail textarea{font-size:16px}.detail-dialog{display:revert}.detail-dialog:not([open]){display:none}}
-@media(prefers-reduced-motion:reduce){.quest-detail{transition:none}}
+.journey-meter {
+  position: sticky;
+  top: 10px;
+  z-index: 25;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 15px;
+  padding: 18px 22px;
+  border-radius: 20px;
+  background: #294b3c;
+  color: #fffef6;
+  margin: 0 0 24px;
+  box-shadow: 0 8px 25px #203c3022;
+  isolation: isolate;
+}
+.journey-meter > div > span {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #e1d6bf;
+}
+.journey-meter p {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.journey-meter small {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: #d2decb;
+  margin-top: 5px;
+}
+.journey-meter strong {
+  font-size: clamp(42px, 5vw, 70px);
+  font-weight: 700;
+  letter-spacing: -3px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.journey-meter strong > span {
+  font-size: 0.4em;
+  letter-spacing: 0;
+  padding-left: 4px;
+}
+.journey-meter progress {
+  grid-column: 1/-1;
+  width: 100%;
+  height: 6px;
+  accent-color: #e0c49b;
+  margin-top: 7px;
+}
+.quest-detail-list {
+  display: grid;
+  gap: 16px;
+}
+.quest-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.85fr);
+  gap: 18px;
+  padding: 20px;
+  border: 2px solid #dedfd2;
+  background: #fcfbf5;
+  border-radius: 20px;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+  scroll-margin-top: 160px;
+  overflow-wrap: anywhere;
+}
+.quest-detail.is-complete {
+  background: #e8f0e0;
+  border-color: #a7bf99;
+}
+.quest-detail .detail-operation {
+  min-width: 0;
+}
+.quest-detail .detail-status {
+  display: inline-block;
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  color: #716c60;
+  background: #eeeadd;
+  line-height: 1.5;
+}
+.quest-detail.is-complete .detail-status {
+  background: #cddfc0;
+  color: #345b37;
+}
+.quest-detail h4 {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 14px 0;
+}
+.quest-detail button {
+  max-width: 100%;
+  display: block;
+  white-space: normal;
+  font-size: 13px;
+  margin: 12px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.quest-detail .detail-operation > button {
+  width: 100%;
+}
+.quest-detail small {
+  display: block;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #6d7b68;
+}
+.quest-stage a.detail-link-button,
+.detail-link-button {
+  display: block;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1.5px solid #769479;
+  text-align: center;
+  color: #284e39;
+  background: #f7fbf1;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 14px 0;
+  line-height: 1.7;
+}
+.quest-detail .detail-reset {
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  font-size: 11px;
+  color: #6c7864;
+  padding: 2px;
+  text-align: left;
+}
+.detail-help {
+  padding-left: 16px;
+  border-left: 1px dashed #c8d2be;
+  min-width: 0;
+}
+.detail-help p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 10px 0;
+}
+.detail-thumbnail {
+  max-width: 220px;
+  margin: 0 auto;
+}
+.detail-thumbnail svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.quest-detail .detail-zoom {
+  font-size: 11px;
+  border: 0;
+  background: transparent;
+  text-decoration: underline;
+  padding: 0;
+  color: #526e52;
+  margin: 8px 0;
+}
+.detail-dialog {
+  width: min(500px, calc(100vw - 32px));
+  max-height: 90vh;
+  box-sizing: border-box;
+  overflow: auto;
+  border: 0;
+  border-radius: 22px;
+  background: #fffef7;
+  color: #294b3c;
+  padding: 22px;
+  box-shadow: 0 20px 80px #142b2344;
+}
+.detail-dialog::backdrop {
+  background: #142b2377;
+}
+.detail-dialog > svg {
+  display: block;
+  width: 100%;
+  max-height: 65vh;
+}
+.detail-dialog .detail-close {
+  margin: 0 0 10px auto;
+  display: block;
+  font-size: 13px;
+}
+.stage-reference {
+  padding: 12px 14px;
+  border: 1px dashed #c8d3bd;
+  border-radius: 14px;
+  margin: 18px 0 24px;
+  font-size: 12px;
+}
+.stage-reference > summary {
+  cursor: pointer;
+}
+.detail-mode-switch {
+  font-size: 12px;
+  margin: 16px 0;
+  text-decoration: underline;
+}
+.quest-stage .github-connection {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.github-connection .quest-detail {
+  margin: 16px 0;
+}
+.quest-stage .quest-machine {
+  padding: 16px;
+}
+.quest-stage .quest-machine > span {
+  font-size: 34px;
+}
+.quest-stage .quest-machine button {
+  width: 100%;
+}
+.quest-stage .quest-machine h4 {
+  font-size: 17px;
+}
+.quest-stage {
+  scroll-margin-top: 150px;
+}
+@media (max-width: 760px) {
+  .quest-detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+  .detail-help {
+    display: grid;
+    grid-template-columns: minmax(95px, 130px) minmax(0, 1fr);
+    gap: 0 12px;
+    border-left: 0;
+    border-top: 1px dashed #c6d2bb;
+    padding: 14px 0 0;
+    align-items: start;
+  }
+  .detail-thumbnail {
+    grid-row: 1/3;
+    width: 100%;
+    max-width: 130px;
+  }
+  .detail-help p {
+    margin: 0;
+    font-size: 12px;
+  }
+  .detail-help .detail-zoom {
+    align-self: end;
+    margin: 8px 0 0;
+  }
+  .journey-meter {
+    top: 8px;
+    padding: 15px 17px;
+    border-radius: 16px;
+    gap: 4px 12px;
+  }
+  .journey-meter p {
+    font-size: 11px;
+  }
+  .journey-meter > div > span {
+    font-size: 11px;
+  }
+  .quest-stage {
+    padding: 16px;
+  }
+  .quest-stage h3 {
+    font-size: 21px;
+  }
+  .quest-detail h4 {
+    font-size: 17px;
+  }
+  .quest-detail .detail-operation label {
+    margin: 12px 0;
+  }
+  .quest-detail input,
+  .quest-detail textarea {
+    font-size: 16px;
+  }
+  .detail-dialog {
+    display: revert;
+  }
+  .detail-dialog:not([open]) {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quest-detail {
+    transition: none;
+  }
+}

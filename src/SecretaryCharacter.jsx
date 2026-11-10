@@ -1,56 +1,494 @@
-import React,{useId,useState,useRef} from 'react';
+import React, { useId, useState, useRef } from 'react';
 import './secretary-portraits.css';
-export function EquipmentIcon({type}){
- const paths={name:<><rect x="5" y="5" width="22" height="23" rx="3"/><path d="M12 5V2H20V5M10 14H22M10 20H18"/></>,uniform:<path d="M10 4L3 10L7 16L10 14V28H24V14L27 16L31 10L24 4L20 8H14Z"/>,skills:<><path d="M16 7Q7 1 2 6V28Q9 23 16 29Q23 23 30 28V6Q24 1 16 7V29"/><path d="M6 11L12 13M20 13L26 11"/></>,voice:<><path d="M5 12V22M11 7V27M17 3V31M23 8V26M29 12V22"/></>,tools:<><rect x="3" y="10" width="28" height="20" rx="3"/><path d="M11 10V4H23V10M3 18H31M14 16V22H20V16"/></>,ring:<><ellipse cx="17" cy="21" rx="10" ry="10"/><path d="M10 6L14 2H21L25 6L17 14ZM10 6H25M14 2L17 14L21 2"/></>,headset:<><path d="M4 21V16A13 13 0 0 1 30 16V24Q30 30 20 30M4 17H9V27H4ZM25 17H30V27H25Z"/><path d="M16 30H21"/></>,badge:<><path d="M17 2L21 8L28 9L25 16L28 23L21 25L17 31L12 25L5 23L8 16L5 9L12 8Z"/><path d="M11 17L15 21L23 12"/></>};
- return <svg viewBox="0 0 34 34" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{paths[type]||paths.name}</svg>;
+export function EquipmentIcon({ type }) {
+  const paths = {
+    name: (
+      <>
+        <rect x="5" y="5" width="22" height="23" rx="3" />
+        <path d="M12 5V2H20V5M10 14H22M10 20H18" />
+      </>
+    ),
+    uniform: <path d="M10 4L3 10L7 16L10 14V28H24V14L27 16L31 10L24 4L20 8H14Z" />,
+    skills: (
+      <>
+        <path d="M16 7Q7 1 2 6V28Q9 23 16 29Q23 23 30 28V6Q24 1 16 7V29" />
+        <path d="M6 11L12 13M20 13L26 11" />
+      </>
+    ),
+    voice: (
+      <>
+        <path d="M5 12V22M11 7V27M17 3V31M23 8V26M29 12V22" />
+      </>
+    ),
+    tools: (
+      <>
+        <rect x="3" y="10" width="28" height="20" rx="3" />
+        <path d="M11 10V4H23V10M3 18H31M14 16V22H20V16" />
+      </>
+    ),
+    ring: (
+      <>
+        <ellipse cx="17" cy="21" rx="10" ry="10" />
+        <path d="M10 6L14 2H21L25 6L17 14ZM10 6H25M14 2L17 14L21 2" />
+      </>
+    ),
+    headset: (
+      <>
+        <path d="M4 21V16A13 13 0 0 1 30 16V24Q30 30 20 30M4 17H9V27H4ZM25 17H30V27H25Z" />
+        <path d="M16 30H21" />
+      </>
+    ),
+    badge: (
+      <>
+        <path d="M17 2L21 8L28 9L25 16L28 23L21 25L17 31L12 25L5 23L8 16L5 9L12 8Z" />
+        <path d="M11 17L15 21L23 12" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      viewBox="0 0 34 34"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {paths[type] || paths.name}
+    </svg>
+  );
 }
-function VectorSecretary({appearance='female',groups=[]}){
- const id=useId().replaceAll(':',''),male=appearance==='male',done=key=>groups.find(g=>g.id===key)?.complete;
- const layer=(key,children)=> <g className={'secretary-item '+(done(key)?'equipped':'ghost')} data-equipment={key}>{children}</g>;
- return <svg className={'secretary-character '+appearance} viewBox="0 0 300 550" role="img" aria-labelledby={id+'-title'}><title id={id+'-title'}>{male?'男':'女'}秘書；完成的裝備由虛影變成實體</title><defs><linearGradient id={id+'-coat'} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#426853"/><stop offset="1" stopColor="#203e32"/></linearGradient><radialGradient id={id+'-light'}><stop stopColor="#d5dfc2" stopOpacity=".85"/><stop offset="1" stopColor="#d5dfc2" stopOpacity="0"/></radialGradient></defs>
- <ellipse cx="150" cy="270" rx="148" ry="245" fill={'url(#'+id+'-light)'}/><ellipse cx="150" cy="520" rx="82" ry="11" fill="#304735" opacity=".13"/>
- {!male&&<path d="M103 105Q89 12 150 14Q215 11 207 109L222 186Q185 206 150 166Q112 193 83 176Z" fill="#42382e"/>}
- <path d="M116 325L110 495H139L151 370L164 495H194L183 325Z" fill={male?'#444f48':'#788b79'}/><path d="M110 486L101 510Q98 521 115 521H140V487ZM164 487V519H202Q209 515 200 508L193 486Z" fill="#283b32"/>
- <path d="M134 116V149L119 163L152 187L185 162L165 149V116" fill="#dfb191"/>
- <path d="M105 165Q80 164 74 200L58 319L78 325L107 222M190 165Q213 164 223 202L244 317L223 325L192 220" fill="#9caa94"/>
- <path d="M58 312L52 338Q53 356 66 352L78 324M225 317L225 344Q234 359 246 344L243 316" fill="#e8bda0"/>
- <path d="M106 156L131 146L152 165L171 146L194 158L193 348Q152 362 104 347Z" fill="#d5ddc9"/>
- {layer('uniform',<><path d="M106 151L131 144L149 165L170 144L195 154L200 348L162 359L153 273L145 359L100 348Z" fill={'url(#'+id+'-coat)'} stroke="#c6ae7b" strokeWidth="1.4"/><path d="M130 145L145 169L124 202L152 247L173 200L158 170L170 145" fill="#618170"/><path d="M149 167L153 261L157 167" fill="#fff9df"/><path d="M119 151L112 191L127 190M180 151L187 191L174 190" fill="none" stroke="#c9b382" strokeWidth="1.5"/><path d="M105 311L145 315M165 315L196 311" stroke="#c9b382" strokeWidth="2"/>{[269,290,310].map(y=><circle key={y} cx="155" cy={y} r="2" fill="#d6bc83"/>)}</>)}
- <ellipse cx="151" cy="84" rx={male?42:37} ry="51" fill="#edc4a6"/><ellipse cx="112" cy="88" rx="6" ry="11" fill="#e4b693"/><ellipse cx="189" cy="88" rx="6" ry="11" fill="#e4b693"/>
- {male?<><path d="M110 76Q96 21 134 19Q180 6 194 44L190 78L179 51Q151 65 119 49Z" fill="#383d31"/><path d="M119 41Q153 24 180 38" fill="none" stroke="#66715a" strokeWidth="3"/></>:<><path d="M114 76Q97 38 126 23Q164 7 187 34L194 83L180 48Q151 64 119 52Z" fill="#42382e"/><path d="M122 37Q151 23 178 34" fill="none" stroke="#7e6951" strokeWidth="2"/></>}
- <path d="M128 81L139 79M164 79L175 81" stroke="#654d3d" fill="none" strokeWidth="2" strokeLinecap="round"/><ellipse cx="135" cy="88" rx="3" ry="4" fill="#2e4032"/><ellipse cx="169" cy="88" rx="3" ry="4" fill="#2e4032"/><path d="M151 91L148 104H154M140 116Q151 125 163 115" stroke="#aa7058" strokeWidth="1.7" fill="none" strokeLinecap="round"/><ellipse cx="125" cy="103" rx="7" ry="4" fill="#d9957f" opacity=".3"/><ellipse cx="177" cy="103" rx="7" ry="4" fill="#d9957f" opacity=".3"/>
- {layer('name',<g transform="translate(114 211)"><rect width="28" height="20" rx="3" fill="#f8f0d4" stroke="#b79c63"/><path d="M5 7H23M5 13H18" stroke="#60826a" strokeWidth="2"/></g>)}
- {layer('voice',<g transform="translate(174 181)"><circle r="8" fill="#d1ac72" stroke="#f2e3bd"/><path d="M-3 0L0 3L4-3" stroke="#365340" fill="none" strokeWidth="1.5"/></g>)}
- {layer('skills',<g transform="translate(50 287) rotate(-9)"><rect width="46" height="66" rx="4" fill="#795c48" stroke="#c9ad7a" strokeWidth="2"/><path d="M7 0V66M15 15H36M15 23H32M15 31H36" stroke="#e4d1a6"/><circle cx="26" cy="47" r="7" fill="none" stroke="#e4d1a6"/></g>)}
- {layer('tools',<g transform="translate(208 344)"><path d="M9 0V-12H25V0" fill="none" stroke="#a98d5e" strokeWidth="4"/><rect width="44" height="40" rx="5" fill="#a17b52" stroke="#d4b888" strokeWidth="2"/><path d="M0 13H44" stroke="#d4b888"/><rect x="18" y="10" width="8" height="10" rx="2" fill="#ecdbad"/></g>)}
- {layer('ring',<g transform="translate(236 337)"><ellipse rx="7" ry="5" fill="none" stroke="#d5b464" strokeWidth="4"/><path d="M-5-5L0-12L6-6L0-1Z" fill="#a6d6b5" stroke="#e8d49b" strokeWidth="1.5"/></g>)}
- {layer('headset',<><path d="M108 81Q104 22 151 23Q197 24 194 81" fill="none" stroke="#b9a06d" strokeWidth="5"/><rect x="105" y="75" width="11" height="27" rx="5" fill="#3b5748" stroke="#d3bb86" strokeWidth="2"/><rect x="188" y="75" width="11" height="27" rx="5" fill="#3b5748" stroke="#d3bb86" strokeWidth="2"/><path d="M194 100Q189 122 168 121" stroke="#b9a06d" strokeWidth="3" fill="none"/><rect x="163" y="117" width="10" height="6" rx="3" fill="#385447"/></>)}
- {layer('badge',<g transform="translate(182 229)"><path d="M0-14L5-6L14-4L8 3L9 13L0 9L-9 13L-8 3L-14-4L-5-6Z" fill="#d8b76c" stroke="#fff0bd" strokeWidth="1.5"/><circle r="4" fill="#3e694b"/></g>)}
- </svg>;
+function VectorSecretary({ appearance = 'female', groups = [] }) {
+  const id = useId().replaceAll(':', ''),
+    male = appearance === 'male',
+    done = (key) => groups.find((g) => g.id === key)?.complete;
+  const layer = (key, children) => (
+    <g className={'secretary-item ' + (done(key) ? 'equipped' : 'ghost')} data-equipment={key}>
+      {children}
+    </g>
+  );
+  return (
+    <svg
+      className={'secretary-character ' + appearance}
+      viewBox="0 0 300 550"
+      role="img"
+      aria-labelledby={id + '-title'}
+    >
+      <title id={id + '-title'}>{male ? '男' : '女'}秘書；完成的裝備由虛影變成實體</title>
+      <defs>
+        <linearGradient id={id + '-coat'} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#426853" />
+          <stop offset="1" stopColor="#203e32" />
+        </linearGradient>
+        <radialGradient id={id + '-light'}>
+          <stop stopColor="#d5dfc2" stopOpacity=".85" />
+          <stop offset="1" stopColor="#d5dfc2" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="150" cy="270" rx="148" ry="245" fill={'url(#' + id + '-light)'} />
+      <ellipse cx="150" cy="520" rx="82" ry="11" fill="#304735" opacity=".13" />
+      {!male && (
+        <path
+          d="M103 105Q89 12 150 14Q215 11 207 109L222 186Q185 206 150 166Q112 193 83 176Z"
+          fill="#42382e"
+        />
+      )}
+      <path
+        d="M116 325L110 495H139L151 370L164 495H194L183 325Z"
+        fill={male ? '#444f48' : '#788b79'}
+      />
+      <path
+        d="M110 486L101 510Q98 521 115 521H140V487ZM164 487V519H202Q209 515 200 508L193 486Z"
+        fill="#283b32"
+      />
+      <path d="M134 116V149L119 163L152 187L185 162L165 149V116" fill="#dfb191" />
+      <path
+        d="M105 165Q80 164 74 200L58 319L78 325L107 222M190 165Q213 164 223 202L244 317L223 325L192 220"
+        fill="#9caa94"
+      />
+      <path
+        d="M58 312L52 338Q53 356 66 352L78 324M225 317L225 344Q234 359 246 344L243 316"
+        fill="#e8bda0"
+      />
+      <path d="M106 156L131 146L152 165L171 146L194 158L193 348Q152 362 104 347Z" fill="#d5ddc9" />
+      {layer(
+        'uniform',
+        <>
+          <path
+            d="M106 151L131 144L149 165L170 144L195 154L200 348L162 359L153 273L145 359L100 348Z"
+            fill={'url(#' + id + '-coat)'}
+            stroke="#c6ae7b"
+            strokeWidth="1.4"
+          />
+          <path d="M130 145L145 169L124 202L152 247L173 200L158 170L170 145" fill="#618170" />
+          <path d="M149 167L153 261L157 167" fill="#fff9df" />
+          <path
+            d="M119 151L112 191L127 190M180 151L187 191L174 190"
+            fill="none"
+            stroke="#c9b382"
+            strokeWidth="1.5"
+          />
+          <path d="M105 311L145 315M165 315L196 311" stroke="#c9b382" strokeWidth="2" />
+          {[269, 290, 310].map((y) => (
+            <circle key={y} cx="155" cy={y} r="2" fill="#d6bc83" />
+          ))}
+        </>,
+      )}
+      <ellipse cx="151" cy="84" rx={male ? 42 : 37} ry="51" fill="#edc4a6" />
+      <ellipse cx="112" cy="88" rx="6" ry="11" fill="#e4b693" />
+      <ellipse cx="189" cy="88" rx="6" ry="11" fill="#e4b693" />
+      {male ? (
+        <>
+          <path d="M110 76Q96 21 134 19Q180 6 194 44L190 78L179 51Q151 65 119 49Z" fill="#383d31" />
+          <path d="M119 41Q153 24 180 38" fill="none" stroke="#66715a" strokeWidth="3" />
+        </>
+      ) : (
+        <>
+          <path d="M114 76Q97 38 126 23Q164 7 187 34L194 83L180 48Q151 64 119 52Z" fill="#42382e" />
+          <path d="M122 37Q151 23 178 34" fill="none" stroke="#7e6951" strokeWidth="2" />
+        </>
+      )}
+      <path
+        d="M128 81L139 79M164 79L175 81"
+        stroke="#654d3d"
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <ellipse cx="135" cy="88" rx="3" ry="4" fill="#2e4032" />
+      <ellipse cx="169" cy="88" rx="3" ry="4" fill="#2e4032" />
+      <path
+        d="M151 91L148 104H154M140 116Q151 125 163 115"
+        stroke="#aa7058"
+        strokeWidth="1.7"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <ellipse cx="125" cy="103" rx="7" ry="4" fill="#d9957f" opacity=".3" />
+      <ellipse cx="177" cy="103" rx="7" ry="4" fill="#d9957f" opacity=".3" />
+      {layer(
+        'name',
+        <g transform="translate(114 211)">
+          <rect width="28" height="20" rx="3" fill="#f8f0d4" stroke="#b79c63" />
+          <path d="M5 7H23M5 13H18" stroke="#60826a" strokeWidth="2" />
+        </g>,
+      )}
+      {layer(
+        'voice',
+        <g transform="translate(174 181)">
+          <circle r="8" fill="#d1ac72" stroke="#f2e3bd" />
+          <path d="M-3 0L0 3L4-3" stroke="#365340" fill="none" strokeWidth="1.5" />
+        </g>,
+      )}
+      {layer(
+        'skills',
+        <g transform="translate(50 287) rotate(-9)">
+          <rect width="46" height="66" rx="4" fill="#795c48" stroke="#c9ad7a" strokeWidth="2" />
+          <path d="M7 0V66M15 15H36M15 23H32M15 31H36" stroke="#e4d1a6" />
+          <circle cx="26" cy="47" r="7" fill="none" stroke="#e4d1a6" />
+        </g>,
+      )}
+      {layer(
+        'tools',
+        <g transform="translate(208 344)">
+          <path d="M9 0V-12H25V0" fill="none" stroke="#a98d5e" strokeWidth="4" />
+          <rect width="44" height="40" rx="5" fill="#a17b52" stroke="#d4b888" strokeWidth="2" />
+          <path d="M0 13H44" stroke="#d4b888" />
+          <rect x="18" y="10" width="8" height="10" rx="2" fill="#ecdbad" />
+        </g>,
+      )}
+      {layer(
+        'ring',
+        <g transform="translate(236 337)">
+          <ellipse rx="7" ry="5" fill="none" stroke="#d5b464" strokeWidth="4" />
+          <path d="M-5-5L0-12L6-6L0-1Z" fill="#a6d6b5" stroke="#e8d49b" strokeWidth="1.5" />
+        </g>,
+      )}
+      {layer(
+        'headset',
+        <>
+          <path
+            d="M108 81Q104 22 151 23Q197 24 194 81"
+            fill="none"
+            stroke="#b9a06d"
+            strokeWidth="5"
+          />
+          <rect
+            x="105"
+            y="75"
+            width="11"
+            height="27"
+            rx="5"
+            fill="#3b5748"
+            stroke="#d3bb86"
+            strokeWidth="2"
+          />
+          <rect
+            x="188"
+            y="75"
+            width="11"
+            height="27"
+            rx="5"
+            fill="#3b5748"
+            stroke="#d3bb86"
+            strokeWidth="2"
+          />
+          <path d="M194 100Q189 122 168 121" stroke="#b9a06d" strokeWidth="3" fill="none" />
+          <rect x="163" y="117" width="10" height="6" rx="3" fill="#385447" />
+        </>,
+      )}
+      {layer(
+        'badge',
+        <g transform="translate(182 229)">
+          <path
+            d="M0-14L5-6L14-4L8 3L9 13L0 9L-9 13L-8 3L-14-4L-5-6Z"
+            fill="#d8b76c"
+            stroke="#fff0bd"
+            strokeWidth="1.5"
+          />
+          <circle r="4" fill="#3e694b" />
+        </g>,
+      )}
+    </svg>
+  );
 }
-export default function SecretaryCharacter({appearance='female',groups=[],portrait}){
- const gender=appearance==='male'?'male':'female',preview=useRef(null),label=gender==='male'?'男生秘書':'女生秘書';
- return <><PremiumSecretary key={portrait||gender} appearance={gender} groups={groups} portrait={portrait}/><button className="secretary-portrait-zoom" type="button" aria-label={'放大'+label+'形象'} onClick={()=>preview.current?.showModal()}>放大形象 ↗</button><dialog ref={preview} className="secretary-portrait-preview" aria-label={label+'立體形象'} onClick={e=>e.target===preview.current&&preview.current?.close()}><div className="secretary-preview-heading"><span>APRICO · {label}</span><button type="button" onClick={()=>preview.current?.close()} aria-label="關閉秘書形象">關閉 ×</button></div><PremiumSecretary key={'preview-'+(portrait||gender)} appearance={gender} groups={groups} portrait={portrait}/><p>完成任務後，對應裝備會由虛影變成實體。</p></dialog></>;
+export default function SecretaryCharacter({ appearance = 'female', groups = [], portrait }) {
+  const gender = appearance === 'male' ? 'male' : 'female',
+    preview = useRef(null),
+    label = gender === 'male' ? '男生秘書' : '女生秘書';
+  return (
+    <>
+      <PremiumSecretary
+        key={portrait || gender}
+        appearance={gender}
+        groups={groups}
+        portrait={portrait}
+      />
+      <button
+        className="secretary-portrait-zoom"
+        type="button"
+        aria-label={'放大' + label + '形象'}
+        onClick={() => preview.current?.showModal()}
+      >
+        放大形象 ↗
+      </button>
+      <dialog
+        ref={preview}
+        className="secretary-portrait-preview"
+        aria-label={label + '立體形象'}
+        onClick={(e) => e.target === preview.current && preview.current?.close()}
+      >
+        <div className="secretary-preview-heading">
+          <span>APRICO · {label}</span>
+          <button type="button" onClick={() => preview.current?.close()} aria-label="關閉秘書形象">
+            關閉 ×
+          </button>
+        </div>
+        <PremiumSecretary
+          key={'preview-' + (portrait || gender)}
+          appearance={gender}
+          groups={groups}
+          portrait={portrait}
+        />
+        <p>完成任務後，對應裝備會由虛影變成實體。</p>
+      </dialog>
+    </>
+  );
 }
-function PremiumSecretary({appearance,groups,portrait}){
- const id=useId().replaceAll(':',''),[failed,setFailed]=useState(false),done=key=>Boolean(groups.find(g=>g.id===key)?.complete);
- const layer=(key,children)=><g className={'secretary-item '+(done(key)?'equipped':'ghost')} data-equipment={key}>{children}</g>;
- if(failed)return <VectorSecretary appearance={appearance} groups={groups}/>;
- const brass='url(#'+id+'-brass)',leather='url(#'+id+'-leather)',jade='url(#'+id+'-jade)';
- return <svg className={'secretary-character premium '+appearance} viewBox="0 0 300 550" role="img" aria-labelledby={id+'-title'}><title id={id+'-title'}>{appearance==='male'?'男':'女'}秘書；Q 版立體形象，完成的裝備由虛影變成實體</title><defs>
-  <linearGradient id={id+'-brass'} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f6e2a5"/><stop offset=".32" stopColor="#ae8245"/><stop offset=".55" stopColor="#e4c286"/><stop offset="1" stopColor="#86602d"/></linearGradient>
-  <linearGradient id={id+'-leather'} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#89704e"/><stop offset=".45" stopColor="#604a35"/><stop offset="1" stopColor="#332e25"/></linearGradient>
-  <radialGradient id={id+'-jade'} cx=".3" cy=".25"><stop stopColor="#ecf7dd"/><stop offset=".3" stopColor="#a6d3b5"/><stop offset="1" stopColor="#3d826e"/></radialGradient>
-  <radialGradient id={id+'-aura'}><stop stopColor="#dfe6cb" stopOpacity=".6"/><stop offset="1" stopColor="#dfe6cb" stopOpacity="0"/></radialGradient>
- </defs><ellipse cx="150" cy="275" rx="148" ry="245" fill={'url(#'+id+'-aura)'}/><ellipse cx="150" cy="542" rx="58" ry="6" fill="#244a37" opacity=".12"/>
- {portrait?<image className={'secretary-premium-base '+(done('uniform')?'tailored':'preparing')} href={import.meta.env.BASE_URL+'secretaries/summon-'+portrait+'.jpg'} width="300" height="550" onError={()=>setFailed(true)}/>:<svg x="0" y="0" width="300" height="550" viewBox={appearance==='male'?'780 0 480 1024':'245 0 480 1024'} preserveAspectRatio="xMidYMid meet" overflow="hidden"><image className={'secretary-premium-base '+(done('uniform')?'tailored':'preparing')} href={import.meta.env.BASE_URL+'secretaries/secretary-chibi-pair-v1.png'} width="1536" height="1024" onError={()=>setFailed(true)}/></svg>}
- {layer('uniform',<g fill="none" stroke={brass} strokeWidth="1.2" opacity=".85"><path d="M124 234L111 252L130 279M177 235L191 252L172 279"/><path d="M107 348L128 350M175 350L196 348"/></g>)}
- {layer('name',<g transform="translate(110 280) rotate(3)"><rect width="24" height="15" rx="2.5" fill="#d9c28c" stroke="#f7e8bb" strokeWidth=".7"/><rect x="2" y="2" width="20" height="11" rx="1" fill="#f6edda"/><path d="M5 6H19M5 9H15" stroke="#55705c" strokeWidth="1.1"/><circle cx="21" cy="2" r="1.2" fill="#f9eac4"/></g>)}
- {layer('voice',<g transform="translate(180 264)"><circle r="6.5" fill={brass} stroke="#f3e3b8" strokeWidth=".7"/><circle r="4.5" fill="#375c46"/><path d="M-2-2V2M0-3V3M2-1V1" stroke="#e8d79d" strokeWidth=".9" strokeLinecap="round"/></g>)}
- {layer('skills',<g transform="translate(46 382) rotate(-8)"><rect x="1" y="1" width="42" height="61" rx="3" fill="#302b22" opacity=".3"/><rect width="40" height="59" rx="3" fill={leather} stroke={brass} strokeWidth="1.5"/><path d="M5 0V59M12 13H30M12 18H26" stroke="#dac08b" strokeWidth=".8"/><circle cx="22" cy="38" r="8" fill="none" stroke={brass} strokeWidth="1"/><path d="M22 31L24 36L29 38L24 40L22 45L20 40L15 38L20 36Z" fill={brass}/></g>)}
- {layer('tools',<g transform="translate(220 407)"><path d="M10 1V-10Q10-14 14-14H23Q27-14 27-10V1" fill="none" stroke={brass} strokeWidth="3"/><rect width="43" height="40" rx="4" fill={leather} stroke={brass} strokeWidth="1.3"/><path d="M1 13Q21 19 42 13" fill="none" stroke="#c2a16c"/><path d="M5 2V37M38 2V37" stroke="#ac8b60" strokeWidth=".6" strokeDasharray="1 2"/><rect x="18" y="12" width="7" height="9" rx="1" fill={brass}/><circle cx="21.5" cy="16.5" r="1" fill="#665334"/></g>)}
- {layer('ring',<g transform="translate(233 397)"><ellipse rx="5.5" ry="3.4" fill="none" stroke={brass} strokeWidth="2.6"/><path d="M-5-4L0-11L5-4L0 0Z" fill={jade} stroke="#ead7a4" strokeWidth="1"/><path d="M-2-5L0-8L2-5" fill="none" stroke="#f4ffe7" strokeWidth=".8"/></g>)}
- {layer('headset',<g><path d="M53 148Q41 20 150 20Q259 20 247 148" fill="none" stroke="#343c32" strokeWidth="4.3"/><path d="M53 148Q41 20 150 20Q259 20 247 148" fill="none" stroke={brass} strokeWidth="1.5"/><rect x="48" y="140" width="13" height="29" rx="3.7" fill="#334b3e" stroke={brass} strokeWidth="1.3"/><rect x="239" y="140" width="13" height="29" rx="3.7" fill="#334b3e" stroke={brass} strokeWidth="1.3"/><path d="M246 168Q244 202 202 202" fill="none" stroke={brass} strokeWidth="1.8"/><rect x="194" y="199" width="13" height="5" rx="1.7" fill="#2e4537" stroke="#b59b68" strokeWidth=".7"/></g>)}
- {layer('badge',<g transform="translate(184 292)"><path d="M0-12L4-5L12-4L7 3L8 12L0 8L-8 12L-7 3L-12-4L-4-5Z" fill={brass} stroke="#f4e3b4" strokeWidth=".8"/><circle r="4" fill={jade} stroke="#f6e8bd" strokeWidth=".8"/><path d="M-2 0L0 2L3-2" stroke="#edf4d6" strokeWidth=".7" fill="none"/></g>)}
- </svg>;
+function PremiumSecretary({ appearance, groups, portrait }) {
+  const id = useId().replaceAll(':', ''),
+    [failed, setFailed] = useState(false),
+    done = (key) => Boolean(groups.find((g) => g.id === key)?.complete);
+  const layer = (key, children) => (
+    <g className={'secretary-item ' + (done(key) ? 'equipped' : 'ghost')} data-equipment={key}>
+      {children}
+    </g>
+  );
+  if (failed) return <VectorSecretary appearance={appearance} groups={groups} />;
+  const brass = 'url(#' + id + '-brass)',
+    leather = 'url(#' + id + '-leather)',
+    jade = 'url(#' + id + '-jade)';
+  return (
+    <svg
+      className={'secretary-character premium ' + appearance}
+      viewBox="0 0 300 550"
+      role="img"
+      aria-labelledby={id + '-title'}
+    >
+      <title id={id + '-title'}>
+        {appearance === 'male' ? '男' : '女'}秘書；Q 版立體形象，完成的裝備由虛影變成實體
+      </title>
+      <defs>
+        <linearGradient id={id + '-brass'} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#f6e2a5" />
+          <stop offset=".32" stopColor="#ae8245" />
+          <stop offset=".55" stopColor="#e4c286" />
+          <stop offset="1" stopColor="#86602d" />
+        </linearGradient>
+        <linearGradient id={id + '-leather'} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#89704e" />
+          <stop offset=".45" stopColor="#604a35" />
+          <stop offset="1" stopColor="#332e25" />
+        </linearGradient>
+        <radialGradient id={id + '-jade'} cx=".3" cy=".25">
+          <stop stopColor="#ecf7dd" />
+          <stop offset=".3" stopColor="#a6d3b5" />
+          <stop offset="1" stopColor="#3d826e" />
+        </radialGradient>
+        <radialGradient id={id + '-aura'}>
+          <stop stopColor="#dfe6cb" stopOpacity=".6" />
+          <stop offset="1" stopColor="#dfe6cb" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="150" cy="275" rx="148" ry="245" fill={'url(#' + id + '-aura)'} />
+      <ellipse cx="150" cy="542" rx="58" ry="6" fill="#244a37" opacity=".12" />
+      {portrait ? (
+        <image
+          className={'secretary-premium-base ' + (done('uniform') ? 'tailored' : 'preparing')}
+          href={import.meta.env.BASE_URL + 'secretaries/summon-' + portrait + '.jpg'}
+          width="300"
+          height="550"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <svg
+          x="0"
+          y="0"
+          width="300"
+          height="550"
+          viewBox={appearance === 'male' ? '780 0 480 1024' : '245 0 480 1024'}
+          preserveAspectRatio="xMidYMid meet"
+          overflow="hidden"
+        >
+          <image
+            className={'secretary-premium-base ' + (done('uniform') ? 'tailored' : 'preparing')}
+            href={import.meta.env.BASE_URL + 'secretaries/secretary-chibi-pair-v1.png'}
+            width="1536"
+            height="1024"
+            onError={() => setFailed(true)}
+          />
+        </svg>
+      )}
+      {layer(
+        'uniform',
+        <g fill="none" stroke={brass} strokeWidth="1.2" opacity=".85">
+          <path d="M124 234L111 252L130 279M177 235L191 252L172 279" />
+          <path d="M107 348L128 350M175 350L196 348" />
+        </g>,
+      )}
+      {layer(
+        'name',
+        <g transform="translate(110 280) rotate(3)">
+          <rect width="24" height="15" rx="2.5" fill="#d9c28c" stroke="#f7e8bb" strokeWidth=".7" />
+          <rect x="2" y="2" width="20" height="11" rx="1" fill="#f6edda" />
+          <path d="M5 6H19M5 9H15" stroke="#55705c" strokeWidth="1.1" />
+          <circle cx="21" cy="2" r="1.2" fill="#f9eac4" />
+        </g>,
+      )}
+      {layer(
+        'voice',
+        <g transform="translate(180 264)">
+          <circle r="6.5" fill={brass} stroke="#f3e3b8" strokeWidth=".7" />
+          <circle r="4.5" fill="#375c46" />
+          <path d="M-2-2V2M0-3V3M2-1V1" stroke="#e8d79d" strokeWidth=".9" strokeLinecap="round" />
+        </g>,
+      )}
+      {layer(
+        'skills',
+        <g transform="translate(46 382) rotate(-8)">
+          <rect x="1" y="1" width="42" height="61" rx="3" fill="#302b22" opacity=".3" />
+          <rect width="40" height="59" rx="3" fill={leather} stroke={brass} strokeWidth="1.5" />
+          <path d="M5 0V59M12 13H30M12 18H26" stroke="#dac08b" strokeWidth=".8" />
+          <circle cx="22" cy="38" r="8" fill="none" stroke={brass} strokeWidth="1" />
+          <path d="M22 31L24 36L29 38L24 40L22 45L20 40L15 38L20 36Z" fill={brass} />
+        </g>,
+      )}
+      {layer(
+        'tools',
+        <g transform="translate(220 407)">
+          <path
+            d="M10 1V-10Q10-14 14-14H23Q27-14 27-10V1"
+            fill="none"
+            stroke={brass}
+            strokeWidth="3"
+          />
+          <rect width="43" height="40" rx="4" fill={leather} stroke={brass} strokeWidth="1.3" />
+          <path d="M1 13Q21 19 42 13" fill="none" stroke="#c2a16c" />
+          <path d="M5 2V37M38 2V37" stroke="#ac8b60" strokeWidth=".6" strokeDasharray="1 2" />
+          <rect x="18" y="12" width="7" height="9" rx="1" fill={brass} />
+          <circle cx="21.5" cy="16.5" r="1" fill="#665334" />
+        </g>,
+      )}
+      {layer(
+        'ring',
+        <g transform="translate(233 397)">
+          <ellipse rx="5.5" ry="3.4" fill="none" stroke={brass} strokeWidth="2.6" />
+          <path d="M-5-4L0-11L5-4L0 0Z" fill={jade} stroke="#ead7a4" strokeWidth="1" />
+          <path d="M-2-5L0-8L2-5" fill="none" stroke="#f4ffe7" strokeWidth=".8" />
+        </g>,
+      )}
+      {layer(
+        'headset',
+        <g>
+          <path
+            d="M53 148Q41 20 150 20Q259 20 247 148"
+            fill="none"
+            stroke="#343c32"
+            strokeWidth="4.3"
+          />
+          <path
+            d="M53 148Q41 20 150 20Q259 20 247 148"
+            fill="none"
+            stroke={brass}
+            strokeWidth="1.5"
+          />
+          <rect
+            x="48"
+            y="140"
+            width="13"
+            height="29"
+            rx="3.7"
+            fill="#334b3e"
+            stroke={brass}
+            strokeWidth="1.3"
+          />
+          <rect
+            x="239"
+            y="140"
+            width="13"
+            height="29"
+            rx="3.7"
+            fill="#334b3e"
+            stroke={brass}
+            strokeWidth="1.3"
+          />
+          <path d="M246 168Q244 202 202 202" fill="none" stroke={brass} strokeWidth="1.8" />
+          <rect
+            x="194"
+            y="199"
+            width="13"
+            height="5"
+            rx="1.7"
+            fill="#2e4537"
+            stroke="#b59b68"
+            strokeWidth=".7"
+          />
+        </g>,
+      )}
+      {layer(
+        'badge',
+        <g transform="translate(184 292)">
+          <path
+            d="M0-12L4-5L12-4L7 3L8 12L0 8L-8 12L-7 3L-12-4L-4-5Z"
+            fill={brass}
+            stroke="#f4e3b4"
+            strokeWidth=".8"
+          />
+          <circle r="4" fill={jade} stroke="#f6e8bd" strokeWidth=".8" />
+          <path d="M-2 0L0 2L3-2" stroke="#edf4d6" strokeWidth=".7" fill="none" />
+        </g>,
+      )}
+    </svg>
+  );
 }
