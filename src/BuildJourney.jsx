@@ -2,7 +2,8 @@ import React,{useEffect,useRef,useState} from 'react';
 import {validateSetup} from './build-model.ts';
 import TutorialAnimation from './TutorialAnimation.jsx';
 import GithubConnection from './GithubConnection.jsx';
-import {githubDeploymentMessages} from './github-result.ts';
+import GithubPermissionsHelp from './GithubPermissionsHelp.jsx';
+import {githubDeploymentMessages,githubInstallationSettings} from './github-result.ts';
 import QuestDetail from './QuestDetail.jsx';
 import {safeDetailAcks,pageDetails,detailProgress} from './journey-details.ts';
 import {emptyCredentials,journeySteps,journeyLevels,safeJourneyState,sameTarget,needsLiff,entered} from './journey.ts';
@@ -11,17 +12,17 @@ import SecretaryRoom from './SecretaryRoom.jsx';
 import {renderTrialMenu} from './trial-canvas.js';
 import {equipmentProgress,equipmentForStep} from './equipment-model.ts';
 
-export default function BuildJourney({api,projectId,projectRevision,draft,initial,initialRevision,pendingSaveRef,onProgress,user,onDesign,runtimeAvailable}){
+export default function BuildJourney({api,projectId,projectRevision,draft,initial,initialRevision,pendingSaveRef,onProgress,user,onDesign,runtimeAvailable,openGithub}){
  const storageKey='aprico-journey:'+projectId;
  const [resume]=useState(()=>{try{const stored=JSON.parse(localStorage.getItem(storageKey)||'{}');return {...safeJourneyState(stored),details:safeDetailAcks(stored.details)};}catch{return {...safeJourneyState(null),details:{}};}});
  const [details,setDetails]=useState(resume.details);
- const [step,setStep]=useState(resume.step),[acks,setAcks]=useState(resume.acks),[setup,setSetup]=useState(initial),[revision,setRevision]=useState(initialRevision),[baseline,setBaseline]=useState(JSON.stringify(initial));
+ const [step,setStep]=useState(openGithub?'githubToken':resume.step),[acks,setAcks]=useState(resume.acks),[setup,setSetup]=useState(initial),[revision,setRevision]=useState(initialRevision),[baseline,setBaseline]=useState(JSON.stringify(initial));
  const [secrets,setSecrets]=useState(emptyCredentials),[plan,setPlan]=useState(null),[ready,setReady]=useState(false),[consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
  const [job,setJob]=useState(null),[record,setRecord]=useState(null),[credits,setCredits]=useState(null),[intent,setIntent]=useState(null),[refresh,setRefresh]=useState(0);
  const [usage,setUsage]=useState([]);
- const [verificationCode,setVerificationCode]=useState('');
+ const [verificationCode,setVerificationCode]=useState(''),[installationUrl,setInstallationUrl]=useState('');
  const [github,setGithub]=useState(null);
- const [selectedEquipment,setSelectedEquipment]=useState(null);
+ const [selectedEquipment,setSelectedEquipment]=useState(()=>openGithub?equipmentForStep('githubToken'):null);
  const attempted=useRef(new Set()),mounted=useRef(true),panel=useRef(null),secretRef=useRef(secrets);secretRef.current=secrets;
  const steps=journeySteps(draft),q=steps.find(s=>s.id===step)||steps[0],dirty=JSON.stringify(setup)!==baseline;
  const running=busy||Boolean(intent)||['queued','running'].includes(job?.status)||['queued','running'].includes(record?.status);
@@ -59,7 +60,11 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    const menuImage=draft.secretary?.direction==='records'?undefined:await renderTrialMenu(draft,true);
    await api({action:'deploy_start',projectId,jobId:job.id,credentials:secretRef.current,githubApp:intent.githubApp,flowVersion:2,confirmPublish:true,expectedBotId:intent.plan.botId,expectedGithub:intent.plan.githubRepo,expectedRef:intent.plan.ref,expectedLoginId:intent.plan.loginId,expectedWebhook:intent.plan.previousWebhook,expectedMenuId:intent.plan.previousMenuId,menuImage});
    if(mounted.current)setStatus('系統已接手，請等待完成提示，不必操作其他網站。');
-  }catch(e){if(mounted.current){setVerificationCode(e.code||'');setError((githubDeploymentMessages[e.code]||e.message)+' 請返回核對資料後重新送出，已有草稿會沿用。');}}
+  }catch(e){if(mounted.current){
+   setVerificationCode(e.code||'');
+   if(e.code==='github_workflows_permission_required')setInstallationUrl(githubInstallationSettings(e.installationSettingsUrl));
+   setError((githubDeploymentMessages[e.code]||e.message)+' 請返回核對資料後重新送出，已有草稿會沿用。');
+  }}
   finally{if(mounted.current){setSecrets(emptyCredentials());setIntent(null);setRefresh(v=>v+1);}}
   })();
  },[job,intent]);
@@ -79,7 +84,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  }
  async function verify(){
   if(busy||record)return;
-  setPlan(null);setReady(false);setConsent(false);setStatus('');setVerificationCode('');
+  setPlan(null);setReady(false);setConsent(false);setStatus('');setVerificationCode('');setInstallationUrl('');
   if(legacyRuntime||setup.runtimeAiProvider==='platform'&&!runtimeAvailable){
    setError('請在下方選擇這個專案上線後的 AI 方案。');
    return;
@@ -124,6 +129,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    };
    const code=typeof e.code==='string'&&/^[a-z][a-z0-9_]{0,90}$/.test(e.code)?e.code:'';
    setVerificationCode(code);
+   if(code==='github_workflows_permission_required')setInstallationUrl(githubInstallationSettings(e.installationSettingsUrl));
    setError(messages[code]||e.message);
   }finally{setBusy(false);}
  }
@@ -164,6 +170,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    {error&&<div role="alert" className="notice error">
     <p>{error}</p>
     {verificationCode&&<p><small>核對代碼 <code>{verificationCode}</code></small></p>}
+    {verificationCode==='github_workflows_permission_required'&&<GithubPermissionsHelp installationUrl={installationUrl||githubInstallationSettings(null)}/>}
     {recoveryStep&&<button type="button" disabled={running} onClick={async()=>{await go(recoveryStep);setSelectedEquipment(equipmentForStep(recoveryStep));}}>前往授權關卡 →</button>}
    </div>}
 

@@ -88,7 +88,11 @@ export async function installationToken(settings:GithubSettings,connection:any,r
  if(actionsPages){
   const installation=await appRequest('/repos/'+connection.full_name+'/installation');
   if(installation?.id!==connection.installation_id||installation.suspended_at)throw Error('github_installation_unavailable');
-  if(installation.permissions?.workflows!=='write')throw Error('github_workflows_permission_required');
+  if(installation.permissions?.workflows!=='write'){
+   const prefix=installation.target_type==='User'?'https://github.com/settings/installations/':
+    installation.target_type==='Organization'&&/^[-\w]+$/.test(installation.account?.login||'')?'https://github.com/organizations/'+installation.account.login+'/settings/installations/':'';
+   throw Object.assign(Error('github_workflows_permission_required'),{installationSettingsUrl:prefix?prefix+installation.id:undefined});
+  }
   if(Object.keys(appPermissions).some(key=>installation.permissions?.[key]!=='write'))throw Error('github_installation_unavailable');
  }
  const issued=await appRequest(`/app/installations/${connection.installation_id}/access_tokens`,'POST',{repository_ids:[connection.repository_id],permissions});

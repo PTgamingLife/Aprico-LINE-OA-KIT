@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {generateKeyPairSync,verify} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {launchGithub} from '../src/github-launch.js';
-import {githubNotice} from '../src/github-result.ts';
+import {githubNotice,githubInstallationSettings} from '../src/github-result.ts';
 import {githubConfiguration,githubSettings,githubCallback,authorizeUrl,digest,randomValue,repositoryChoice,appJwt,installationToken,exchangeCode,choicesForUser,webhookValid} from '../supabase/functions/_shared/github-app.ts';
 import {githubAction,githubCallbackAction,githubWebhook,boundedBody} from '../supabase/functions/_shared/github-handler.ts';
 const pair=generateKeyPairSync('rsa',{modulusLength:2048});
@@ -67,7 +67,11 @@ test('Actions authorization distinguishes installation permissions from App auth
   if(init.method==='GET')return installation;
   return token!;
  }) as typeof fetch;
- await assert.rejects(installationToken(settings,connection,repo,mock(json({id:9,permissions:basePermissions})),true),/github_workflows_permission_required/);
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({id:9,target_type:'User',permissions:basePermissions})),true),{
+  message:'github_workflows_permission_required',installationSettingsUrl:'https://github.com/settings/installations/9'
+ });
+ assert.equal(githubInstallationSettings('https://github.com/organizations/team-demo/settings/installations/9'),'https://github.com/organizations/team-demo/settings/installations/9');
+ assert.equal(githubInstallationSettings('https://github.com.evil.test/settings/installations/9'),'https://github.com/settings/installations');
  assert.equal(calls.length,1);
  await assert.rejects(installationToken(settings,connection,repo,mock(json({},401)),true),/github_app_auth_failed/);
  await assert.rejects(installationToken(settings,connection,repo,mock(json({},404)),true),/github_installation_unavailable/);

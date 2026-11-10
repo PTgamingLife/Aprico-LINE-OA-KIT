@@ -19,6 +19,7 @@ export function deploymentIssue(design:any,setup:any,platformReady:boolean){
 }
 
 export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch,resolveGithub?:(()=>Promise<{token:string;repositoryId:number;actionsPages?:boolean;release:()=>Promise<void>}>),provisionRuntime?:()=>Promise<RuntimeDeployment>){
+ const installationSettings=(e:unknown)=>(e as {installationSettingsUrl?:string})?.installationSettingsUrl;
  if(b.action==='deploy_github_check'){
   try{
    if(b.flowVersion!==2||!resolveGithub)return response({error:'請從 GitHub 關卡重新核對'},400);
@@ -27,7 +28,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
    return response({verified:true});
   }catch(e){
    const code=e instanceof Error&&/^github_[a-z_]+$/.test(e.message)?e.message:'github_access_unavailable';
-   return response({error:'GitHub 專案部署授權核對未通過',code},409);
+   return response({error:'GitHub 專案部署授權核對未通過',code,installationSettingsUrl:installationSettings(e)},409);
   }
  }
  let release:(()=>Promise<void>)|undefined;
@@ -49,7 +50,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
    if(b.flowVersion===2&&project.config.secretary?.direction!=='records'&&project.config.cells.slice(0,project.config.grid).some((cell:any)=>cell.action==='web'&&!safeTrialExternal(cell.content)))throw Error('line_menu_invalid_destination');
    const plan=await preflight(project.id,{setup,design:project.config},c,fetcher,b.flowVersion===2);
    return response({plan,designRevision:project.revision,setupRevision:access.setup_revision});
-  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';console.warn('aprico deployment preflight:',code);return response({error:'授權檢查未通過，請確認本關資料',code},409);}
+  }catch(e){const code=e instanceof Error&&/^[a-z][a-z0-9_]{0,90}$/.test(e.message)?e.message:'deployment_preflight_failed';console.warn('aprico deployment preflight:',code);return response({error:'授權檢查未通過，請確認本關資料',code,installationSettingsUrl:installationSettings(e)},409);}
   finally{if(c)for(const key of ['githubToken','supabaseToken','lineToken','lineSecret','loginSecret'] as const)c[key]='';await release?.().catch(()=>{});}
  }
  if(b.action==='deploy_status'){
@@ -87,7 +88,7 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
  let c;try{c=await readCredentials();}catch(e){
   await release?.().catch(()=>{});
   const code=e instanceof Error&&/^github_[a-z_]+$/.test(e.message)?e.message:undefined;
-  return response({error:code?'GitHub 專案部署授權核對未通過':'請確認部署授權仍有效，Secret 應為 32 位英數十六進位。',code},400);
+  return response({error:code?'GitHub 專案部署授權核對未通過':'請確認部署授權仍有效，Secret 應為 32 位英數十六進位。',code,installationSettingsUrl:installationSettings(e)},400);
  }
  try{
   if(b.flowVersion===2&&!c.actionsPages)throw Error('github_workflows_permission_required');
