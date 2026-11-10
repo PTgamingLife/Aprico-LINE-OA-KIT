@@ -67,11 +67,36 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  async function go(id){if(running&&id!=='automatic')return;if(dirty&&!await save())return;setStep(id);setError('');panel.current?.scrollIntoView({block:'start',behavior:'smooth'});}
  async function openEquipment(id){const group=groups.find(g=>g.id===id);if(!group)return;if(group.pages.length){const candidates=steps.filter((s,i)=>group.pages.includes(s.id)&&(firstOpen===-1||i<=firstOpen));const target=candidates.find(s=>s.id===q.id)||candidates.find(s=>!progress.pages.find(p=>p.id===s.id).complete)||candidates[0];if(target){if(dirty&&!await save())return;if(running&&target.id!=='automatic'){setSelectedEquipment(id);return;}setStep(target.id);}}setSelectedEquipment(id);}
  async function next(){if(q.kind==='guide'&&!q.field||q.kind==='manual')setAcks(s=>({...s,[q.id]:true}));if(dirty&&!await save())return;setStep(steps[Math.min(index+1,steps.length-1)].id);panel.current?.scrollIntoView({block:'start',behavior:'smooth'});}
- async function verify(){const expectedRevision=dirty?await save():revision;if(expectedRevision===false)return;setBusy(true);setError('');try{
+ async function verify(){
+  if(busy||record)return;
+  setPlan(null);setReady(false);setConsent(false);setStatus('');
+  if(verificationMissing.length){
+   setError('請先補齊下方欄位，再重新核對。');
+   return;
+  }
+  const expectedRevision=dirty?await save():revision;
+  if(expectedRevision===false)return;
+  setBusy(true);setError('');try{
   const requirements=await api({action:'check_build',projectId});if(!requirements.requirementsReady)throw Error(requirements.issues.join('；'));
   const r=await api({action:'deploy_target_check',projectId,credentials:secrets,githubApp:usingApp});if(r.designRevision!==projectRevision||r.setupRevision!==expectedRevision)throw Error('資料版本已更新，請重新載入並確認。');
   setPlan(r.plan);setReady(Boolean(requirements.generationAvailable));setStatus('目標帳號已由系統核對，尚未建置或修改。');
- }catch(e){setError(e.message);setPlan(null);}finally{setBusy(false);}}
+ }catch(e){
+   const messages={
+    github_binding_required:'請回 GitHub 授權關卡，選取本次專用 repo 後重新核對。',
+    github_workflows_permission_required:'請在 GitHub 更新 Aprico App 的工作流程權限，再返回重新連接。',
+    github_401:'GitHub 授權已失效，請重新連接或更新 Token。',
+    supabase_401:'Supabase Access Token 已失效，請回 Supabase 授權關卡重新填入。',
+    supabase_403:'Supabase Access Token 權限不足，請確認已授權本次專案及教學列出的權限。',
+    line_401:'LINE Access Token 驗證未通過，請核對本次 OA 的憑證。',
+    line_token_verify_failed:'LINE Access Token 驗證未通過，請核對本次 OA 的憑證。',
+    line_channel_mismatch:'LINE Channel ID 和 Access Token 屬於不同的 Channel，請回 LINE 關卡核對。',
+    line_channel_credentials_invalid:'LINE Channel ID 或 Channel Secret 驗證失敗，請回 LINE 關卡核對。',
+    existing_webhook_requires_review:'這個 LINE OA 已有 Webhook。請確認選的是本次要建置的 OA。',
+    existing_pages_requires_review:'這個 GitHub repo 已有 Pages。請選擇本次建置的專用 repo。'
+   };
+   setError(messages[e.code]||e.message);
+  }finally{setBusy(false);}
+ }
  async function start(){if(!consent||!ready||!plan||busy)return;setBusy(true);setError('');try{
   const r=job?.status==='draft_ready'?{jobId:job.id}:await api({action:'generate_source',projectId,confirmGenerate:true});setIntent({jobId:r.jobId,plan,githubApp:usingApp});setStep('automatic');setStatus('已開始處理，請留在此頁直到系統接手部署；不要重複送出。');setRefresh(v=>v+1);
  }catch(e){setError(e.message);}finally{setBusy(false);}}
@@ -81,7 +106,10 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
  }catch(e){setError(e.message);}finally{setBusy(false);}}
  const guide=q.kind==='guide'?projectGuides[q.guide]:null;
  const canNext=units.every(d=>d.done);
- const allPrepared=steps.filter(s=>['field','guide','secret'].includes(s.kind)).every(s=>pageDetails(s,context).every(d=>d.done));
+ const verificationMissing=steps.filter(s=>{
+  if(s.id==='githubToken'&&(usingApp||githubMode==='app'))return !usingApp;
+  return (s.kind==='field'||s.kind==='secret'||s.kind==='guide'&&s.field)&&!entered(s,setup,secrets);
+ });
  const deployed=record?.status==='awaiting_acceptance';
  function detailControl(unit){
   const liveNeeded=q.kind==='manual'||q.kind==='acceptance',disabled=running||liveNeeded&&!deployed;
@@ -94,7 +122,16 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   if(unit.kind==='field')return <label>{unit.label}<textarea rows={q.id==='messagingChannelId'?1:3} value={setup[unit.field]||''} maxLength={2000} placeholder={unit.hint} onChange={e=>change(unit.field,e.target.value)}/></label>;
   if(unit.kind==='credential')return <label>{unit.label}<input type="password" autoComplete="off" value={secrets[unit.field]} maxLength={q.id==='lineSecret'?32:6000} onChange={e=>change(unit.field,e.target.value,true)}/><small>僅留在目前頁面，未保存憑證原文。</small></label>;
   if(unit.kind==='save')return <button className="primary" disabled={busy||!units.find(d=>d.kind==='field')?.done} onClick={save}>{busy?'保存中…':unit.done?'✓ 已保存，再次保存':'保存這項資料'}</button>;
-  if(unit.kind==='verify')return <><button disabled={busy||!allPrepared||Boolean(record)} onClick={verify}>{busy?'核對中…':unit.done?'✓ 本次帳號已核對':'核對本次帳號與授權'}</button>{(plan||record?.target)&&<dl>{[['GitHub',(plan||record.target).githubRepo],['Supabase',(plan||record.target).supabaseName],['LINE OA',(plan||record.target).botName]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}</>;
+  if(unit.kind==='verify')return <><button disabled={busy||Boolean(record)} type="button" onClick={verify}>{busy?'核對中…':unit.done?'✓ 本次帳號已核對':'核對本次帳號與授權'}</button>
+   {error&&<p role="alert" className="notice error">{error}</p>}
+   {!record&&verificationMissing.length>0&&<div>
+    <p>需要補齊的資料。若剛重新整理或切換頁面，請重新填入一次性憑證。</p>
+    <ul>{verificationMissing.map(s=><li key={s.id}><button type="button" disabled={running} onClick={async()=>{
+     await go(s.id);setSelectedEquipment(equipmentForStep(s.id));
+    }}>{s.title} →</button></li>)}</ul>
+   </div>}
+   {plan&&status&&<p role="status" className="notice">{status}</p>}
+   {(plan||record?.target)&&<dl>{[['GitHub',(plan||record.target).githubRepo],['Supabase',(plan||record.target).supabaseName],['LINE OA',(plan||record.target).botName]].map(([name,value])=><div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>}</>;
   if(unit.kind==='consent')return <label className="generation-consent"><input type="checkbox" checked={consent||Boolean(record)} disabled={!plan||busy||Boolean(record)} onChange={e=>setConsent(e.target.checked)}/>我已確認目標帳號與設計，同意{job?.status==='draft_ready'?'沿用已保存的同版本草稿':credits?.mode==='points'?'依實際用量扣除本次 AI 建置點數':'使用本專案 1 次 AI 建置額度'}。檢查通過後將發布網站、建立後端、把 LINE 金鑰寫入自己的 Supabase 並設定 Webhook。</label>;
   if(unit.kind==='start'){
    const points=credits?.mode==='points';
@@ -122,7 +159,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    {q.id==='messagingChannelId'&&setup.runtimeAiProvider==='platform'&&<label>可使用秘書的 LINE 使用者 ID<input type="text" maxLength={33} autoComplete="off" autoCapitalize="none" value={setup.runtimeOwnerId||''} onChange={e=>change('runtimeOwnerId',e.target.value)}/><small>在同一個 Messaging API Channel 的 Basic settings → Your user ID 複製。這是可使用點數的本人身分。</small></label>}
    {q.kind==='review'&&<p className="footnote">可自動建置固定回覆、靜態網頁及支援的 Aprico 私聊秘書功能。群組、專用資料庫與選單／LIFF 配置有各自的設定與驗收步驟。</p>}
    {q.kind==='manual'&&record?.webhook_url&&<p className="result-url">本次 Webhook：{record.webhook_url}</p>}
-   {status&&<p role="status" className="notice">{status}</p>}{error&&<p role="alert" className="notice error">{error}</p>}
+   {q.kind!=='review'&&status&&<p role="status" className="notice">{status}</p>}{q.kind!=='review'&&error&&<p role="alert" className="notice error">{error}</p>}
    <div className="wizard-actions"><button disabled={index===0||running} onClick={()=>go(steps[index-1].id)}>← 上一頁</button>{['field','secret','guide','manual'].includes(q.kind)&&<button className="primary" disabled={busy||!canNext} onClick={next}>本頁已完成，前往下一頁 →</button>}</div>
   </article>
   </SecretaryRoom>
