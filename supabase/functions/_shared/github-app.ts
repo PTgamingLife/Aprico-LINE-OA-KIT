@@ -29,7 +29,7 @@ export function authorizeUrl(settings:GithubSettings,state:string,challenge:stri
 export async function ghRequest(path:string,token:string,method='GET',body?:unknown,fetcher:typeof fetch=fetch){
  if(!/^\/[a-zA-Z0-9_/?=&.%+-]+$/.test(path))throw Error('github_path_invalid');
  const r=await fetcher('https://api.github.com'+path,{method,headers:{Authorization:'Bearer '+token,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2026-03-10','User-Agent':'Aprico-LINE-OA-KIT',...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(15000)});
- if(!r.ok)throw Error('github_access_unavailable');return r.status===204?{}:await r.json();
+ if(!r.ok)throw Object.assign(Error('github_access_unavailable'),{status:r.status});return r.status===204?{}:await r.json();
 }
 export function repositoryChoice(repo:any,installationId:number){
  if(!Number.isSafeInteger(repo?.id)||!Number.isSafeInteger(installationId)||repo.private!==false||repo.archived||repo.disabled||!repo.permissions?.push||!repo.permissions?.admin||typeof repo.full_name!=='string'||!/^[-\w.]+\/[-\w.]+$/.test(repo.full_name))return null;
@@ -73,11 +73,30 @@ export async function appJwt(settings:GithubSettings,now=Date.now()){
  return head+'.'+body+'.'+base64url(new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',key,bytes(head+'.'+body))));
 }
 export async function installationToken(settings:GithubSettings,connection:any,repoUrl:string,fetcher:typeof fetch=fetch,actionsPages=false){
- if(connection?.revoked_at||!Number.isSafeInteger(connection?.installation_id)||!Number.isSafeInteger(connection?.repository_id)||repoUrl.replace(/\/$/,'').toLowerCase()!==('https://github.com/'+connection.full_name).toLowerCase())throw Error('github_binding_mismatch');
- const jwt=await appJwt(settings);
+ if(connection?.revoked_at||!Number.isSafeInteger(connection?.installation_id)||!Number.isSafeInteger(connection?.repository_id)||typeof repoUrl!=='string'||repoUrl.replace(/\/$/,'').toLowerCase()!==('https://github.com/'+connection.full_name).toLowerCase()||!/^[-\w.]+\/[-\w.]+$/.test(connection.full_name))throw Error('github_binding_mismatch');
+ const jwt=await appJwt(settings).catch(()=>{throw Error('github_app_auth_failed');});
  const permissions=actionsPages?{...appPermissions,workflows:'write'}:appPermissions;
- const issued=await ghRequest(`/app/installations/${connection.installation_id}/access_tokens`,jwt,'POST',{repository_ids:[connection.repository_id],permissions},fetcher);
- if(typeof issued.token!=='string'||!issued.token||!Number.isFinite(Date.parse(issued.expires_at))||Date.parse(issued.expires_at)<=Date.now()||Object.keys(permissions).some(key=>issued.permissions?.[key]!=='write'))throw Error('github_installation_unavailable');
+ async function appRequest(path:string,method='GET',body?:unknown){
+  try{return await ghRequest(path,jwt,method,body,fetcher);}
+  catch(e){
+   const status=(e as {status?:number})?.status;
+   if(status===401)throw Error('github_app_auth_failed');
+   if(status===404||status===422)throw Error('github_installation_unavailable');
+   throw Error('github_access_unavailable');
+  }
+ }
+ if(actionsPages){
+  const installation=await appRequest('/repos/'+connection.full_name+'/installation');
+  if(installation?.id!==connection.installation_id||installation.suspended_at)throw Error('github_installation_unavailable');
+  if(installation.permissions?.workflows!=='write')throw Error('github_workflows_permission_required');
+  if(Object.keys(appPermissions).some(key=>installation.permissions?.[key]!=='write'))throw Error('github_installation_unavailable');
+ }
+ const issued=await appRequest(`/app/installations/${connection.installation_id}/access_tokens`,'POST',{repository_ids:[connection.repository_id],permissions});
+ if(typeof issued.token!=='string'||!issued.token)throw Error('github_installation_unavailable');
+ if(!(Date.parse(issued.expires_at)>Date.now())||Object.keys(permissions).some(key=>issued.permissions?.[key]!=='write')){
+  await ghRequest('/installation/token',issued.token,'DELETE',undefined,fetcher).catch(()=>{});
+  throw Error('github_installation_unavailable');
+ }
  return issued.token as string;
 }
 export async function webhookValid(raw:Uint8Array,signature:string,secret:string){

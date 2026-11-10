@@ -35,7 +35,7 @@ Deno.serve(async(req:Request)=>{
     let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
     if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
     if(b.action==='trial_info'){try{return response(await previewPlatform(Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||''));}catch{return response({available:false,reason:'trial_platform_unavailable'});}}
-    if(!['payment_status','payment_create','payment_confirm','payment_reconcile','owner_status','broadcast_list','broadcast_save','broadcast_prepare','broadcast_test','broadcast_send','learning_list','learning_complete','learning_quiz','trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action))return response({error:'不支援的操作'},400);
+    if(!['payment_status','payment_create','payment_confirm','payment_reconcile','owner_status','broadcast_list','broadcast_save','broadcast_prepare','broadcast_test','broadcast_send','learning_list','learning_complete','learning_quiz','trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_github_check','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action))return response({error:'不支援的操作'},400);
     if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
     const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
     if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
@@ -51,7 +51,7 @@ Deno.serve(async(req:Request)=>{
       if(error)return response({error:'讀取失敗，請稍後重試'},503);
       return response({projects:data,displayName:typeof identity.name==='string'?identity.name:'LINE 會員'});
     }
-    if(['payment_status','payment_create','payment_confirm','payment_reconcile','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action)){
+    if(['payment_status','payment_create','payment_confirm','payment_reconcile','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_github_check','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action)){
       if(typeof b.projectId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.projectId))return response({error:'請先選擇並保存專案'},400);
       const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config,revision,confirmed_revision').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
       if(projectError)return response({error:'讀取專案失敗'},503);
@@ -141,11 +141,10 @@ Deno.serve(async(req:Request)=>{
       if(b.action.startsWith('deploy_'))return await deploymentAction(b,db,identity.sub,project,access,response,p=>EdgeRuntime.waitUntil(p),fetch,async()=>{
         const settings=githubSettings(k=>Deno.env.get(k));if(!settings)throw Error('github_app_not_configured');
         const r=await db.from('line_oa_kit_github_connections').select('installation_id,repository_id,full_name,revoked_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
-        if(r.error||!r.data)throw Error('github_binding_required');
+        if(r.error)throw Error('github_access_unavailable');
+        if(!r.data||r.data.revoked_at)throw Error('github_binding_required');
         const actionsPages=b.flowVersion===2;
-        let token:string;
-        try{token=await installationToken(settings,r.data,access.setup.githubRepo,fetch,actionsPages);}
-        catch(e){if(actionsPages)throw Error('github_workflows_permission_required');throw e;}
+        const token=await installationToken(settings,r.data,access.setup?.githubRepo,fetch,actionsPages);
         return {token,repositoryId:r.data.repository_id,actionsPages,release:async()=>{await ghRequest('/installation/token',token,'DELETE');}};
       },runtimeReady?async()=>({endpoint:runtimeEndpoint,...await issueKey()}):undefined);
       if(b.action==='build_jobs'||b.action==='build_job'){

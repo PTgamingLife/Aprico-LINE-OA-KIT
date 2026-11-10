@@ -19,6 +19,17 @@ export function deploymentIssue(design:any,setup:any,platformReady:boolean){
 }
 
 export async function deploymentAction(b:any,db:any,subject:string,project:any,access:any,response:(value:any,status?:number)=>Response,background:(p:Promise<void>)=>void,fetcher:typeof fetch=fetch,resolveGithub?:(()=>Promise<{token:string;repositoryId:number;actionsPages?:boolean;release:()=>Promise<void>}>),provisionRuntime?:()=>Promise<RuntimeDeployment>){
+ if(b.action==='deploy_github_check'){
+  try{
+   if(b.flowVersion!==2||!resolveGithub)return response({error:'請從 GitHub 關卡重新核對'},400);
+   const grant=await resolveGithub();
+   await grant.release().catch(()=>{});
+   return response({verified:true});
+  }catch(e){
+   const code=e instanceof Error&&/^github_[a-z_]+$/.test(e.message)?e.message:'github_access_unavailable';
+   return response({error:'GitHub 專案部署授權核對未通過',code},409);
+  }
+ }
  let release:(()=>Promise<void>)|undefined;
  async function readCredentials(){
   if(b.githubApp!==true)return credentials(b.credentials);
@@ -73,7 +84,11 @@ export async function deploymentAction(b:any,db:any,subject:string,project:any,a
   if(error)return response({error:'無法檢查部署紀錄'},503);if(existing)return response({deploymentId:existing.id,reused:true},202);
   if(b.confirmPublish!==true)return response({error:'請先確認本次公開發布與目標平台'},400);
  }
- let c;try{c=await readCredentials();}catch{await release?.().catch(()=>{});return response({error:'請確認部署授權仍有效，Secret 應為 32 位英數十六進位；GitHub App 失效時需重新連接'},400);}
+ let c;try{c=await readCredentials();}catch(e){
+  await release?.().catch(()=>{});
+  const code=e instanceof Error&&/^github_[a-z_]+$/.test(e.message)?e.message:undefined;
+  return response({error:code?'GitHub 專案部署授權核對未通過':'請確認部署授權仍有效，Secret 應為 32 位英數十六進位。',code},400);
+ }
  try{
   if(b.flowVersion===2&&!c.actionsPages)throw Error('github_workflows_permission_required');
   if(b.flowVersion===2&&b.action==='deploy_start'&&job.snapshot.design.secretary?.direction!=='records')decodeMenuImage(b.menuImage);

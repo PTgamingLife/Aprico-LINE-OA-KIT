@@ -42,8 +42,8 @@ export function detailDefinitions(q:any,mode='app',cells=4):Detail[]{
  if(q.id==='githubToken'&&mode==='app')return [
   {id:'install',kind:'link',title:'安裝 Aprico GitHub App',text:'開啟 GitHub 安裝頁，只勾本次專用 repo；連結已開啟不等於授權完成。'},
   {id:'limited',kind:'confirm',title:'確認只勾選本次專用專案',text:'在 GitHub 選 Only select repositories，再勾本次專用 repo。'},
-  {id:'account',kind:'oauth',title:'連接並核對 GitHub 帳號',text:'在同一個瀏覽器完成 GitHub 授權，回來更新結果；這一格由伺服器核對。'},
-  {id:'repository',kind:'binding',title:'選擇本次使用的專案',text:'從已授權清單選擇 repo，看到「已綁定」才算完成。'}];
+  {id:'account',kind:'oauth',title:'連接並核對 GitHub 帳號',text:'在同一個瀏覽器完成登入授權，回來更新結果。專案部署權限在下一格核對。'},
+  {id:'repository',kind:'binding',title:'選擇並核對專用 GitHub 專案',text:'選擇 repo 後，按「核對此專案的部署權限」，確認 GitHub App 可為這個 repo 發出部署憑證。'}];
  if(q.id==='supabaseUrl')return guideTasks.supabaseUrl.filter(d=>['field','save'].includes(d.kind));
  if(q.kind==='field')return [
   {id:'input',kind:'field',field:q.id,label:q.label,title:q.label,hint:q.hint,text:q.hint},

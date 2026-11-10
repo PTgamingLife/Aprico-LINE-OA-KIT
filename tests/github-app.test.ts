@@ -55,3 +55,26 @@ test('webhook signature rejects alterations; revocation only invalidates matchin
  const first={installation_id:9,revoked_at:null},other={installation_id:10,revoked_at:null};const f={status:'ready',choices:[{installationId:9}]},f2={status:'ready',choices:[{installationId:10}]};const db=memory({line_oa_kit_github_connections:[first,other],line_oa_kit_github_flows:[f,f2]});const headers={'x-github-event':'installation_repositories','x-hub-signature-256':sig};assert.equal((await githubWebhook(new Request(githubCallback+'/webhook',{method:'POST',body:payload,headers}),db,env)).status,204);assert.ok(first.revoked_at);assert.equal(other.revoked_at,null);assert.equal(f.status,'failed');assert.equal(f2.status,'ready');
 });
 test('oversized callback API bodies stop reading, and SQL uses service-only owner-scoped single use binding',async()=>{await assert.rejects(boundedBody(new Request('https://example.test',{method:'POST',body:'12345'}),4),/body_limit/);const sql=readFileSync(new URL('../supabase/github-app.sql',import.meta.url),'utf8');assert.match(sql,/security invoker/);assert.match(sql,/status='ready' and expires_at>now\(\) for update/);assert.match(sql,/line_subject=p_subject/);assert.match(sql,/from public,anon,authenticated/);assert.match(sql,/enable row level security/);});
+test('Actions authorization distinguishes installation permissions from App authentication and token issuance',async()=>{
+ const connection={installation_id:9,repository_id:8,full_name:'owner/demo'};
+ const repo='https://github.com/owner/demo';
+ const basePermissions={contents:'write',pages:'write',administration:'write'};
+ const permissions={...basePermissions,workflows:'write'};
+ const calls:any[]=[];
+ const mock=(installation:Response,token?:Response)=>(async(url:any,init:any)=>{
+  calls.push([String(url),init.method,init.body]);
+  if(init.method==='DELETE')return new Response(null,{status:204});
+  if(init.method==='GET')return installation;
+  return token!;
+ }) as typeof fetch;
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({id:9,permissions:basePermissions})),true),/github_workflows_permission_required/);
+ assert.equal(calls.length,1);
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({},401)),true),/github_app_auth_failed/);
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({},404)),true),/github_installation_unavailable/);
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({id:9,permissions}),json({},422)),true),/github_installation_unavailable/);
+ const grant={token:'fixture-token',expires_at:new Date(Date.now()+3600000).toISOString()};
+ await assert.rejects(installationToken(settings,connection,repo,mock(json({id:9,permissions}),json({...grant,permissions:basePermissions})),true),/github_installation_unavailable/);
+ assert.deepEqual(calls.at(-1)?.slice(0,2),['https://api.github.com/installation/token','DELETE']);
+ assert.equal(await installationToken(settings,connection,repo,mock(json({id:9,permissions}),json({...grant,permissions})),true),'fixture-token');
+ assert.deepEqual(JSON.parse(calls.at(-1)?.[2]),{repository_ids:[8],permissions});
+});

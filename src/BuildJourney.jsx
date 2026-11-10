@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {validateSetup} from './build-model.ts';
 import TutorialAnimation from './TutorialAnimation.jsx';
 import GithubConnection from './GithubConnection.jsx';
+import {githubDeploymentMessages} from './github-result.ts';
 import QuestDetail from './QuestDetail.jsx';
 import {safeDetailAcks,pageDetails,detailProgress} from './journey-details.ts';
 import {emptyCredentials,journeySteps,journeyLevels,safeJourneyState,sameTarget,needsLiff,entered} from './journey.ts';
@@ -58,7 +59,7 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
    const menuImage=draft.secretary?.direction==='records'?undefined:await renderTrialMenu(draft,true);
    await api({action:'deploy_start',projectId,jobId:job.id,credentials:secretRef.current,githubApp:intent.githubApp,flowVersion:2,confirmPublish:true,expectedBotId:intent.plan.botId,expectedGithub:intent.plan.githubRepo,expectedRef:intent.plan.ref,expectedLoginId:intent.plan.loginId,expectedWebhook:intent.plan.previousWebhook,expectedMenuId:intent.plan.previousMenuId,menuImage});
    if(mounted.current)setStatus('系統已接手，請等待完成提示，不必操作其他網站。');
-  }catch(e){if(mounted.current)setError(e.message+'。請返回核對資料後重新送出，已有草稿會沿用。');}
+  }catch(e){if(mounted.current){setVerificationCode(e.code||'');setError((githubDeploymentMessages[e.code]||e.message)+' 請返回核對資料後重新送出，已有草稿會沿用。');}}
   finally{if(mounted.current){setSecrets(emptyCredentials());setIntent(null);setRefresh(v=>v+1);}}
   })();
  },[job,intent]);
@@ -95,13 +96,10 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
   setPlan(r.plan);setReady(Boolean(requirements.generationAvailable));setStatus('目標帳號已由系統核對，尚未建置或修改。');
  }catch(e){
    const messages={
+    ...githubDeploymentMessages,
     credentials_required:'部署憑證格式不完整。請核對 GitHub、LINE 和 Supabase 的授權欄位，並移除換行。',
     line_secret_format:'請回 LINE 關卡，從 Messaging API Channel 的 Basic settings 複製 Channel Secret。',
     invalid_target:'GitHub 或 Supabase 專案網址的格式不正確。請核對先前保存的兩個網址。',
-    github_app_not_configured:'Aprico GitHub App 暫時無法使用，請回 GitHub 關卡更新連線。',
-    github_access_unavailable:'GitHub 拒絕 Aprico App 的授權。請到 GitHub 確認 App 已安裝且允許操作本次 repo，再回來重新連接。',
-    github_installation_unavailable:'GitHub App 的專案授權已失效或權限不足。請回 GitHub 關卡重新連接並選取本次 repo。',
-    github_binding_mismatch:'已授權的 GitHub repo 和專案網址不同。請回 GitHub 關卡重新選取。',
     github_403:'GitHub 拒絕存取。請確認 Aprico App 或限權 Token 已授權本次 repo。',
     github_404:'GitHub 找不到專案或預設分支。請確認 repo 網址及授權。',
     github_409:'GitHub 專案暫時無法讀取，可能還在建立。請等 GitHub 顯示專案頁後再核對。',
@@ -114,8 +112,6 @@ export default function BuildJourney({api,projectId,projectRevision,draft,initia
     line_403:'LINE 拒絕存取，請檢查 Messaging API 的授權及 Channel Access Token。',
     line_404:'LINE 無法取得本次 OA 的 Messaging API 資料。請確認使用的是這個 OA 的憑證。',
     deployment_preflight_failed:'這次未能取得平台的核對結果，請稍後重試。如果再次失敗，請提供下方代碼給專員。',
-    github_binding_required:'請回 GitHub 授權關卡，選取本次專用 repo 後重新核對。',
-    github_workflows_permission_required:'請在 GitHub 更新 Aprico App 的工作流程權限，再返回重新連接。',
     github_401:'GitHub 授權已失效，請重新連接或更新 Token。',
     supabase_401:'Supabase Access Token 已失效，請回 Supabase 授權關卡重新填入。',
     supabase_403:'Supabase Access Token 權限不足，請確認已授權本次專案及教學列出的權限。',
