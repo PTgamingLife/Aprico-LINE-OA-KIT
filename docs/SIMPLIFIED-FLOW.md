@@ -1,4 +1,4 @@
-# 簡化流程規格 v0.3（草稿，待確認）
+# 簡化流程規格 v0.4（草稿，待確認）
 
 > 狀態：只有規格，尚未改程式。標 ❓ 的項目需要實測，標 🟡 的項目待營運者決定。
 > 取代對象：`docs/QUEST-JOURNEY.md` 的 27 關建置流程。
@@ -21,7 +21,7 @@
 | API 金鑰（`aprico_…`） | 明文只在客戶的 Supabase secrets；平台只存雜湊 | 現有 `line_oa_kit_runtime_keys`，可撤銷 |
 | 點數錢包、用量紀錄 | 平台 | 現有 `line_oa_kit_points_wallets`、`line_oa_kit_ai_usage` |
 | 客戶的設定資料、對話、會員資料 | 客戶自己的 Supabase | 平台不保存 |
-| GitHub App 授權 | 建置完成後提示客戶可以移除 | 之後更新範本時才需要再授權一次 |
+| GitHub App 授權 | 建置完成後**由平台自動移除安裝** | 之後更新範本時，客戶重新安裝一次，完成後再自動移除 |
 
 建置頁要用白話說清楚這一點：「建好之後，Aprico 不會連著你的帳號。你在自己的 OA 請秘書幫忙時，才會把那一句話和目前的設定送到 Aprico 處理，並扣你的點數。」
 
@@ -59,6 +59,7 @@
 3. 客戶 repo 的 Actions 執行：建立或選用 Supabase 專案、建資料表、部署 Webhook、設定 secrets、設定 LINE Webhook 網址、建立 LIFF、建立圖文選單、寫入初始設定資料、發布 Pages。
 4. 平台讀 repo 裡的狀態檔顯示進度。
 5. 完成後發一組 6 位數綁定碼（10 分鐘有效）。客戶在自己的 OA 傳這組碼，Webhook 把傳訊者記為擁有者。
+6. 平台呼叫 GitHub API 移除這次的 App 安裝，建置頁顯示「Aprico 已移除對你 GitHub 的存取」。
 
 LINE 的使用者 ID 每個 Provider 都不同，所以客戶在 Aprico 的 ID 不能直接當成他自己 OA 裡的擁有者 ID，必須用綁定碼。
 
@@ -221,7 +222,22 @@ LINE 的使用者 ID 每個 Provider 都不同，所以客戶在 Aprico 的 ID �
 6. 健康秘書範本（決定第 7 節的 🟡 之後）。
 7. 移除退場模組，更新文件與銷售政策草稿。
 
-## 10. 已知限制
+## 10. 平台私鑰的保護
+
+GitHub App 私鑰外洩，攻擊者就能操作所有還裝著 App 的客戶 repo。對策：
+
+| 對策 | 狀態 |
+| --- | --- |
+| 建置完成後自動移除 App 安裝，曝險只剩「建置中」的客戶 | 待實作 |
+| 每次只發單一 repo、最小權限、一小時失效的 token | 已實作 |
+| 私鑰只放 Supabase Edge Secrets，不進 GitHub、不寫 log | 已實作 |
+| 定期換私鑰（先加新的再刪舊的，服務不中斷） | 營運流程，待訂週期 |
+| GitHub、Supabase 管理帳號開兩步驟驗證 | 營運者確認 |
+| App 安裝、移除、權限變更的通知，異常時提醒營運者 | 待實作 |
+
+**LINE 金鑰維持由客戶自己貼（2026-11-11 決定）。** 不採用「客戶邀請營運者帳號當 LINE Developers Admin 代操作」：LINE 沒有 API 能自動解除角色，而且解除後營運者看過的 Channel Secret 仍然有效，要真正撤銷必須重新發行並更新客戶的 Supabase。
+
+## 11. 已知限制
 
 - LINE 的三件事沒有 API：建立 Login channel、改成 Published、開啟 Webhook。
 - 平台可以寫入客戶 repo 的 workflow，理論上有能力讀到 Secrets。緩解：範本公開、固定版本、建置完成後提示移除 App 授權。
