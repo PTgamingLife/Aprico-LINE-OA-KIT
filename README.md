@@ -68,7 +68,8 @@ Edge Functions **不會**隨 GitHub Pages 部署，需要另外部署到 Supabas
 | 文件 | 內容 |
 | --- | --- |
 | [`docs/HISTORY.md`](docs/HISTORY.md) | 開發歷程（舊 README 原文） |
-| [`docs/QUEST-JOURNEY.md`](docs/QUEST-JOURNEY.md) | 建置中心的關卡設計 |
+| [`docs/SIMPLIFIED-FLOW.md`](docs/SIMPLIFIED-FLOW.md) | 簡化流程規格（草稿，尚未實作） |
+| [`docs/QUEST-JOURNEY.md`](docs/QUEST-JOURNEY.md) | 建置中心的關卡設計（現行） |
 | [`docs/GITHUB-APP-SETUP.md`](docs/GITHUB-APP-SETUP.md)、[`GITHUB-APP-IMPLEMENTATION.md`](docs/GITHUB-APP-IMPLEMENTATION.md) | GitHub App 設定與實作紀錄 |
 | [`docs/activation.md`](docs/activation.md) | 專員密碼開通與平台 Secrets |
 | [`docs/LINEPAY-SETUP.md`](docs/LINEPAY-SETUP.md) | LINE Pay 設定 |
