@@ -59,7 +59,17 @@ async function claudeText(
       ],
     }),
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    // The API refused the request, so nothing was billed: log why (no content) and release the hold.
+    const err = await response.json().catch(() => null);
+    console.warn(
+      'claude request refused',
+      response.status,
+      err?.error?.type ?? '',
+      String(err?.error?.message ?? '').slice(0, 300),
+    );
+    return { refused: true };
+  }
   const r = await response.json();
   return {
     model: r.model,
@@ -188,7 +198,9 @@ export async function meteredText(
             cachedTokens: quota ? usage.cached : (usage.input_tokens_details?.cached_tokens ?? 0),
             ...(request.feature ? { feature: request.feature } : {}),
           }
-        : null,
+        : quota && result?.refused
+          ? { model: QUOTA_MODEL, inputTokens: 0, outputTokens: 0, cachedTokens: 0 }
+          : null,
     });
     if (settled.error) throw Error('points_settlement_failed');
   }

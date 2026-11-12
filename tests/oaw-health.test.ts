@@ -94,3 +94,22 @@ test('model output with broken scores is not passed on', async () => {
   );
   assert.equal(res.status, 502);
 });
+
+test('a request the API refuses releases the hold instead of keeping it', async () => {
+  const d = db();
+  const res = await healthScan(
+    req({ requestId: 'scan-000000006', face: img, tongue: img }),
+    d,
+    'k',
+    async () =>
+      Response.json({ error: { type: 'invalid_request_error', message: 'x' } }, { status: 400 }),
+  );
+  assert.equal(res.status, 503);
+  const settle = d.calls.find((c: any) => c.name === 'line_oa_kit_quota_settle');
+  assert.deepEqual(settle.args.p_usage, {
+    model: 'claude-sonnet-5-5',
+    inputTokens: 0,
+    outputTokens: 0,
+    cachedTokens: 0,
+  });
+});
