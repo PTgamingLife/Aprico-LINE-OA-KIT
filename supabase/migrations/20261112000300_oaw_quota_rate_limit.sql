@@ -1,4 +1,5 @@
 -- Abuse limits for OAW quota calls: a leaked app key cannot burst through an owner's quota.
+-- Also raises the per-call hold cap to US$0.10 for photo analysis (看健).
 -- Hold the worst-case cost: monthly first, then grace, then top-up.
 -- Per owner at most 20 calls a minute and 500 a day (Asia/Taipei), across all features.
 create or replace function public.line_oa_kit_quota_reserve(
@@ -9,7 +10,7 @@ declare
   r public.line_oa_kit_quota_rates%rowtype;
   need numeric; m numeric; g numeric; t numeric;
 begin
-  if p_request is null or length(p_request) > 160 or p_max_usd is null or p_max_usd <= 0 or p_max_usd > 0.05 then
+  if p_request is null or length(p_request) > 160 or p_max_usd is null or p_max_usd <= 0 or p_max_usd > 0.10 then
     return jsonb_build_object('error', 'invalid_reservation');
   end if;
   if exists (select 1 from public.line_oa_kit_quota_usage where request_id = p_request) then

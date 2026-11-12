@@ -9,12 +9,17 @@ const QUOTA_USD_PER_TOKEN = { input: 2e-6, output: 10e-6 };
 /** Worst-case cost to hold: every input byte as a token, plus the full output cap. */
 export function quotaHoldUsd(bytes: number, maxOutputTokens: number) {
   const usd = bytes * QUOTA_USD_PER_TOKEN.input + maxOutputTokens * QUOTA_USD_PER_TOKEN.output;
-  return Math.min(0.05, Math.ceil((usd + 0.001) * 1000) / 1000);
+  return Math.min(0.1, Math.ceil((usd + 0.001) * 1000) / 1000);
 }
 
 async function claudeText(
   apiKey: string,
-  request: { instructions: string; input: string; schema?: Record<string, unknown> },
+  request: {
+    instructions: string;
+    input: string;
+    schema?: Record<string, unknown>;
+    images?: { type: string; data: string }[];
+  },
   maxTokens: number,
   fetcher: typeof fetch,
 ) {
@@ -37,7 +42,20 @@ async function claudeText(
         ...(request.schema ? { format: { type: 'json_schema', schema: request.schema } } : {}),
       },
       system: request.instructions,
-      messages: [{ role: 'user', content: request.input }],
+      messages: [
+        {
+          role: 'user',
+          content: request.images?.length
+            ? [
+                ...request.images.map((img) => ({
+                  type: 'image',
+                  source: { type: 'base64', media_type: img.type, data: img.data },
+                })),
+                { type: 'text', text: request.input },
+              ]
+            : request.input,
+        },
+      ],
     }),
   });
   if (!response.ok) return null;
@@ -79,6 +97,8 @@ export async function meteredText(
     feature?: string;
     // 'quota' = monthly subscription quota (OAW apps); default = legacy points wallet.
     billing?: 'points' | 'quota';
+    // Quota (Claude) calls only: base64 JPEG/PNG images sent before the text.
+    images?: { type: string; data: string }[];
   },
   fetcher: typeof fetch = fetch,
 ) {
@@ -90,7 +110,9 @@ export async function meteredText(
     ? quotaHoldUsd(
         new TextEncoder().encode(
           request.instructions + request.input + JSON.stringify(request.schema ?? {}),
-        ).length,
+        ).length +
+          // A phone photo is resized by the API to at most ~1600 tokens.
+          (request.images?.length ?? 0) * 1600,
         maxTokens,
       )
     : request.purpose === 'review'
