@@ -148,6 +148,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
     'broadcastGateway',
     'introFollowGateway',
     'chatDesignGateway',
+    'connectGateway',
     code,
   )(
     {
@@ -165,6 +166,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
     },
     broadcastGateway,
     introFollowGateway,
+    async () => false,
     async () => false,
   );
   const raw = JSON.stringify({ events: [{ type: 'message' }] });
