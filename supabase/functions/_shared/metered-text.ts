@@ -31,7 +31,8 @@ async function claudeText(
       'Content-Type': 'application/json',
     },
     redirect: 'error',
-    signal: AbortSignal.timeout(30000),
+    // Photo reports write ~2000 tokens; text calls stay short.
+    signal: AbortSignal.timeout(request.images?.length ? 90000 : 30000),
     body: JSON.stringify({
       model: QUOTA_MODEL,
       max_tokens: maxTokens,
