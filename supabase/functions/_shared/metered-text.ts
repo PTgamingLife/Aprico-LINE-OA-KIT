@@ -14,6 +14,8 @@ export async function meteredText(
     instructions: string;
     input: string;
     schema?: Record<string, unknown>;
+    schemaName?: string;
+    maxOutputTokens?: number;
     feature?: string;
   },
   fetcher: typeof fetch = fetch,
@@ -39,7 +41,7 @@ export async function meteredText(
       body: JSON.stringify({
         model: BUILD_MODEL,
         store: false,
-        max_output_tokens: 400,
+        max_output_tokens: Math.min(request.maxOutputTokens ?? 400, 2000),
         instructions: request.instructions,
         input: request.input,
         ...(request.schema
@@ -47,7 +49,7 @@ export async function meteredText(
               text: {
                 format: {
                   type: 'json_schema',
-                  name: 'review_edit',
+                  name: request.schemaName ?? 'review_edit',
                   strict: true,
                   schema: request.schema,
                 },
