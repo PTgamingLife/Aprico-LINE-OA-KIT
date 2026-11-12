@@ -183,3 +183,19 @@ test('config validator and digest cleaner guard the boundary', () => {
   );
   assert.equal(cleanDigest({ summary: 'x'.repeat(100) }).summary.length, 60);
 });
+
+test('rate limited owners get 429 instead of an AI call', async () => {
+  const db = { ...fixture().db, rpc: async () => ({ data: { error: 'rate_limited' } }) };
+  const res = await oawApi(
+    req('digest', {
+      requestId: 'evt-digest-0003',
+      messages: [{ at: 'x', who: 'owner', text: 'hi' }],
+    }),
+    db,
+    'k',
+    async () => {
+      throw Error('AI must not be called');
+    },
+  );
+  assert.equal(res.status, 429);
+});

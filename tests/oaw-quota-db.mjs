@@ -1,5 +1,5 @@
 // Manual DB test for 20261112000100_oaw_subscription_quota.sql using PGlite (in-memory Postgres).
-// Run: npm i --no-save @electric-sql/pglite@0.3.5 && node tests/oaw-quota-db.mjs supabase/migrations/20261112000100_oaw_subscription_quota.sql supabase/migrations/20261112000200_oaw_quota_claude.sql
+// Run: npm i --no-save @electric-sql/pglite@0.3.5 && node tests/oaw-quota-db.mjs supabase/migrations/20261112000100_oaw_subscription_quota.sql supabase/migrations/20261112000200_oaw_quota_claude.sql supabase/migrations/20261112000300_oaw_quota_rate_limit.sql
 // PGlite 0.3.5 crashes on exceptions raised inside plpgsql, so the raise paths are checked in review, not here.
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
@@ -72,4 +72,16 @@ if (process.argv.length > 3) {
   const c1 = Number((await one(`select public.line_oa_kit_quota_settle('c1',$1) as c`, [JSON.stringify(claude)])).c);
   assert.equal(c1, Number(((800 * 2 + 200 * 0.1 + 300 * 10) / 1e6 * 32).toFixed(6)));
   console.log('claude pricing ok');
+}
+
+// Rate limit (20261112000300): the 21st call within a minute is refused.
+if (process.argv.length > 4) {
+  const U3 = 'U' + 'd'.repeat(32);
+  await one(`select public.line_oa_kit_subscription_extend($1, 1, 'manual')`, [U3]);
+  for (let n = 0; n < 20; n++) {
+    const j = (await one(`select public.line_oa_kit_quota_reserve($1,$2,$3,'runtime',0.001) as j`, [`rl${n}`, P, U3])).j;
+    assert.ok(j.reserved, JSON.stringify(j));
+  }
+  assert.equal((await one(`select public.line_oa_kit_quota_reserve('rl20',$1,$2,'runtime',0.001) as j`, [P, U3])).j.error, 'rate_limited');
+  console.log('rate limit ok');
 }

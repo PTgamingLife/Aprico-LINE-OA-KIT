@@ -272,6 +272,7 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
     return respond({ error: 'not_found' }, 404);
   } catch (e) {
     const code = e instanceof Error ? e.message : '';
+    if (code === 'rate_limited') return respond({ error: code }, 429);
     if (code === 'points_insufficient') return respond({ error: code }, 402);
     if (code === 'points_plan_required') return respond({ error: code }, 403);
     if (code === 'points_request_exists') return respond({ error: code }, 409);

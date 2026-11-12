@@ -113,6 +113,7 @@ export async function runtimeAI(req: Request, db: any, key: string, fetcher: typ
     return respond({ reply });
   } catch (e) {
     const code = e instanceof Error ? e.message : '';
+    if (code === 'rate_limited') return respond({ error: code }, 429);
     if (code === 'points_insufficient') return respond({ error: code }, 402);
     if (code === 'points_request_exists') return respond({ error: code }, 409);
     if (code === 'points_plan_required') return respond({ error: 'runtime_access_required' }, 403);
