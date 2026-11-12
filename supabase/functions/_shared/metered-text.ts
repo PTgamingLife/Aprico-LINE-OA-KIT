@@ -2,6 +2,66 @@ import { BUILD_MODEL } from './source-builder.ts';
 
 export const REVIEW_MAX_USD = 0.01;
 export const RUNTIME_MAX_USD = 0.01;
+// Subscription-quota calls (OAW apps) run on Claude; legacy points calls stay on OpenAI.
+export const QUOTA_MODEL = 'claude-sonnet-5-5';
+const QUOTA_USD_PER_TOKEN = { input: 2e-6, output: 10e-6 };
+
+/** Worst-case cost to hold: every input byte as a token, plus the full output cap. */
+export function quotaHoldUsd(bytes: number, maxOutputTokens: number) {
+  const usd = bytes * QUOTA_USD_PER_TOKEN.input + maxOutputTokens * QUOTA_USD_PER_TOKEN.output;
+  return Math.min(0.05, Math.ceil((usd + 0.001) * 1000) / 1000);
+}
+
+async function claudeText(
+  apiKey: string,
+  request: { instructions: string; input: string; schema?: Record<string, unknown> },
+  maxTokens: number,
+  fetcher: typeof fetch,
+) {
+  const response = await fetcher('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2026-10-21',
+      'Content-Type': 'application/json',
+    },
+    redirect: 'error',
+    signal: AbortSignal.timeout(30000),
+    body: JSON.stringify({
+      model: QUOTA_MODEL,
+      max_tokens: maxTokens,
+      // Short replies and extraction: no thinking, low effort keeps cost per message down.
+      thinking: { type: 'between_tools' },
+      output_config: {
+        effort: 'low',
+        ...(request.schema ? { format: { type: 'json_schema', schema: request.schema } } : {}),
+      },
+      system: request.instructions,
+      messages: [{ role: 'user', content: request.input }],
+    }),
+  });
+  if (!response.ok) return null;
+  const r = await response.json();
+  return {
+    model: r.model,
+    id: r.id,
+    completed: r.stop_reason === 'end_turn',
+    usage: {
+      // Anthropic reports cached input separately; the settle RPC expects the total.
+      input_tokens:
+        (r.usage?.input_tokens ?? NaN) +
+        (r.usage?.cache_read_input_tokens ?? 0) +
+        (r.usage?.cache_creation_input_tokens ?? 0),
+      output_tokens: r.usage?.output_tokens,
+      cached: r.usage?.cache_read_input_tokens ?? 0,
+    },
+    text: (r.content ?? [])
+      .filter((b: any) => b.type === 'text')
+      .map((b: any) => b.text)
+      .join('')
+      .trim(),
+  };
+}
 
 export async function meteredText(
   db: any,
@@ -25,7 +85,17 @@ export async function meteredText(
   if (!apiKey) throw Error('platform_ai_unavailable');
   if (new TextEncoder().encode(request.input).length > 12000) throw Error('ai_input_too_large');
   const quota = request.billing === 'quota';
-  const maxUsd = request.purpose === 'review' ? REVIEW_MAX_USD : RUNTIME_MAX_USD;
+  const maxTokens = Math.min(request.maxOutputTokens ?? 400, 2000);
+  const maxUsd = quota
+    ? quotaHoldUsd(
+        new TextEncoder().encode(
+          request.instructions + request.input + JSON.stringify(request.schema ?? {}),
+        ).length,
+        maxTokens,
+      )
+    : request.purpose === 'review'
+      ? REVIEW_MAX_USD
+      : RUNTIME_MAX_USD;
   const { data: held, error } = quota
     ? await db.rpc('line_oa_kit_quota_reserve', {
         p_request: request.id,
@@ -47,39 +117,43 @@ export async function meteredText(
   if (error || !held) throw Error('points_reservation_failed');
   if (held.error) throw Error(held.error);
   let result: any;
+  const model = quota ? QUOTA_MODEL : BUILD_MODEL;
   try {
-    const response = await fetcher('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      redirect: 'error',
-      signal: AbortSignal.timeout(20000),
-      body: JSON.stringify({
-        model: BUILD_MODEL,
-        store: false,
-        max_output_tokens: Math.min(request.maxOutputTokens ?? 400, 2000),
-        instructions: request.instructions,
-        input: request.input,
-        ...(request.schema
-          ? {
-              text: {
-                format: {
-                  type: 'json_schema',
-                  name: request.schemaName ?? 'review_edit',
-                  strict: true,
-                  schema: request.schema,
+    if (quota) result = await claudeText(apiKey, request, maxTokens, fetcher);
+    else {
+      const response = await fetcher('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(20000),
+        body: JSON.stringify({
+          model: BUILD_MODEL,
+          store: false,
+          max_output_tokens: maxTokens,
+          instructions: request.instructions,
+          input: request.input,
+          ...(request.schema
+            ? {
+                text: {
+                  format: {
+                    type: 'json_schema',
+                    name: request.schemaName ?? 'review_edit',
+                    strict: true,
+                    schema: request.schema,
+                  },
                 },
-              },
-            }
-          : {}),
-      }),
-    });
-    if (response.ok) result = await response.json();
+              }
+            : {}),
+        }),
+      });
+      if (response.ok) result = await response.json();
+    }
   } finally {
     const usage = result?.usage;
     const verified =
       Number.isSafeInteger(usage?.input_tokens) &&
       Number.isSafeInteger(usage?.output_tokens) &&
-      result.model === BUILD_MODEL;
+      result.model === model;
     const settled = await db.rpc(quota ? 'line_oa_kit_quota_settle' : 'line_oa_kit_settle_ai', {
       p_request: request.id,
       p_usage: verified
@@ -88,7 +162,7 @@ export async function meteredText(
             responseId: result.id,
             inputTokens: usage.input_tokens,
             outputTokens: usage.output_tokens,
-            cachedTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+            cachedTokens: quota ? usage.cached : (usage.input_tokens_details?.cached_tokens ?? 0),
             ...(request.feature ? { feature: request.feature } : {}),
           }
         : null,
@@ -96,12 +170,16 @@ export async function meteredText(
     if (settled.error) throw Error('points_settlement_failed');
   }
   if (
-    result?.status !== 'completed' ||
-    result.model !== BUILD_MODEL ||
+    !(quota ? result?.completed : result?.status === 'completed') ||
+    result.model !== model ||
     !Number.isSafeInteger(result.usage?.input_tokens) ||
     !Number.isSafeInteger(result.usage?.output_tokens)
   ) {
     throw Error('platform_ai_incomplete');
+  }
+  if (quota) {
+    if (!result.text) throw Error('platform_ai_empty');
+    return result.text as string;
   }
   const output = result.output
     ?.flatMap((item: any) =>

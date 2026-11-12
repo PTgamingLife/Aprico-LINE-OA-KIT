@@ -65,16 +65,17 @@ const req = (route: string, body: unknown, auth = key) =>
     body: JSON.stringify(body),
   });
 
-const ai = (payload: unknown) => async (_url: any, options: any) => {
+const ai = (payload: unknown) => async (url: any, options: any) => {
+  assert.equal(url, 'https://api.anthropic.com/v1/messages');
   const body = JSON.parse(String(options.body));
+  assert.equal(body.model, 'claude-sonnet-5-5');
+  assert.equal(body.output_config.format.type, 'json_schema');
   return Response.json({
-    status: 'completed',
-    id: 'r',
+    id: 'msg',
     model: body.model,
+    stop_reason: 'end_turn',
     usage: { input_tokens: 300, output_tokens: 200 },
-    output: [
-      { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(payload) }] },
-    ],
+    content: [{ type: 'text', text: JSON.stringify(payload) }],
   });
 };
 

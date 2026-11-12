@@ -6,10 +6,8 @@ import { oawApi } from '../_shared/oaw-api.ts';
 const OAW_ROUTES = new Set(['status', 'design', 'digest']);
 
 Deno.serve((req) => {
-  const key =
-    Deno.env.get('LINE_OA_KIT_POINTS_OFFER_ENABLED') === 'true'
-      ? Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY') || ''
-      : '';
+  // Both routes bill the subscription quota and run on Claude.
+  const key = Deno.env.get('ANTHROPIC_API_KEY') || '';
   const db = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

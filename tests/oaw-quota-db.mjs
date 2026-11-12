@@ -1,5 +1,5 @@
 // Manual DB test for 20261112000100_oaw_subscription_quota.sql using PGlite (in-memory Postgres).
-// Run: npm i --no-save @electric-sql/pglite@0.3.5 && node tests/oaw-quota-db.mjs supabase/migrations/20261112000100_oaw_subscription_quota.sql
+// Run: npm i --no-save @electric-sql/pglite@0.3.5 && node tests/oaw-quota-db.mjs supabase/migrations/20261112000100_oaw_subscription_quota.sql supabase/migrations/20261112000200_oaw_quota_claude.sql
 // PGlite 0.3.5 crashes on exceptions raised inside plpgsql, so the raise paths are checked in review, not here.
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ await db.exec(`
   create role anon; create role authenticated; create role service_role;
   create table public.line_oa_kit_designs (id uuid primary key);
   insert into public.line_oa_kit_designs values ('11111111-1111-4111-8111-111111111111');`);
-const sql = readFileSync(process.argv[2], 'utf8');
+const sql = process.argv.slice(2).map((f) => readFileSync(f, 'utf8')).join('\n');
 await db.exec(sql);
 await db.exec(sql); // idempotent re-run
 const one = async (q, p = []) => (await db.query(q, p)).rows[0];
@@ -62,3 +62,14 @@ console.log('legacy paid until', until);
 const g = await one(`select count(*)::int n from information_schema.role_table_grants where grantee in ('anon','authenticated') and table_name like 'line_oa_kit_quota%'`);
 assert.equal(g.n, 0);
 console.log('ALL QUOTA TESTS PASSED');
+
+// Claude Sonnet 5.5 pricing (20261112000200): $2 in, $0.10 cached, $10 out per 1M tokens.
+if (process.argv.length > 3) {
+  const U2 = 'U' + 'c'.repeat(32);
+  await one(`select public.line_oa_kit_subscription_extend($1, 1, 'manual')`, [U2]);
+  await one(`select public.line_oa_kit_quota_reserve('c1',$1,$2,'runtime',0.02) as j`, [P, U2]);
+  const claude = { model: 'claude-sonnet-5-5', inputTokens: 1000, cachedTokens: 200, outputTokens: 300 };
+  const c1 = Number((await one(`select public.line_oa_kit_quota_settle('c1',$1) as c`, [JSON.stringify(claude)])).c);
+  assert.equal(c1, Number(((800 * 2 + 200 * 0.1 + 300 * 10) / 1e6 * 32).toFixed(6)));
+  console.log('claude pricing ok');
+}

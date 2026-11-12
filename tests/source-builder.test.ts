@@ -182,17 +182,17 @@ test('runtime attributes verified usage to the credential owner and strips forge
     }),
   });
   const reply = await runtimeAI(request, db, 'provider-fixture', async (url, options) => {
-    assert.equal(url, 'https://api.openai.com/v1/responses');
+    assert.equal(url, 'https://api.anthropic.com/v1/messages');
     const body = JSON.parse(String(options?.body));
-    assert.equal(body.model, 'gpt-4.1-mini-2025-04-14');
-    assert.equal(body.store, false);
-    assert.equal(body.input, '請幫我整理行程');
+    assert.equal(body.model, 'claude-sonnet-5-5');
+    assert.deepEqual(body.thinking, { type: 'between_tools' });
+    assert.deepEqual(body.messages, [{ role: 'user', content: '請幫我整理行程' }]);
     return Response.json({
-      status: 'completed',
-      id: 'response',
+      id: 'msg',
       model: body.model,
-      usage: { input_tokens: 500, input_tokens_details: { cached_tokens: 100 }, output_tokens: 50 },
-      output: [{ type: 'message', content: [{ type: 'output_text', text: '行程摘要' }] }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 400, cache_read_input_tokens: 100, output_tokens: 50 },
+      content: [{ type: 'text', text: '行程摘要' }],
     });
   });
   assert.deepEqual(await reply.json(), { reply: '行程摘要' });
@@ -200,6 +200,7 @@ test('runtime attributes verified usage to the credential owner and strips forge
   assert.equal(calls[0].args.p_subject, owner);
   assert.equal(calls[0].name, 'line_oa_kit_quota_reserve');
   assert.equal(calls[0].args.p_feature, 'runtime');
+  assert.equal(calls[1].args.p_usage.inputTokens, 500);
   assert.equal(calls[1].args.p_usage.cachedTokens, 100);
   assert.equal(calls[1].args.p_usage.outputTokens, 50);
 });
