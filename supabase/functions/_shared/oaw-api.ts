@@ -37,17 +37,12 @@ async function readJson(req: Request) {
   }
 }
 
-/** Interim rule until subscriptions exist: a paid production points plan for this project. */
-export async function oawPaid(db: any, grant: Grant) {
-  const { data } = await db
-    .from('line_oa_kit_payments')
-    .select('project_id')
-    .eq('project_id', grant.project_id)
-    .eq('line_subject', grant.line_subject)
-    .eq('status', 'paid')
-    .eq('environment', 'production')
-    .limit(1);
-  return Array.isArray(data) && data.length > 0;
+/** Subscription quota as the app may show it: { paid, percentLeft, extraTwdLeft, paidUntil }. */
+export async function oawQuota(db: any, grant: Grant) {
+  const { data, error } = await db.rpc('line_oa_kit_quota_status', {
+    p_subject: grant.line_subject,
+  });
+  return !error && data?.paid === true ? data : { paid: false };
 }
 
 // ---- Config shape shared with the template (template/supabase/functions/_shared/logic.ts) ----
@@ -199,7 +194,7 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
     const code = (e as Error).message;
     return respond({ error: code }, code === 'input_too_large' ? 413 : 400);
   }
-  if (route === 'status') return respond({ paid: await oawPaid(db, grant) });
+  if (route === 'status') return respond(await oawQuota(db, grant));
 
   const meter = (
     purpose: string,
@@ -222,6 +217,7 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         schema: schema as Record<string, unknown>,
         schemaName: name,
         maxOutputTokens: 1800,
+        billing: 'quota',
       },
       fetcher,
     );

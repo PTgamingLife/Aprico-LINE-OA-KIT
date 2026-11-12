@@ -17,18 +17,30 @@ export async function meteredText(
     schemaName?: string;
     maxOutputTokens?: number;
     feature?: string;
+    // 'quota' = monthly subscription quota (OAW apps); default = legacy points wallet.
+    billing?: 'points' | 'quota';
   },
   fetcher: typeof fetch = fetch,
 ) {
   if (!apiKey) throw Error('platform_ai_unavailable');
   if (new TextEncoder().encode(request.input).length > 12000) throw Error('ai_input_too_large');
-  const { data: held, error } = await db.rpc('line_oa_kit_reserve_ai', {
-    p_request: request.id,
-    p_project: request.projectId,
-    p_subject: request.subject,
-    p_purpose: request.purpose,
-    p_max_usd: request.purpose === 'review' ? REVIEW_MAX_USD : RUNTIME_MAX_USD,
-  });
+  const quota = request.billing === 'quota';
+  const maxUsd = request.purpose === 'review' ? REVIEW_MAX_USD : RUNTIME_MAX_USD;
+  const { data: held, error } = quota
+    ? await db.rpc('line_oa_kit_quota_reserve', {
+        p_request: request.id,
+        p_project: request.projectId,
+        p_subject: request.subject,
+        p_feature: request.feature ?? 'runtime',
+        p_max_usd: maxUsd,
+      })
+    : await db.rpc('line_oa_kit_reserve_ai', {
+        p_request: request.id,
+        p_project: request.projectId,
+        p_subject: request.subject,
+        p_purpose: request.purpose,
+        p_max_usd: maxUsd,
+      });
   if (error || !held) throw Error('points_reservation_failed');
   if (held.error) throw Error(held.error);
   let result: any;
@@ -65,7 +77,7 @@ export async function meteredText(
       Number.isSafeInteger(usage?.input_tokens) &&
       Number.isSafeInteger(usage?.output_tokens) &&
       result.model === BUILD_MODEL;
-    const settled = await db.rpc('line_oa_kit_settle_ai', {
+    const settled = await db.rpc(quota ? 'line_oa_kit_quota_settle' : 'line_oa_kit_settle_ai', {
       p_request: request.id,
       p_usage: verified
         ? {

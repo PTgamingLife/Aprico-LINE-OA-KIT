@@ -46,6 +46,12 @@ function fixture(paidRows: unknown[] = []) {
     },
     rpc: async (name: string, args: any) => {
       calls.push({ name, args });
+      if (name === 'line_oa_kit_quota_status')
+        return {
+          data: paidRows.length
+            ? { paid: true, percentLeft: 63, extraTwdLeft: 20 }
+            : { paid: false },
+        };
       return { data: { reserved: 3 } };
     },
   };
@@ -79,17 +85,17 @@ test('every OAW route requires a valid project key', async () => {
   assert.ok(await runtimeKeyDigest(key));
 });
 
-test('status reports paid only with a paid production plan for the project', async () => {
+test('status reports the subscription quota as percentages', async () => {
   assert.deepEqual(await (await oawApi(req('status', {}), fixture().db, 'k')).json(), {
     paid: false,
   });
   assert.deepEqual(
     await (await oawApi(req('status', {}), fixture([{ project_id: projectId }]).db, 'k')).json(),
-    { paid: true },
+    { paid: true, percentLeft: 63, extraTwdLeft: 20 },
   );
 });
 
-test('design returns a validated config and bills the owner as runtime/design', async () => {
+test('design returns a validated config and bills the owner quota as design', async () => {
   const { db, calls } = fixture();
   const changed = { ...config, grid: 6 };
   const res = await oawApi(
@@ -100,8 +106,10 @@ test('design returns a validated config and bills the owner as runtime/design', 
   );
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { summary: '選單改成 6 格。', config: changed });
-  assert.equal(calls[0].args.p_purpose, 'runtime');
+  assert.equal(calls[0].name, 'line_oa_kit_quota_reserve');
+  assert.equal(calls[0].args.p_feature, 'design');
   assert.equal(calls[0].args.p_subject, owner);
+  assert.equal(calls[1].name, 'line_oa_kit_quota_settle');
   assert.equal(calls[1].args.p_usage.feature, 'design');
 });
 
