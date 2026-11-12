@@ -234,6 +234,8 @@ GitHub App 私鑰外洩，攻擊者就能操作所有還裝著 App 的客戶 rep
 
 **LINE 金鑰維持由客戶自己貼（2026-11-11 決定）。** 不採用「客戶邀請營運者帳號當 LINE Developers Admin 代操作」：LINE 沒有 API 能自動解除角色，而且解除後營運者看過的 Channel Secret 仍然有效，要真正撤銷必須重新發行並更新客戶的 Supabase。
 
+**也不採用「雲端瀏覽器讓客戶掃 QR Code 登入，由 AI 代操作 LINE 後台」（2026-11-12 決定）。** AI 會持有客戶整個 LINE 商用帳號的登入狀態並讀到金鑰；只有手機的客戶無法掃自己螢幕上的 QR Code；從雲端自動操作後台可能觸發 LINE 的異常登入驗證。
+
 ## 11. 已知限制
 
 - LINE 的三件事沒有 API：建立 Login channel、改成 Published、開啟 Webhook。
