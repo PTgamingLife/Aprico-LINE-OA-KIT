@@ -31,7 +31,10 @@ export async function meteredText(
         p_request: request.id,
         p_project: request.projectId,
         p_subject: request.subject,
-        p_feature: request.feature ?? 'runtime',
+        // Quota usage rows only know these features; task labels count as runtime.
+        p_feature: ['design', 'digest'].includes(request.feature ?? '')
+          ? request.feature
+          : 'runtime',
         p_max_usd: maxUsd,
       })
     : await db.rpc('line_oa_kit_reserve_ai', {

@@ -198,7 +198,8 @@ test('runtime attributes verified usage to the credential owner and strips forge
   assert.deepEqual(await reply.json(), { reply: '行程摘要' });
   assert.equal(calls[0].args.p_project, projectId);
   assert.equal(calls[0].args.p_subject, owner);
-  assert.equal(calls[0].args.p_purpose, 'runtime');
+  assert.equal(calls[0].name, 'line_oa_kit_quota_reserve');
+  assert.equal(calls[0].args.p_feature, 'runtime');
   assert.equal(calls[1].args.p_usage.cachedTokens, 100);
   assert.equal(calls[1].args.p_usage.outputTokens, 50);
 });

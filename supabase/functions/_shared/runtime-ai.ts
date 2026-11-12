@@ -99,6 +99,7 @@ export async function runtimeAI(req: Request, db: any, key: string, fetcher: typ
         projectId: grant.project_id,
         subject: grant.line_subject,
         purpose: 'runtime',
+        billing: 'quota',
         input: body.text.trim(),
         feature: task?.label,
         instructions:
