@@ -69,7 +69,9 @@ test('photos go to Claude as images and the report comes back without disease na
   const content = seen[0].messages[0].content;
   assert.equal(content[0].type, 'image');
   assert.equal(content[1].type, 'image');
-  assert.equal(seen[0].output_config.format.type, 'json_schema');
+  // The report is too large for strict structured output; the shape is checked in code.
+  assert.equal(seen[0].output_config.format, undefined);
+  assert.deepEqual(out.nutrients, []);
   assert.equal(d.calls[0].name, 'line_oa_kit_quota_reserve');
 });
 
@@ -112,4 +114,25 @@ test('a request the API refuses releases the hold instead of keeping it', async 
     outputTokens: 0,
     cachedTokens: 0,
   });
+});
+
+test('model JSON wrapped in a code fence is still read, missing fields become empty', async () => {
+  const fenced = async (_u: any, o: any) =>
+    Response.json({
+      id: 'm',
+      model: JSON.parse(String(o.body)).model,
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 10, output_tokens: 10 },
+      content: [{ type: 'text', text: '```json\n' + JSON.stringify(report()) + '\n```' }],
+    });
+  const res = await healthScan(
+    req({ requestId: 'scan-000000007', face: img, tongue: img }),
+    db(),
+    'k',
+    fenced,
+  );
+  assert.equal(res.status, 200);
+  const out = (await res.json()).report;
+  assert.equal(out.constitution.type, '氣虛體質');
+  assert.deepEqual(out.dietAdvice.eat, []);
 });

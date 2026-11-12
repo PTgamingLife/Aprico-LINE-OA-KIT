@@ -9,41 +9,6 @@ const MAX_IMAGE_B64 = 1_400_000; // ~1 MB per photo after base64
 const respond = (data: unknown, status = 200) =>
   Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 
-const str = { type: 'string' };
-const obj = (props: Record<string, unknown>) => ({
-  type: 'object',
-  additionalProperties: false,
-  required: Object.keys(props),
-  properties: props,
-});
-const list = (item: unknown) => ({ type: 'array', items: item });
-const features = obj({ detected: list(str), normal: { type: 'boolean' } });
-const finding = obj({ item: str, observation: str, meaning: str });
-
-export const HEALTH_SCHEMA = obj({
-  scores: obj({
-    faceZone: list({ type: 'integer' }),
-    tongue: list({ type: 'integer' }),
-    eye: list({ type: 'integer' }),
-  }),
-  tongueFeatures: features,
-  faceFeatures: features,
-  eyeFeatures: features,
-  faceZones: list(obj({ zone: str, organ: str, status: str })),
-  tongueAnalysis: list(finding),
-  eyeAnalysis: list(finding),
-  constitution: obj({ type: str, description: str, crossVerify: str }),
-  focus: list(obj({ issue: str, advice: str })),
-  nutrients: list(obj({ name: str, reason: str, foods: str })),
-  dietAdvice: obj({
-    eat: list(obj({ food: str, reason: str })),
-    avoid: obj({ food: str, reason: str }),
-  }),
-  acupoints: list(obj({ name: str, location: str, effect: str })),
-  lifestyle: list(str),
-  nourish: obj({ organ: str, theory: str, foods: list(str) }),
-});
-
 // Weights from facialmonitor score.ts v4 (each list sums to 1; blocks 35/35/30).
 const BLOCKS = {
   face: { len: 6, w: [0.15, 0.2, 0.2, 0.15, 0.15, 0.15], block: 0.35 },
@@ -65,6 +30,63 @@ export function healthScore(scores: any) {
     total += avg * b.block;
   }
   return { version: 4, total: Math.round(total * 10), breakdown };
+}
+
+// The full report is too large for strict structured output (the API rejects the compiled
+// grammar), so the model writes JSON from the prompt and the shape is enforced here.
+function parseJson(text: string) {
+  const body = text.replace(/```(?:json)?/g, '').trim();
+  const start = body.indexOf('{'),
+    end = body.lastIndexOf('}');
+  try {
+    return JSON.parse(body.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
+const arr = (v: unknown) => (Array.isArray(v) ? v : []);
+const o = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as any) : {});
+const s = (v: unknown) => (typeof v === 'string' ? v : '');
+/** Every field the LIFF reads exists with the right type; text items keep only strings. */
+export function normalize(r: any) {
+  if (!r || typeof r !== 'object') return null;
+  const items = (v: unknown, keys: string[]) =>
+    arr(v)
+      .map(o)
+      .map((x) => Object.fromEntries(keys.map((k) => [k, s(x[k])])))
+      .filter((x) => Object.values(x).some(Boolean));
+  const feat = (v: unknown) => ({
+    detected: arr(o(v).detected).map(s).filter(Boolean),
+    normal: o(v).normal === true,
+  });
+  const diet = o(r.dietAdvice);
+  return {
+    scores: o(r.scores),
+    tongueFeatures: feat(r.tongueFeatures),
+    faceFeatures: feat(r.faceFeatures),
+    eyeFeatures: feat(r.eyeFeatures),
+    faceZones: items(r.faceZones, ['zone', 'organ', 'status']),
+    tongueAnalysis: items(r.tongueAnalysis, ['item', 'observation', 'meaning']),
+    eyeAnalysis: items(r.eyeAnalysis, ['item', 'observation', 'meaning']),
+    constitution: {
+      type: s(o(r.constitution).type),
+      description: s(o(r.constitution).description),
+      crossVerify: s(o(r.constitution).crossVerify),
+    },
+    focus: items(r.focus, ['issue', 'advice']),
+    nutrients: items(r.nutrients, ['name', 'reason', 'foods']),
+    dietAdvice: {
+      eat: items(diet.eat, ['food', 'reason']),
+      avoid: { food: s(o(diet.avoid).food), reason: s(o(diet.avoid).reason) },
+    },
+    acupoints: items(r.acupoints, ['name', 'location', 'effect']),
+    lifestyle: arr(r.lifestyle).map(s).filter(Boolean),
+    nourish: {
+      organ: s(o(r.nourish).organ),
+      theory: s(o(r.nourish).theory),
+      foods: arr(o(r.nourish).foods).map(s).filter(Boolean),
+    },
+  };
 }
 
 // No disease names or western-medicine notes reach the elder or the caregivers.
@@ -124,15 +146,15 @@ export async function healthScan(
         instructions: HEALTH_SCAN_PROMPT,
         input: '請依照片完成養生版三診報告。',
         images: [body.face, body.tongue],
-        schema: HEALTH_SCHEMA,
-        maxOutputTokens: 2000,
+        // Without a schema the model must stop on its own; leave room for the full report.
+        maxOutputTokens: 3000,
         billing: 'quota',
       },
       fetcher,
     );
-    const report: any = clean(JSON.parse(text));
+    const report: any = clean(normalize(parseJson(text)));
     const score = healthScore(report.scores);
-    if (!score) return respond({ error: 'report_invalid' }, 502);
+    if (!score || !report.constitution.type) return respond({ error: 'report_invalid' }, 502);
     return respond({ report: { ...report, score } });
   } catch (e) {
     const code = e instanceof Error ? e.message : '';

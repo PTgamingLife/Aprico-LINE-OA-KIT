@@ -116,7 +116,7 @@ export async function meteredText(
   if (!apiKey) throw Error('platform_ai_unavailable');
   if (new TextEncoder().encode(request.input).length > 12000) throw Error('ai_input_too_large');
   const quota = request.billing === 'quota';
-  const maxTokens = Math.min(request.maxOutputTokens ?? 400, 2000);
+  const maxTokens = Math.min(request.maxOutputTokens ?? 400, 3000);
   const maxUsd = quota
     ? quotaHoldUsd(
         new TextEncoder().encode(

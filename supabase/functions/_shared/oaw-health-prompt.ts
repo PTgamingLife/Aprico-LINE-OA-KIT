@@ -67,4 +67,19 @@ scores.eye = [白睛, 黑睛, 眼瞼眼周, 乾潤度]（4 個）
 focus：綜合三診最值得調養的兩個方向（issue 8-12 字、advice 15-25 字，只寫生活與飲食調養）。
 任一項 ≤ 4 分時，在該項 advice 寫「建議請醫師確認」，不要寫疾病名稱。
 nutrients、eat 各 3 項，avoid 1 項，acupoints 3 個，lifestyle 3 條（各 20-30 字）。
-nourish：依黃帝內經說明最需調養的臟腑與五行對應（theory 30-50 字、foods 5 種）。`;
+nourish：依黃帝內經說明最需調養的臟腑與五行對應（theory 30-50 字、foods 5 種）。
+
+只輸出一個 JSON 物件，不要任何其他文字或 markdown，欄位如下：
+{"scores":{"faceZone":[6 個整數],"tongue":[5 個整數],"eye":[4 個整數]},
+"tongueFeatures":{"detected":["…"],"normal":false},"faceFeatures":{"detected":["…"],"normal":false},
+"eyeFeatures":{"detected":["…"],"normal":false},
+"faceZones":[{"zone":"額頭","organ":"心腦，主神志","status":"正常"}],
+"tongueAnalysis":[{"item":"舌色","observation":"…","meaning":"…"}],
+"eyeAnalysis":[{"item":"白睛","observation":"…","meaning":"…"}],
+"constitution":{"type":"…","description":"50-80 字","crossVerify":"30-50 字"},
+"focus":[{"issue":"…","advice":"…"}],
+"nutrients":[{"name":"…","reason":"…","foods":"…"}],
+"dietAdvice":{"eat":[{"food":"…","reason":"…"}],"avoid":{"food":"…","reason":"…"}},
+"acupoints":[{"name":"…","location":"…","effect":"…"}],
+"lifestyle":["…"],
+"nourish":{"organ":"…","theory":"…","foods":["…"]}}`;
