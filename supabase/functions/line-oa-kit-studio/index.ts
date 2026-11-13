@@ -1,3 +1,4 @@
+import { OAW_ACTIONS, oawBuildAction } from '../_shared/oaw-build.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
 import {
@@ -131,6 +132,7 @@ Deno.serve(async (req: Request) => {
         'deploy_acceptance',
         'runtime_key_rotate',
         'runtime_key_revoke',
+        ...OAW_ACTIONS,
       ].includes(b.action)
     )
       return response({ error: '不支援的操作' }, 400);
@@ -209,6 +211,7 @@ Deno.serve(async (req: Request) => {
         'deploy_acceptance',
         'runtime_key_rotate',
         'runtime_key_revoke',
+        ...OAW_ACTIONS,
       ].includes(b.action)
     ) {
       if (typeof b.projectId !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.projectId))
@@ -241,6 +244,8 @@ Deno.serve(async (req: Request) => {
             );
           },
         );
+      if (OAW_ACTIONS.includes(b.action))
+        return await oawBuildAction(b, db, identity.sub, project, response);
       let { data: access, error: accessError } = await db
         .from('line_oa_kit_build_access')
         .select('granted_at,grant_method,setup,setup_revision,updated_at')
