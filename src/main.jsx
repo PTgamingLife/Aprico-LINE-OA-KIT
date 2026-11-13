@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { themes, emptyDraft, validateDraft, actionNames } from './model.ts';
 import './style.css';
-import BuildPanel from './BuildPanel.jsx';
+import OawBuild from './OawBuild.jsx';
 import { launchGithub } from './github-launch.js';
 import { githubNotice } from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
@@ -70,6 +70,7 @@ function App() {
       throw Object.assign(Error(data.error || '暫時無法連線'), {
         code: data.code,
         installationSettingsUrl: data.installationSettingsUrl,
+        url: data.url,
       });
     return data;
   }
@@ -565,7 +566,7 @@ function App() {
               <div>
                 <span className="eyebrow">YOUR BUILD CENTER</span>
                 <h1>建置中心</h1>
-                <p>一件裝備、一段教學，培養你的專屬秘書。</p>
+                <p>六個步驟，在你自己的帳號裡建好官方帳號。</p>
               </div>
               <button onClick={() => navigate('design.html')}>修改我的設計 →</button>
             </section>
@@ -610,17 +611,7 @@ function App() {
                   </div>
                 )}
               </section>
-              <BuildPanel
-                key={current?.id || 'none'}
-                api={api}
-                projectId={current?.id}
-                user={user}
-                draft={draft}
-                projectRevision={current?.revision}
-                pendingSaveRef={buildSaver}
-                openGithub={Boolean(githubReturnProject && current?.id === githubReturnProject)}
-                onDesign={() => navigate('design.html')}
-              />
+              <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />
             </div>
           </>
         )}
