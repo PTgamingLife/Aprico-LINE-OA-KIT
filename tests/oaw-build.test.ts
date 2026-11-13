@@ -93,6 +93,17 @@ test('start writes only ciphertext secrets, variables and config, then runs setu
     assert.ok(g.calls.includes(`PUT /repos/cust/my-oa/actions/secrets/${n}`));
   assert.ok(g.calls.includes('POST /repos/cust/my-oa/actions/variables'));
   assert.ok(g.calls.includes('POST /repos/cust/my-oa/actions/workflows/oaw-setup.yml/dispatches'));
+  const reuse = github();
+  await call(
+    { action: 'oaw_build_start', keyId: 'k1', secrets, sbRef: 'abcdefghijklmnopqrst' },
+    db(),
+    reuse,
+  );
+  assert.ok(reuse.calls.includes('PATCH /repos/cust/my-oa/actions/variables/OAW_SB_REF'));
+  assert.equal(
+    (await call({ action: 'oaw_build_start', keyId: 'k1', secrets, sbRef: 'Bad-Ref' })).status,
+    400,
+  );
   // Plain text is refused: only base64 ciphertext is relayed.
   const bad = await call({
     action: 'oaw_build_start',
