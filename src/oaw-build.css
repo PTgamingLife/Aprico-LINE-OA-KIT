@@ -139,3 +139,18 @@
   color: #b4552d;
   margin: 0;
 }
+.oaw-build .link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #b4552d;
+  font: inherit;
+  text-decoration: underline;
+}
+.oaw-build details summary {
+  color: #8a776a;
+  font-size: 14px;
+}
+.oaw-build details[open] summary {
+  margin-bottom: 10px;
+}

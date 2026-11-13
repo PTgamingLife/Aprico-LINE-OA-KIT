@@ -200,7 +200,11 @@ export async function oawBuildAction(
           { encrypted_value: values[name], key_id: b.keyId },
           fetcher,
         );
+      if (b.sbRef !== undefined && b.sbRef !== '' && !/^[a-z]{20}$/.test(b.sbRef))
+        return respond({ error: 'Supabase 專案 ID 格式不正確', code: 'sb_ref_invalid' }, 400);
       await setVariable(repo, token, 'OAW_PX', projectPx(project.id), fetcher);
+      // Optional: reuse an existing Supabase project (the free plan allows only two).
+      if (b.sbRef) await setVariable(repo, token, 'OAW_SB_REF', b.sbRef, fetcher);
       await setVariable(
         repo,
         token,

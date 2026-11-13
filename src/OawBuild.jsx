@@ -56,6 +56,7 @@ export default function OawBuild({ api, projectId }) {
     ...loadAnswers(),
   });
   const [keys, setKeys] = useState({});
+  const [sbRef, setSbRef] = useState('');
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -90,7 +91,9 @@ export default function OawBuild({ api, projectId }) {
 
   const answered = answers.oaName.trim() && answers.goal.trim();
   const connected = Boolean(gh?.connection);
-  const keysOk = KEY_FIELDS.every((f) => cleanKey(f.name, keys[f.name]));
+  const keysOk =
+    KEY_FIELDS.every((f) => cleanKey(f.name, keys[f.name])) &&
+    (!sbRef.trim() || /^[a-z]{20}$/.test(sbRef.trim()));
 
   async function start() {
     setBusy(true);
@@ -108,6 +111,7 @@ export default function OawBuild({ api, projectId }) {
         secrets,
         template: answers.template,
         config: initialConfig(answers),
+        sbRef: sbRef.trim(),
       });
       setKeys({}); // nothing secret stays in the page
       setStatus({ run: { status: 'queued' }, steps: {} });
@@ -229,6 +233,16 @@ export default function OawBuild({ api, projectId }) {
         done={phase !== 'idle'}
         open={connected && (phase === 'idle' || phase === 'failed')}
       >
+        <p className="oaw-note">
+          建置到：{gh?.connection?.full_name}{' '}
+          <button
+            type="button"
+            className="link"
+            onClick={() => api({ action: 'github_disconnect', projectId }).then(refresh)}
+          >
+            換一個 repo
+          </button>
+        </p>
         <p className="oaw-note">金鑰會在你的手機上加密後才送出，Aprico 看不到內容，也不會保存。</p>
         {KEY_FIELDS.map((f) => (
           <label key={f.name}>
@@ -243,6 +257,20 @@ export default function OawBuild({ api, projectId }) {
             <small>{f.hint}</small>
           </label>
         ))}
+        <details>
+          <summary>已經有 2 個 Supabase 免費專案？</summary>
+          <label>
+            使用既有專案的 Project ID（選填）
+            <input
+              value={sbRef}
+              autoComplete="off"
+              placeholder="例如：abcdefghijklmnopqrst"
+              className={sbRef && !/^[a-z]{20}$/.test(sbRef.trim()) ? 'bad' : ''}
+              onChange={(e) => setSbRef(e.target.value)}
+            />
+            <small>Supabase 專案網址 supabase.com/dashboard/project/ 後面那 20 個英文字母。</small>
+          </label>
+        </details>
         <button className="btn brand" type="button" disabled={!keysOk || busy} onClick={start}>
           {busy ? '加密並送出中…' : '開始建置'}
         </button>
