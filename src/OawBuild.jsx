@@ -62,17 +62,58 @@ export default function OawBuild({ api, projectId }) {
   const [error, setError] = useState(null);
   const [removed, setRemoved] = useState(false);
   const timer = useRef(null);
+  const [billing, setBilling] = useState(null);
+  const params = new URLSearchParams(location.search);
+  const [billingOpen, setBillingOpen] = useState(params.has('renew') || params.has('topup'));
+  const [notice, setNotice] = useState('');
 
   async function refresh() {
-    const [g, s] = await Promise.all([
+    const [b, g, s] = await Promise.all([
+      api({ action: 'sub_status' }).catch(() => null),
       api({ action: 'github_status', projectId }).catch(() => null),
       api({ action: 'oaw_build_status', projectId }).catch((e) => ({ error: e })),
     ]);
     setGh(g);
-    if (s?.error?.code === 'subscription_required') return setGate('unpaid');
+    setBilling(b);
+    if (!b?.quota?.paid || s?.error?.code === 'subscription_required') return setGate('unpaid');
     setGate('ready');
     if (!s?.error) setStatus(s);
   }
+  async function pay(product) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api({ action: 'sub_create', product });
+      if (r.order?.paymentUrl) location.href = r.order.paymentUrl;
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  // Back from LINE Pay: confirm once, then clean the address bar.
+  useEffect(() => {
+    const order = params.get('order');
+    const kind = params.get('pay');
+    if (!kind?.startsWith('sub')) return;
+    const url = new URL(location.href);
+    ['pay', 'order', 'transactionId', 'orderId'].forEach((k) => url.searchParams.delete(k));
+    history.replaceState(history.state, '', url);
+    if (kind === 'sub-cancel') return setNotice('付款已取消，沒有扣款。');
+    setNotice('正在核對付款…');
+    api({ action: 'sub_confirm', orderId: order })
+      .then((r) => {
+        setNotice(
+          r.order?.status === 'paid'
+            ? '✓ 付款完成，已開通。'
+            : r.order?.status === 'test_paid'
+              ? '測試付款完成（沙盒模式不會開通）。'
+              : '付款尚未完成。',
+        );
+        refresh();
+      })
+      .catch((e) => setNotice(e.message));
+  }, []);
   useEffect(() => {
     if (projectId) refresh();
     return () => clearInterval(timer.current);
@@ -128,10 +169,56 @@ export default function OawBuild({ api, projectId }) {
 
   return (
     <div className="oaw-build">
-      <Step n="1" title="訂閱月費" done={gate === 'ready'} open={gate === 'unpaid'}>
-        <p>月費 NT$370，包含 AI 秘書與介面修改的使用額度。</p>
-        <p className="oaw-note">線上訂閱即將開放，目前請聯絡 Aprico 開通。</p>
+      {notice && <p className="oaw-notice">{notice}</p>}
+      <Step n="1" title="訂閱月費" done={gate === 'ready'} open={gate === 'unpaid' || billingOpen}>
+        {billing?.quota?.paid ? (
+          <p>
+            訂閱到 {billing.quota.paidUntil}，本月額度剩 {billing.quota.percentLeft}%
+            {billing.quota.extraTwdLeft ? `，加值餘額 NT$${billing.quota.extraTwdLeft}` : ''}。
+          </p>
+        ) : (
+          <p>包含 AI 秘書、每日整理與介面修改的使用額度，用 LINE Pay 付款。</p>
+        )}
+        <div className="plans">
+          <button
+            className="btn brand"
+            type="button"
+            disabled={busy || !billing?.available}
+            onClick={() => pay('month')}
+          >
+            {billing?.quota?.paid ? '續訂 1 個月' : '月繳'} NT$370
+          </button>
+          <button
+            className="btn brand"
+            type="button"
+            disabled={busy || !billing?.available}
+            onClick={() => pay('year')}
+          >
+            {billing?.quota?.paid ? '續訂 1 年' : '年繳'} NT$3,870（省 NT$570）
+          </button>
+        </div>
+        {billing?.quota?.paid && (
+          <div className="plans">
+            <button className="btn" type="button" disabled={busy} onClick={() => pay('topup30')}>
+              加值 NT$30
+            </button>
+            <button className="btn" type="button" disabled={busy} onClick={() => pay('topup50')}>
+              加值 NT$50
+            </button>
+          </div>
+        )}
+        {billing && !billing.available && (
+          <p className="oaw-note">LINE Pay 暫時無法使用，請聯絡 Aprico。</p>
+        )}
+        {billing?.mode === 'sandbox' && (
+          <p className="oaw-note">目前是 LINE Pay 測試模式，付款不會開通。</p>
+        )}
       </Step>
+      {gate === 'ready' && !billingOpen && (
+        <button type="button" className="link" onClick={() => setBillingOpen(true)}>
+          續訂或加值
+        </button>
+      )}
 
       <Step
         n="2"
