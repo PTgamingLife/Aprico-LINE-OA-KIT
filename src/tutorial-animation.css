@@ -1,4 +1,270 @@
-.tutorial-player{background:#f3f0e5;border:1px solid #d3dbc9;border-radius:20px;padding:20px;color:#294b3c}.tutorial-player-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:center}.tutorial-phone{width:100%;max-width:280px;margin:auto;border:8px solid #294b3c;border-radius:33px;background:#fffefa;overflow:hidden;box-shadow:0 10px 25px #294b3c18}.tutorial-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 13px;font-size:10px}.tutorial-status i{width:65px;height:9px;border-radius:12px;background:#294b3c}.tutorial-address{padding:8px 10px;background:#e9eede;text-align:center;font-size:10px;overflow-wrap:anywhere}.tutorial-platform{padding:13px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #d9dece;font-size:13px}.tutorial-screen{position:relative;padding:14px 11px;min-height:280px}.tutorial-screen h5{font-size:13px;line-height:1.6;margin:0 0 18px;position:relative;z-index:1}.tutorial-row{position:relative;border:1px solid #d6decc;border-radius:8px;background:#fffefa;padding:12px 9px;margin:0 0 14px;font-size:11px;line-height:1.6;min-height:42px;overflow-wrap:anywhere}.tutorial-row.spotlight{z-index:3;outline:3px solid #cc4a38;outline-offset:3px}.tutorial-shade{position:absolute;inset:0;background:#23372ba8;z-index:2;pointer-events:none}.tutorial-pointer{position:absolute;right:3px;bottom:-18px;color:#cf4434;font-size:30px;pointer-events:none}.tutorial-pointer::before{content:'';position:absolute;top:-4px;left:-5px;width:24px;height:24px;border:2px solid #cf4434;border-radius:50%}.tutorial-player.playing .tutorial-pointer{animation:tutorial-point 1.15s 2}.tutorial-player.playing .tutorial-pointer::before{animation:tutorial-ring 1.15s 2}.tutorial-home{width:65px;height:4px;background:#294b3c;border-radius:10px;margin:12px auto}.tutorial-disclaimer{text-align:center;font-size:10px!important;line-height:1.6!important;color:#79866e;margin:12px 0 0!important}.tutorial-narration>small{font-size:11px;color:#8c734e}.tutorial-narration h4{font-size:20px;margin:12px 0;line-height:1.7}.tutorial-narration>p{font-size:13px;line-height:1.9}.tutorial-narration .tutorial-safety{font-size:11px;color:#768469}.tutorial-narration a{font-size:12px}.tutorial-segments{display:flex;gap:8px;margin:18px 0 5px}.tutorial-segments button{flex:1;min-height:35px;border:0;border-top:4px solid #d9e0cd;border-radius:0;background:transparent;font-size:11px;padding:6px}.tutorial-segments button[aria-current=step]{border-top-color:#9d8053}.tutorial-controls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:12px}.tutorial-controls button{font-size:12px!important;width:auto!important;margin:0!important}.detail-dialog:has(.tutorial-player){width:min(850px,calc(100vw - 24px));max-height:92dvh}.detail-thumbnail .detail-mini-phone{border:3px solid #52705a;border-radius:18px;background:#fffdf6;padding:13px 9px;max-width:200px}.detail-mini-phone>small{display:block;font-size:9px;line-height:1.6;margin-bottom:10px}.detail-mini-phone>div{padding:9px 5px;border:1px solid #d6dfcb;border-radius:6px;font-size:9px;line-height:1.7;background:#eff2e8;margin-top:7px;overflow-wrap:anywhere}.detail-mini-phone>div.focus{border:2px solid #ce4c3c;background:#f4e2d6}.detail-help .detail-zoom{min-height:44px;padding:5px 0}.detail-dialog h4{margin:8px 0 20px;font-size:20px}
-@keyframes tutorial-point{from{transform:translate(12px,12px)}to{transform:translate(0,0)}}@keyframes tutorial-ring{0%{transform:scale(1.4);opacity:.25}70%{transform:scale(.7);opacity:1}100%{transform:scale(1);opacity:.5}}
-@media(max-width:600px){.tutorial-player{padding:15px 12px}.tutorial-player-layout{grid-template-columns:1fr;gap:16px}.tutorial-phone{max-width:270px}.tutorial-narration h4{font-size:18px}.tutorial-controls button{padding:10px 11px;font-size:11px!important}.detail-dialog:has(.tutorial-player){padding:14px}.tutorial-screen{min-height:250px}.tutorial-row{font-size:11px}}
-@media(prefers-reduced-motion:reduce){.tutorial-player *{animation:none!important}}
+.tutorial-player {
+  background: #f3f0e5;
+  border: 1px solid #d3dbc9;
+  border-radius: 20px;
+  padding: 20px;
+  color: #294b3c;
+}
+.tutorial-player-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+.tutorial-phone {
+  width: 100%;
+  max-width: 280px;
+  margin: auto;
+  border: 8px solid #294b3c;
+  border-radius: 33px;
+  background: #fffefa;
+  overflow: hidden;
+  box-shadow: 0 10px 25px #294b3c18;
+}
+.tutorial-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 13px;
+  font-size: 10px;
+}
+.tutorial-status i {
+  width: 65px;
+  height: 9px;
+  border-radius: 12px;
+  background: #294b3c;
+}
+.tutorial-address {
+  padding: 8px 10px;
+  background: #e9eede;
+  text-align: center;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.tutorial-platform {
+  padding: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #d9dece;
+  font-size: 13px;
+}
+.tutorial-screen {
+  position: relative;
+  padding: 14px 11px;
+  min-height: 280px;
+}
+.tutorial-screen h5 {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+  position: relative;
+  z-index: 1;
+}
+.tutorial-row {
+  position: relative;
+  border: 1px solid #d6decc;
+  border-radius: 8px;
+  background: #fffefa;
+  padding: 12px 9px;
+  margin: 0 0 14px;
+  font-size: 11px;
+  line-height: 1.6;
+  min-height: 42px;
+  overflow-wrap: anywhere;
+}
+.tutorial-row.spotlight {
+  z-index: 3;
+  outline: 3px solid #cc4a38;
+  outline-offset: 3px;
+}
+.tutorial-shade {
+  position: absolute;
+  inset: 0;
+  background: #23372ba8;
+  z-index: 2;
+  pointer-events: none;
+}
+.tutorial-pointer {
+  position: absolute;
+  right: 3px;
+  bottom: -18px;
+  color: #cf4434;
+  font-size: 30px;
+  pointer-events: none;
+}
+.tutorial-pointer::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -5px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #cf4434;
+  border-radius: 50%;
+}
+.tutorial-player.playing .tutorial-pointer {
+  animation: tutorial-point 1.15s 2;
+}
+.tutorial-player.playing .tutorial-pointer::before {
+  animation: tutorial-ring 1.15s 2;
+}
+.tutorial-home {
+  width: 65px;
+  height: 4px;
+  background: #294b3c;
+  border-radius: 10px;
+  margin: 12px auto;
+}
+.tutorial-disclaimer {
+  text-align: center;
+  font-size: 10px !important;
+  line-height: 1.6 !important;
+  color: #79866e;
+  margin: 12px 0 0 !important;
+}
+.tutorial-narration > small {
+  font-size: 11px;
+  color: #8c734e;
+}
+.tutorial-narration h4 {
+  font-size: 20px;
+  margin: 12px 0;
+  line-height: 1.7;
+}
+.tutorial-narration > p {
+  font-size: 13px;
+  line-height: 1.9;
+}
+.tutorial-narration .tutorial-safety {
+  font-size: 11px;
+  color: #768469;
+}
+.tutorial-narration a {
+  font-size: 12px;
+}
+.tutorial-segments {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0 5px;
+}
+.tutorial-segments button {
+  flex: 1;
+  min-height: 35px;
+  border: 0;
+  border-top: 4px solid #d9e0cd;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
+  padding: 6px;
+}
+.tutorial-segments button[aria-current='step'] {
+  border-top-color: #9d8053;
+}
+.tutorial-controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.tutorial-controls button {
+  font-size: 12px !important;
+  width: auto !important;
+  margin: 0 !important;
+}
+.detail-dialog:has(.tutorial-player) {
+  width: min(850px, calc(100vw - 24px));
+  max-height: 92dvh;
+}
+.detail-thumbnail .detail-mini-phone {
+  border: 3px solid #52705a;
+  border-radius: 18px;
+  background: #fffdf6;
+  padding: 13px 9px;
+  max-width: 200px;
+}
+.detail-mini-phone > small {
+  display: block;
+  font-size: 9px;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+.detail-mini-phone > div {
+  padding: 9px 5px;
+  border: 1px solid #d6dfcb;
+  border-radius: 6px;
+  font-size: 9px;
+  line-height: 1.7;
+  background: #eff2e8;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+}
+.detail-mini-phone > div.focus {
+  border: 2px solid #ce4c3c;
+  background: #f4e2d6;
+}
+.detail-help .detail-zoom {
+  min-height: 44px;
+  padding: 5px 0;
+}
+.detail-dialog h4 {
+  margin: 8px 0 20px;
+  font-size: 20px;
+}
+@keyframes tutorial-point {
+  from {
+    transform: translate(12px, 12px);
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+@keyframes tutorial-ring {
+  0% {
+    transform: scale(1.4);
+    opacity: 0.25;
+  }
+  70% {
+    transform: scale(0.7);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+}
+@media (max-width: 600px) {
+  .tutorial-player {
+    padding: 15px 12px;
+  }
+  .tutorial-player-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .tutorial-phone {
+    max-width: 270px;
+  }
+  .tutorial-narration h4 {
+    font-size: 18px;
+  }
+  .tutorial-controls button {
+    padding: 10px 11px;
+    font-size: 11px !important;
+  }
+  .detail-dialog:has(.tutorial-player) {
+    padding: 14px;
+  }
+  .tutorial-screen {
+    min-height: 250px;
+  }
+  .tutorial-row {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-player * {
+    animation: none !important;
+  }
+}

@@ -1,82 +1,773 @@
-import React,{useEffect,useRef,useState} from 'react';
-import {createRoot} from 'react-dom/client';
-import {themes,emptyDraft,validateDraft,actionNames} from './model.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { themes, emptyDraft, validateDraft, actionNames } from './model.ts';
 import './style.css';
-import BuildPanel from './BuildPanel.jsx';
-import {launchGithub} from './github-launch.js';
-import {githubNotice} from './github-result.ts';
+import OawBuild from './OawBuild.jsx';
+import { launchGithub } from './github-launch.js';
+import { githubNotice } from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
-import {menuCellStyle} from './backgrounds.ts';
-import {renderTrialMenu} from './trial-canvas.js';
-import {TRIAL_CHAT} from './trial-model.ts';
+import { menuCellStyle } from './backgrounds.ts';
+import { renderTrialMenu } from './trial-canvas.js';
+import { TRIAL_CHAT } from './trial-model.ts';
 import './trial.css';
-const API='https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-studio';
-const LIFF_ID='2012197506-Vmb4O5iT';
-const route=document.body.dataset.page;
-function App(){
- const [trialResult,setTrialResult]=useState(null);
- const [githubReturnProject,setGithubReturnProject]=useState(null);
- const [draft,setDraft]=useState(emptyDraft),[projects,setProjects]=useState([]),[user,setUser]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState(false);
- const [current,setCurrent]=useState(null),[baseline,setBaseline]=useState(JSON.stringify(emptyDraft())),[saved,setSaved]=useState(''),[editing,setEditing]=useState(null),[working,setWorking]=useState(null),[demo,setDemo]=useState(null),[mode,setMode]=useState('edit');
- const dialog=useRef(null),demoDialog=useRef(null),sdk=useRef(null),buildSaver=useRef(null),dirty=JSON.stringify(draft)!==baseline;
- function notice(text,isError=false){setStatus(text);setError(isError);}
- async function api(body){const endpoint=body.action.startsWith('github_')?API.replace('line-oa-kit-studio','line-oa-kit-github'):API;const payload={...body,idToken:sdk.current?.getIDToken()||undefined};if(body.action==='github_begin')return launchGithub(endpoint,payload);const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(['deploy_github_check','deploy_target_check','deploy_prepare','deploy_start','trial_apply', 'payment_create','payment_confirm','payment_reconcile','prefill_build_setup'].includes(body.action)?120000:20000)});const data=await r.json();if(!r.ok)throw Object.assign(Error(data.error||'暫時無法連線'),{code:data.code,installationSettingsUrl:data.installationSettingsUrl});return data;}
- function accept(project){const d=validateDraft(project.config);setDraft(d);setBaseline(JSON.stringify(d));setCurrent({id:project.id,revision:project.revision});setSaved(project.updated_at);}
- useEffect(()=>{let live=true;(async()=>{try{
-  if(!window.liff)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://static.line-scdn.net/liff/edge/2/sdk.js';s.onload=resolve;s.onerror=()=>reject(Error('LINE 登入元件載入失敗，請重試'));document.head.appendChild(s);});
-  if(!live)return;sdk.current=window.liff;await sdk.current.init({liffId:LIFF_ID});if(sdk.current.isLoggedIn()){
-   const data=await api({action:'list'});if(!live)return;setUser(data.displayName);setProjects(data.projects);
-   const params=new URLSearchParams(location.search),requested=params.get('project')||sessionStorage.getItem('aprico-selected-project');
-   const selected=data.projects.find(p=>p.id===requested)||data.projects[0];
-   if(selected){accept(selected);sessionStorage.setItem('aprico-selected-project',selected.id);}
-   if(route==='design'&&params.get('preview')==='chat'){
-    const url=new URL(location.href);
-    url.searchParams.delete('preview');history.replaceState(history.state,'',url);
-    if(selected&&selected.id===params.get('project'))await applyTrial(validateDraft(selected.config),selected);
-    else notice('找不到這份已保存的試用設計。',true);
-   }
-   const githubResult=githubNotice(params);
-   if(githubResult){
-    notice(githubResult.text,githubResult.error);
-    if(route==='build'&&selected&&selected.id===params.get('project')&&params.get('github')!=='start')setGithubReturnProject(selected.id);
-    const url=new URL(location.href);url.searchParams.delete('github');url.searchParams.delete('reason');history.replaceState(history.state,'',url);
-   }
+const API = 'https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-studio';
+const LIFF_ID = '2012197506-Vmb4O5iT';
+const route = document.body.dataset.page;
+function App() {
+  const [trialResult, setTrialResult] = useState(null);
+  const [githubReturnProject, setGithubReturnProject] = useState(null);
+  const [draft, setDraft] = useState(emptyDraft),
+    [projects, setProjects] = useState([]),
+    [user, setUser] = useState(''),
+    [loading, setLoading] = useState(true),
+    [busy, setBusy] = useState(false),
+    [status, setStatus] = useState(''),
+    [error, setError] = useState(false);
+  const [current, setCurrent] = useState(null),
+    [baseline, setBaseline] = useState(JSON.stringify(emptyDraft())),
+    [saved, setSaved] = useState(''),
+    [editing, setEditing] = useState(null),
+    [working, setWorking] = useState(null),
+    [demo, setDemo] = useState(null),
+    [mode, setMode] = useState('edit');
+  const dialog = useRef(null),
+    demoDialog = useRef(null),
+    sdk = useRef(null),
+    buildSaver = useRef(null),
+    dirty = JSON.stringify(draft) !== baseline;
+  function notice(text, isError = false) {
+    setStatus(text);
+    setError(isError);
   }
- }catch(e){if(live)notice(e.message,true);}finally{if(live)setLoading(false);}})();return()=>{live=false;};},[]);
- useEffect(()=>{const f=e=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',f);return()=>window.removeEventListener('beforeunload',f);},[dirty]);
- useEffect(()=>{if(editing!==null)dialog.current?.showModal();else if(dialog.current?.open)dialog.current.close();},[editing]);
- useEffect(()=>{if(demo)demoDialog.current?.showModal();else if(demoDialog.current?.open)demoDialog.current.close();},[demo]);
- function patch(value){setDraft(d=>({...d,...value}));}
- function edit(i){setWorking({...draft.cells[i]});setEditing(i);}
- function applyCell(){setDraft(d=>({...d,cells:d.cells.map((c,i)=>i===editing?working:c)}));setEditing(null);}
- async function save(){if(!user){notice('請先登入 LINE，才能保存到你的專案。',true);return false;}if(busy)return false;setBusy(true);notice('正在保存…');const target=current||{id:crypto.randomUUID(),revision:0};setCurrent(target);
- try{const snapshot=validateDraft(draft);const result=await api({action:'save',...target,config:snapshot});setCurrent(result.project);setBaseline(JSON.stringify(snapshot));setSaved(result.project.updated_at);sessionStorage.setItem('aprico-selected-project',target.id);setProjects(ps=>[{...result.project,config:snapshot},...ps.filter(p=>p.id!==target.id)]);notice('已保存到你的 LINE 會員專案');return result.project;}catch(e){notice(e.message,true);return false;}finally{setBusy(false);}}
- async function applyTrial(snapshot,project){setBusy(true);notice('設計已保存，正在套用你的個人試用選單…');try{const image=await renderTrialMenu(snapshot);const result=await api({action:'trial_apply',projectId:project.id,revision:project.revision,image});setTrialResult(result);notice(result.message);}catch(e){setTrialResult({failed:true});notice('設計已保存。'+e.message,true);}finally{setBusy(false);}}
- async function saveAndTrial(){if(busy)return;const snapshot=validateDraft(draft),project=await save();if(project)await applyTrial(snapshot,project);}
- async function stopTrial(){if(busy)return;setBusy(true);try{await api({action:'trial_exit'});setTrialResult(null);notice('已結束個人試用，恢復 Aprico 原本選單；設計仍保留。');}catch(e){notice(e.message,true);}finally{setBusy(false);}}
- function openTrialChat(){if(sdk.current?.isInClient())sdk.current.closeWindow();else window.open(TRIAL_CHAT,'_blank','noopener,noreferrer');}
- async function changeProject(id){if(busy)return;if(buildSaver.current&&!await buildSaver.current())return;if(dirty&&!confirm('目前還有未保存的修改，確定切換專案？'))return;const p=projects.find(p=>p.id===id);if(p){accept(p);sessionStorage.setItem('aprico-selected-project',id);notice('已載入專案');}}
- function newProject(){if(busy)return;setTrialResult(null);if(dirty&&!confirm('目前還有未保存的修改，確定建立新專案？'))return;const d=emptyDraft();setDraft(d);setBaseline(JSON.stringify(d));setCurrent(null);setSaved('');sessionStorage.removeItem('aprico-selected-project');notice('請填寫新專案名稱，點選手機內的格子開始設計。');}
- async function navigate(page){if(busy)return;if(buildSaver.current&&!await buildSaver.current())return;if(dirty){if(user){if(!await save())return;}else if(!confirm('訪客設計尚未保存。切換頁面將離開目前設計，確定繼續？'))return;}const url=new URL(page,location.href);if(current)url.searchParams.set('project',current.id);location.assign(url.href);}
- function login(){if(!sdk.current){notice('登入服務尚未就緒，請重新整理後再試。',true);return;}sdk.current.login({redirectUri:location.origin+location.pathname+location.search});}
- async function logout(){if(busy)return;if(buildSaver.current&&!await buildSaver.current())return;if(dirty&&!confirm('還有未保存的修改，確定登出？'))return;sdk.current.logout();sessionStorage.removeItem('aprico-selected-project');location.reload();}
- const palette=themes[draft.theme].colors;
- return <div className="app-shell"><header><span className="brand"><b>aprico</b><small>LINE OA KIT</small></span><button className="login" disabled={loading||busy} onClick={user?logout:login}>{loading?'正在完成登入…':user?`${user} · 登出`:'LINE 登入'}</button></header>
- <nav aria-label="主要分頁"><button aria-current={route==='design'?'page':undefined} onClick={()=>route!=='design'&&navigate('design.html')}>① 打造我的 LINE OA</button><button aria-current={route==='build'?'page':undefined} onClick={()=>route!=='build'&&navigate('build.html')}>② 建置中心</button></nav>
- {status&&<div role="status" className={`notice ${error?'error':''}`}>{status}</div>}
- {!loading&&!user&&<p className="guest-note">可先免費設計，登入後即可保存。訪客內容會在離開或重新整理後清除。</p>}
- <main aria-busy={loading}>{route==='design'?<>
- <section className="page-heading"><div><span className="eyebrow">DESIGN YOUR EXPERIENCE</span><h1>把你的點子，<br/>變成有趣的互動。</h1><p>直接點選手機裡的格子，設定每個功能。</p></div><div className="save-area"><button className="primary trial-save-button" disabled={busy||loading||!user} onClick={saveAndTrial}>{busy?'正在處理…':'保存並在 LINE 試用'}</button><button disabled={busy||loading||!user} onClick={save}>只保存設計</button><small>{dirty?'有尚未保存的修改':saved?`已保存 ${new Date(saved).toLocaleString('zh-TW')}`:'還沒有修改'}</small><small className="trial-trust-note">只改你在 Aprico 的個人選單，不影響其他人。聊天室帳號名稱仍為 Aprico。</small></div></section>
- {trialResult&&<section className="trial-control card"><h2>{trialResult.failed?'設計已保存，試用尚未完成':'你的 LINE 個人試用'}</h2><p>{trialResult.failed?'請先加入 Aprico 好友，再重試「保存並在 LINE 試用」。':trialResult.message}</p><button className="primary" onClick={openTrialChat}>回到 LINE 查看</button> <a href={TRIAL_CHAT} target="_blank" rel="noopener noreferrer">加入 Aprico 好友 ↗</a> <button disabled={busy} onClick={stopTrial}>結束試用，恢復原選單</button><small>AI、健康檢測與需額外設定的功能僅提供展示，不會扣用 AI 額度或發放獎項。</small></section>}
- <div className="design-layout"><section className="phone-zone"><div className="preview-toolbar"><div className="segments" aria-label="選單格數">{[4,6,8].map(n=><button key={n} aria-pressed={draft.grid===n} onClick={()=>patch({grid:n})}>{n} 格</button>)}</div><div className="segments small"><button aria-pressed={mode==='edit'} onClick={()=>setMode('edit')}>點格編輯</button><button aria-pressed={mode==='demo'} onClick={()=>setMode('demo')}>體驗反應</button></div></div>
- <div className="phone"><div className="speaker"/><div className="phone-header"><span>‹</span><div><strong>{draft.oaName||'你的品牌官方帳號'}</strong><small>互動設計示意</small></div><span>☰</span></div><div className="chat"><span className="day">今天</span><div className="bubble"><b>你好，歡迎來到 {draft.oaName||'你的品牌'}！</b><p>{mode==='edit'?'點一下下方格子，就能編輯這個功能。':'點一下下方格子，體驗示範互動。'}</p></div><div className="canvas-note"><span>✦</span><p>你的服務，<br/>可以很好玩。</p></div><small>網頁示意：保存並在 LINE 試用，即可套用你的個人選單</small></div><div className={`rich-grid ${draft.pattern==='image'?'has-image':''}`} style={{...(draft.pattern==='image'?{backgroundImage:`url("${draft.backgroundImage}")`}:{}),gridTemplateColumns:`repeat(${draft.grid===6?3:2},1fr)`}}>{draft.cells.slice(0,draft.grid).map((c,i)=><button key={i} style={menuCellStyle(draft,palette[i%4])} onClick={()=>mode==='edit'?edit(i):setDemo({...c,index:i})} aria-label={`${mode==='edit'?'設定':'體驗'}第 ${i+1} 格：${c.label||'未命名功能'}`}><span className="cell-icon">{['✧','◈','☷','↗'][i%4]}</span><strong>{c.label||`點我設定功能 ${i+1}`}</strong><small>{mode==='edit'?'＋ 點擊編輯':actionNames[c.action]}</small>{c.template!=='custom'&&<em>{c.template==='health'?'加購 · 需 AI':'加購 · 示範'}</em>}</button>)}</div><div className="phone-bottom">你的專屬互動選單</div></div></section>
- <aside className="settings"><section className="card"><h2>你的品牌</h2><label>專案名稱<input value={draft.name} maxLength={80} placeholder="例如：我的品牌互動站" onChange={e=>patch({name:e.target.value})}/></label><label>LINE OA 名稱<input value={draft.oaName} maxLength={80} placeholder="輸入你的官方帳號名稱" onChange={e=>patch({oaName:e.target.value})}/></label><label>主要設計目標<textarea rows={3} maxLength={500} value={draft.goal||''} placeholder="例如：讓新顧客在 LINE 完成預約，減少重複問答" onChange={e=>patch({goal:e.target.value})}/><small>建置中心會依照目標與選單預填服務文字。</small></label>{projects.length>0&&<label>切換既有專案<select value={current?.id||''} onChange={e=>changeProject(e.target.value)}><option value="" disabled>選擇專案</option>{projects.map(p=><option key={p.id} value={p.id}>{p.config.name||'未命名專案'}</option>)}</select></label>}<button className="text-button" onClick={newProject}>＋ 建立新設計</button></section><section className="card"><h2>選一種你的風格</h2><div className="themes">{themes.map((t,i)=><button key={t.name} aria-pressed={draft.theme===i} onClick={()=>patch({theme:i})}><span className="swatches">{t.colors.map((c,j)=><i key={j} style={{background:c}}/>)}</span><span>{t.name}</span></button>)}</div></section><BackgroundPicker draft={draft} onChange={patch} busy={busy||loading} onBusy={setBusy} notice={notice}/><section className="card note-card"><h2>設計好了嗎？</h2><p>切換格數會保留原本各格內容。保存並在 LINE 試用後，回到 Aprico 聊天室體驗個人選單；正式建置請前往建置中心。</p><button onClick={()=>navigate('build.html')}>前往建置中心 →</button></section></aside></div>
- </>:<>
- <section className="page-heading"><div><span className="eyebrow">YOUR BUILD CENTER</span><h1>建置中心</h1><p>一件裝備、一段教學，培養你的專屬秘書。</p></div><button onClick={()=>navigate('design.html')}>修改我的設計 →</button></section><div className="build-layout"><section className="card project-picker">{loading?<p>正在載入你的專案…</p>:projects.length?<details><summary>目前專案：{draft.name||'未命名專案'} · 切換其他專案</summary><div className="project-picker-list">{projects.map(p=><button className={`project ${current?.id===p.id?'selected':''}`} key={p.id} onClick={()=>changeProject(p.id)}><strong>{p.config.name||'未命名專案'}</strong><span>{p.config.oaName||'尚未填寫 OA 名稱'} · {p.config.grid} 格</span><small>最後保存 {new Date(p.updated_at).toLocaleString('zh-TW')}</small></button>)}</div></details>:<div className="empty"><span>✧</span><h3>{user?'從第一個設計開始':'登入，找回你的設計'}</h3><p>{user?'到設計頁點選功能格，打造你的專屬互動。':'使用同一個 LINE 帳號登入，即可查看已保存的專案。'}</p><button className="primary" onClick={()=>user?navigate('design.html'):login()}>{user?'開始設計':'使用 LINE 登入'}</button></div>}</section><BuildPanel key={current?.id||'none'} api={api} projectId={current?.id} user={user} draft={draft} projectRevision={current?.revision} pendingSaveRef={buildSaver} openGithub={Boolean(githubReturnProject&&current?.id===githubReturnProject)} onDesign={()=>navigate('design.html')}/></div>
- </>}</main>
- <dialog ref={dialog} className="editor-dialog" onCancel={()=>setEditing(null)} onClick={e=>e.target===dialog.current&&setEditing(null)}>{working&&<form onSubmit={e=>{e.preventDefault();applyCell();}}><div className="dialog-heading"><div><span className="eyebrow">MENU EDITOR</span><h2>設定第 {editing+1} 格</h2></div><button type="button" aria-label="關閉功能設定" onClick={()=>setEditing(null)}>×</button></div><label>按鈕名稱<input autoFocus value={working.label} maxLength={30} placeholder="例如：預約體驗、今日任務" onChange={e=>setWorking({...working,label:e.target.value})}/></label><label>點擊後要開啟什麼？<select value={working.action} onChange={e=>setWorking({...working,action:e.target.value})}>{Object.entries(actionNames).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><label>要製作哪種功能？<select value={working.template} onChange={e=>setWorking({...working,template:e.target.value})}><option value="custom">自行設計內容</option><option value="scratch">刮刮樂 · 加購 NT$100</option><option value="health">健康檢測 · 加購 NT$1,600／需 AI</option></select></label><label>{working.template==='scratch'?'獎項或刮出的內容':working.action==='web'?'目標網址與開啟說明':'功能需求與回覆內容'}<textarea rows={5} value={working.content} maxLength={2000} placeholder={working.template==='scratch'?'每行一個想刮出的獎項或文字；此處為展示設定，不會發放真實獎品。':working.action==='web'?'填入 https:// 開頭的網址與跳轉說明。':'使用者輸入什麼？應該看到什麼結果？你希望這個功能如何運作？'} onChange={e=>setWorking({...working,content:e.target.value})}/></label>{working.template==='health'&&<p className="subtle">健康功能需要額外設定與 AI；預覽僅展示流程，不會進行真實檢測。</p>}<div className="dialog-actions"><button type="button" onClick={()=>setEditing(null)}>取消</button><button className="primary" type="submit">套用到預覽</button></div><small className="footnote">套用後請按「保存我的設計」，同步到你的雲端專案。</small></form>}</dialog>
- <dialog ref={demoDialog} className={`demo-dialog ${demo?.action==='half'?'half':''} ${demo?.action==='full'?'full':''}`} onCancel={()=>setDemo(null)} onClick={e=>e.target===demoDialog.current&&setDemo(null)}>{demo&&<><div className="dialog-heading"><div><span className="eyebrow">{actionNames[demo.action]} · 示範</span><h2>{demo.label||`功能 ${demo.index+1}`}</h2></div><button aria-label="關閉體驗" onClick={()=>setDemo(null)}>×</button></div>{demo.template==='scratch'?<Scratch content={demo.content}/>:demo.template==='health'?<div className="health-demo"><span>◎</span><h3>拍照 → 分析 → 查看結果</h3><p>此為健康模組展示。正式功能需完成設定與 AI 串接。</p></div>:<p className="demo-content">{demo.content||'尚未填寫內容，請切換「點格編輯」設定。'}</p>}<p className="subtle">示範畫面不呼叫 AI、不發放獎品、不自動跳轉外部網址。</p><button className="primary" onClick={()=>{const i=demo.index;setDemo(null);edit(i);}}>編輯這個功能</button></>}</dialog>
- <footer>Aprico · 讓每一次互動，都更有趣。<a href="https://github.com/PTgamingLife/Aprico-LINE-OA-KIT">GitHub</a></footer></div>;
+  async function api(body) {
+    const endpoint = body.action.startsWith('github_')
+      ? API.replace('line-oa-kit-studio', 'line-oa-kit-github')
+      : API;
+    const payload = { ...body, idToken: sdk.current?.getIDToken() || undefined };
+    if (body.action === 'github_begin') return launchGithub(endpoint, payload);
+    const r = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(
+        [
+          'deploy_github_check',
+          'deploy_target_check',
+          'deploy_prepare',
+          'deploy_start',
+          'trial_apply',
+          'payment_create',
+          'payment_confirm',
+          'payment_reconcile',
+          'prefill_build_setup',
+        ].includes(body.action)
+          ? 120000
+          : 20000,
+      ),
+    });
+    const data = await r.json();
+    if (!r.ok)
+      throw Object.assign(Error(data.error || '暫時無法連線'), {
+        code: data.code,
+        installationSettingsUrl: data.installationSettingsUrl,
+        url: data.url,
+      });
+    return data;
+  }
+  function accept(project) {
+    const d = validateDraft(project.config);
+    setDraft(d);
+    setBaseline(JSON.stringify(d));
+    setCurrent({ id: project.id, revision: project.revision });
+    setSaved(project.updated_at);
+  }
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        if (!window.liff)
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+            s.onload = resolve;
+            s.onerror = () => reject(Error('LINE 登入元件載入失敗，請重試'));
+            document.head.appendChild(s);
+          });
+        if (!live) return;
+        sdk.current = window.liff;
+        await sdk.current.init({ liffId: LIFF_ID });
+        if (sdk.current.isLoggedIn()) {
+          const data = await api({ action: 'list' });
+          if (!live) return;
+          setUser(data.displayName);
+          setProjects(data.projects);
+          const params = new URLSearchParams(location.search),
+            requested = params.get('project') || sessionStorage.getItem('aprico-selected-project');
+          const selected = data.projects.find((p) => p.id === requested) || data.projects[0];
+          if (selected) {
+            accept(selected);
+            sessionStorage.setItem('aprico-selected-project', selected.id);
+          }
+          if (route === 'design' && params.get('preview') === 'chat') {
+            const url = new URL(location.href);
+            url.searchParams.delete('preview');
+            history.replaceState(history.state, '', url);
+            if (selected && selected.id === params.get('project'))
+              await applyTrial(validateDraft(selected.config), selected);
+            else notice('找不到這份已保存的試用設計。', true);
+          }
+          const githubResult = githubNotice(params);
+          if (githubResult) {
+            notice(githubResult.text, githubResult.error);
+            if (
+              route === 'build' &&
+              selected &&
+              selected.id === params.get('project') &&
+              params.get('github') !== 'start'
+            )
+              setGithubReturnProject(selected.id);
+            const url = new URL(location.href);
+            url.searchParams.delete('github');
+            url.searchParams.delete('reason');
+            history.replaceState(history.state, '', url);
+          }
+        }
+      } catch (e) {
+        if (live) notice(e.message, true);
+      } finally {
+        if (live) setLoading(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    const f = (e) => {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', f);
+    return () => window.removeEventListener('beforeunload', f);
+  }, [dirty]);
+  useEffect(() => {
+    if (editing !== null) dialog.current?.showModal();
+    else if (dialog.current?.open) dialog.current.close();
+  }, [editing]);
+  useEffect(() => {
+    if (demo) demoDialog.current?.showModal();
+    else if (demoDialog.current?.open) demoDialog.current.close();
+  }, [demo]);
+  function patch(value) {
+    setDraft((d) => ({ ...d, ...value }));
+  }
+  function edit(i) {
+    setWorking({ ...draft.cells[i] });
+    setEditing(i);
+  }
+  function applyCell() {
+    setDraft((d) => ({ ...d, cells: d.cells.map((c, i) => (i === editing ? working : c)) }));
+    setEditing(null);
+  }
+  async function save() {
+    if (!user) {
+      notice('請先登入 LINE，才能保存到你的專案。', true);
+      return false;
+    }
+    if (busy) return false;
+    setBusy(true);
+    notice('正在保存…');
+    const target = current || { id: crypto.randomUUID(), revision: 0 };
+    setCurrent(target);
+    try {
+      const snapshot = validateDraft(draft);
+      const result = await api({ action: 'save', ...target, config: snapshot });
+      setCurrent(result.project);
+      setBaseline(JSON.stringify(snapshot));
+      setSaved(result.project.updated_at);
+      sessionStorage.setItem('aprico-selected-project', target.id);
+      setProjects((ps) => [
+        { ...result.project, config: snapshot },
+        ...ps.filter((p) => p.id !== target.id),
+      ]);
+      notice('已保存到你的 LINE 會員專案');
+      return result.project;
+    } catch (e) {
+      notice(e.message, true);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function applyTrial(snapshot, project) {
+    setBusy(true);
+    notice('設計已保存，正在套用你的個人試用選單…');
+    try {
+      const image = await renderTrialMenu(snapshot);
+      const result = await api({
+        action: 'trial_apply',
+        projectId: project.id,
+        revision: project.revision,
+        image,
+      });
+      setTrialResult(result);
+      notice(result.message);
+    } catch (e) {
+      setTrialResult({ failed: true });
+      notice('設計已保存。' + e.message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function saveAndTrial() {
+    if (busy) return;
+    const snapshot = validateDraft(draft),
+      project = await save();
+    if (project) await applyTrial(snapshot, project);
+  }
+  async function stopTrial() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api({ action: 'trial_exit' });
+      setTrialResult(null);
+      notice('已結束個人試用，恢復 Aprico 原本選單；設計仍保留。');
+    } catch (e) {
+      notice(e.message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function openTrialChat() {
+    if (sdk.current?.isInClient()) sdk.current.closeWindow();
+    else window.open(TRIAL_CHAT, '_blank', 'noopener,noreferrer');
+  }
+  async function changeProject(id) {
+    if (busy) return;
+    if (buildSaver.current && !(await buildSaver.current())) return;
+    if (dirty && !confirm('目前還有未保存的修改，確定切換專案？')) return;
+    const p = projects.find((p) => p.id === id);
+    if (p) {
+      accept(p);
+      sessionStorage.setItem('aprico-selected-project', id);
+      notice('已載入專案');
+    }
+  }
+  function newProject() {
+    if (busy) return;
+    setTrialResult(null);
+    if (dirty && !confirm('目前還有未保存的修改，確定建立新專案？')) return;
+    const d = emptyDraft();
+    setDraft(d);
+    setBaseline(JSON.stringify(d));
+    setCurrent(null);
+    setSaved('');
+    sessionStorage.removeItem('aprico-selected-project');
+    notice('請填寫新專案名稱，點選手機內的格子開始設計。');
+  }
+  async function navigate(page) {
+    if (busy) return;
+    if (buildSaver.current && !(await buildSaver.current())) return;
+    if (dirty) {
+      if (user) {
+        if (!(await save())) return;
+      } else if (!confirm('訪客設計尚未保存。切換頁面將離開目前設計，確定繼續？')) return;
+    }
+    const url = new URL(page, location.href);
+    if (current) url.searchParams.set('project', current.id);
+    location.assign(url.href);
+  }
+  function login() {
+    if (!sdk.current) {
+      notice('登入服務尚未就緒，請重新整理後再試。', true);
+      return;
+    }
+    sdk.current.login({ redirectUri: location.origin + location.pathname + location.search });
+  }
+  async function logout() {
+    if (busy) return;
+    if (buildSaver.current && !(await buildSaver.current())) return;
+    if (dirty && !confirm('還有未保存的修改，確定登出？')) return;
+    sdk.current.logout();
+    sessionStorage.removeItem('aprico-selected-project');
+    location.reload();
+  }
+  const palette = themes[draft.theme].colors;
+  return (
+    <div className="app-shell">
+      <header>
+        <span className="brand">
+          <b>aprico</b>
+          <small>LINE OA KIT</small>
+        </span>
+        <button className="login" disabled={loading || busy} onClick={user ? logout : login}>
+          {loading ? '正在完成登入…' : user ? `${user} · 登出` : 'LINE 登入'}
+        </button>
+      </header>
+      <nav aria-label="主要分頁">
+        <button
+          aria-current={route === 'design' ? 'page' : undefined}
+          onClick={() => route !== 'design' && navigate('design.html')}
+        >
+          ① 打造我的 LINE OA
+        </button>
+        <button
+          aria-current={route === 'build' ? 'page' : undefined}
+          onClick={() => route !== 'build' && navigate('build.html')}
+        >
+          ② 建置中心
+        </button>
+      </nav>
+      {status && (
+        <div role="status" className={`notice ${error ? 'error' : ''}`}>
+          {status}
+        </div>
+      )}
+      {!loading && !user && (
+        <p className="guest-note">
+          可先免費設計，登入後即可保存。訪客內容會在離開或重新整理後清除。
+        </p>
+      )}
+      <main aria-busy={loading}>
+        {route === 'design' ? (
+          <>
+            <section className="page-heading">
+              <div>
+                <span className="eyebrow">DESIGN YOUR EXPERIENCE</span>
+                <h1>
+                  把你的點子，
+                  <br />
+                  變成有趣的互動。
+                </h1>
+                <p>直接點選手機裡的格子，設定每個功能。</p>
+              </div>
+              <div className="save-area">
+                <button
+                  className="primary trial-save-button"
+                  disabled={busy || loading || !user}
+                  onClick={saveAndTrial}
+                >
+                  {busy ? '正在處理…' : '保存並在 LINE 試用'}
+                </button>
+                <button disabled={busy || loading || !user} onClick={save}>
+                  只保存設計
+                </button>
+                <small>
+                  {dirty
+                    ? '有尚未保存的修改'
+                    : saved
+                      ? `已保存 ${new Date(saved).toLocaleString('zh-TW')}`
+                      : '還沒有修改'}
+                </small>
+                <small className="trial-trust-note">
+                  只改你在 Aprico 的個人選單，不影響其他人。聊天室帳號名稱仍為 Aprico。
+                </small>
+              </div>
+            </section>
+            {trialResult && (
+              <section className="trial-control card">
+                <h2>{trialResult.failed ? '設計已保存，試用尚未完成' : '你的 LINE 個人試用'}</h2>
+                <p>
+                  {trialResult.failed
+                    ? '請先加入 Aprico 好友，再重試「保存並在 LINE 試用」。'
+                    : trialResult.message}
+                </p>
+                <button className="primary" onClick={openTrialChat}>
+                  回到 LINE 查看
+                </button>{' '}
+                <a href={TRIAL_CHAT} target="_blank" rel="noopener noreferrer">
+                  加入 Aprico 好友 ↗
+                </a>{' '}
+                <button disabled={busy} onClick={stopTrial}>
+                  結束試用，恢復原選單
+                </button>
+                <small>
+                  AI、健康檢測與需額外設定的功能僅提供展示，不會扣用 AI 額度或發放獎項。
+                </small>
+              </section>
+            )}
+            <div className="design-layout">
+              <section className="phone-zone">
+                <div className="preview-toolbar">
+                  <div className="segments" aria-label="選單格數">
+                    {[4, 6, 8].map((n) => (
+                      <button
+                        key={n}
+                        aria-pressed={draft.grid === n}
+                        onClick={() => patch({ grid: n })}
+                      >
+                        {n} 格
+                      </button>
+                    ))}
+                  </div>
+                  <div className="segments small">
+                    <button aria-pressed={mode === 'edit'} onClick={() => setMode('edit')}>
+                      點格編輯
+                    </button>
+                    <button aria-pressed={mode === 'demo'} onClick={() => setMode('demo')}>
+                      體驗反應
+                    </button>
+                  </div>
+                </div>
+                <div className="phone">
+                  <div className="speaker" />
+                  <div className="phone-header">
+                    <span>‹</span>
+                    <div>
+                      <strong>{draft.oaName || '你的品牌官方帳號'}</strong>
+                      <small>互動設計示意</small>
+                    </div>
+                    <span>☰</span>
+                  </div>
+                  <div className="chat">
+                    <span className="day">今天</span>
+                    <div className="bubble">
+                      <b>你好，歡迎來到 {draft.oaName || '你的品牌'}！</b>
+                      <p>
+                        {mode === 'edit'
+                          ? '點一下下方格子，就能編輯這個功能。'
+                          : '點一下下方格子，體驗示範互動。'}
+                      </p>
+                    </div>
+                    <div className="canvas-note">
+                      <span>✦</span>
+                      <p>
+                        你的服務，
+                        <br />
+                        可以很好玩。
+                      </p>
+                    </div>
+                    <small>網頁示意：保存並在 LINE 試用，即可套用你的個人選單</small>
+                  </div>
+                  <div
+                    className={`rich-grid ${draft.pattern === 'image' ? 'has-image' : ''}`}
+                    style={{
+                      ...(draft.pattern === 'image'
+                        ? { backgroundImage: `url("${draft.backgroundImage}")` }
+                        : {}),
+                      gridTemplateColumns: `repeat(${draft.grid === 6 ? 3 : 2},1fr)`,
+                    }}
+                  >
+                    {draft.cells.slice(0, draft.grid).map((c, i) => (
+                      <button
+                        key={i}
+                        style={menuCellStyle(draft, palette[i % 4])}
+                        onClick={() => (mode === 'edit' ? edit(i) : setDemo({ ...c, index: i }))}
+                        aria-label={`${mode === 'edit' ? '設定' : '體驗'}第 ${i + 1} 格：${c.label || '未命名功能'}`}
+                      >
+                        <span className="cell-icon">{['✧', '◈', '☷', '↗'][i % 4]}</span>
+                        <strong>{c.label || `點我設定功能 ${i + 1}`}</strong>
+                        <small>{mode === 'edit' ? '＋ 點擊編輯' : actionNames[c.action]}</small>
+                        {c.template !== 'custom' && (
+                          <em>{c.template === 'health' ? '加購 · 需 AI' : '加購 · 示範'}</em>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="phone-bottom">你的專屬互動選單</div>
+                </div>
+              </section>
+              <aside className="settings">
+                <section className="card">
+                  <h2>你的品牌</h2>
+                  <label>
+                    專案名稱
+                    <input
+                      value={draft.name}
+                      maxLength={80}
+                      placeholder="例如：我的品牌互動站"
+                      onChange={(e) => patch({ name: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    LINE OA 名稱
+                    <input
+                      value={draft.oaName}
+                      maxLength={80}
+                      placeholder="輸入你的官方帳號名稱"
+                      onChange={(e) => patch({ oaName: e.target.value })}
+                    />
+                  </label>
+                  <label>
+                    主要設計目標
+                    <textarea
+                      rows={3}
+                      maxLength={500}
+                      value={draft.goal || ''}
+                      placeholder="例如：讓新顧客在 LINE 完成預約，減少重複問答"
+                      onChange={(e) => patch({ goal: e.target.value })}
+                    />
+                    <small>建置中心會依照目標與選單預填服務文字。</small>
+                  </label>
+                  {projects.length > 0 && (
+                    <label>
+                      切換既有專案
+                      <select
+                        value={current?.id || ''}
+                        onChange={(e) => changeProject(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          選擇專案
+                        </option>
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.config.name || '未命名專案'}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <button className="text-button" onClick={newProject}>
+                    ＋ 建立新設計
+                  </button>
+                </section>
+                <section className="card">
+                  <h2>選一種你的風格</h2>
+                  <div className="themes">
+                    {themes.map((t, i) => (
+                      <button
+                        key={t.name}
+                        aria-pressed={draft.theme === i}
+                        onClick={() => patch({ theme: i })}
+                      >
+                        <span className="swatches">
+                          {t.colors.map((c, j) => (
+                            <i key={j} style={{ background: c }} />
+                          ))}
+                        </span>
+                        <span>{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+                <BackgroundPicker
+                  draft={draft}
+                  onChange={patch}
+                  busy={busy || loading}
+                  onBusy={setBusy}
+                  notice={notice}
+                />
+                <section className="card note-card">
+                  <h2>設計好了嗎？</h2>
+                  <p>
+                    切換格數會保留原本各格內容。保存並在 LINE 試用後，回到 Aprico
+                    聊天室體驗個人選單；正式建置請前往建置中心。
+                  </p>
+                  <button onClick={() => navigate('build.html')}>前往建置中心 →</button>
+                </section>
+              </aside>
+            </div>
+          </>
+        ) : (
+          <>
+            <section className="page-heading">
+              <div>
+                <span className="eyebrow">YOUR BUILD CENTER</span>
+                <h1>建置中心</h1>
+                <p>六個步驟，在你自己的帳號裡建好官方帳號。</p>
+              </div>
+              <button onClick={() => navigate('design.html')}>修改我的設計 →</button>
+            </section>
+            <div className="build-layout">
+              <section className="card project-picker">
+                {loading ? (
+                  <p>正在載入你的專案…</p>
+                ) : projects.length ? (
+                  <details>
+                    <summary>目前專案：{draft.name || '未命名專案'} · 切換其他專案</summary>
+                    <div className="project-picker-list">
+                      {projects.map((p) => (
+                        <button
+                          className={`project ${current?.id === p.id ? 'selected' : ''}`}
+                          key={p.id}
+                          onClick={() => changeProject(p.id)}
+                        >
+                          <strong>{p.config.name || '未命名專案'}</strong>
+                          <span>
+                            {p.config.oaName || '尚未填寫 OA 名稱'} · {p.config.grid} 格
+                          </span>
+                          <small>最後保存 {new Date(p.updated_at).toLocaleString('zh-TW')}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                ) : (
+                  <div className="empty">
+                    <span>✧</span>
+                    <h3>{user ? '從第一個設計開始' : '登入，找回你的設計'}</h3>
+                    <p>
+                      {user
+                        ? '到設計頁點選功能格，打造你的專屬互動。'
+                        : '使用同一個 LINE 帳號登入，即可查看已保存的專案。'}
+                    </p>
+                    <button
+                      className="primary"
+                      onClick={() => (user ? navigate('design.html') : login())}
+                    >
+                      {user ? '開始設計' : '使用 LINE 登入'}
+                    </button>
+                  </div>
+                )}
+              </section>
+              <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />
+            </div>
+          </>
+        )}
+      </main>
+      <dialog
+        ref={dialog}
+        className="editor-dialog"
+        onCancel={() => setEditing(null)}
+        onClick={(e) => e.target === dialog.current && setEditing(null)}
+      >
+        {working && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              applyCell();
+            }}
+          >
+            <div className="dialog-heading">
+              <div>
+                <span className="eyebrow">MENU EDITOR</span>
+                <h2>設定第 {editing + 1} 格</h2>
+              </div>
+              <button type="button" aria-label="關閉功能設定" onClick={() => setEditing(null)}>
+                ×
+              </button>
+            </div>
+            <label>
+              按鈕名稱
+              <input
+                autoFocus
+                value={working.label}
+                maxLength={30}
+                placeholder="例如：預約體驗、今日任務"
+                onChange={(e) => setWorking({ ...working, label: e.target.value })}
+              />
+            </label>
+            <label>
+              點擊後要開啟什麼？
+              <select
+                value={working.action}
+                onChange={(e) => setWorking({ ...working, action: e.target.value })}
+              >
+                {Object.entries(actionNames).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              要製作哪種功能？
+              <select
+                value={working.template}
+                onChange={(e) => setWorking({ ...working, template: e.target.value })}
+              >
+                <option value="custom">自行設計內容</option>
+                <option value="scratch">刮刮樂 · 加購 NT$100</option>
+                <option value="health">健康檢測 · 加購 NT$1,600／需 AI</option>
+              </select>
+            </label>
+            <label>
+              {working.template === 'scratch'
+                ? '獎項或刮出的內容'
+                : working.action === 'web'
+                  ? '目標網址與開啟說明'
+                  : '功能需求與回覆內容'}
+              <textarea
+                rows={5}
+                value={working.content}
+                maxLength={2000}
+                placeholder={
+                  working.template === 'scratch'
+                    ? '每行一個想刮出的獎項或文字；此處為展示設定，不會發放真實獎品。'
+                    : working.action === 'web'
+                      ? '填入 https:// 開頭的網址與跳轉說明。'
+                      : '使用者輸入什麼？應該看到什麼結果？你希望這個功能如何運作？'
+                }
+                onChange={(e) => setWorking({ ...working, content: e.target.value })}
+              />
+            </label>
+            {working.template === 'health' && (
+              <p className="subtle">
+                健康功能需要額外設定與 AI；預覽僅展示流程，不會進行真實檢測。
+              </p>
+            )}
+            <div className="dialog-actions">
+              <button type="button" onClick={() => setEditing(null)}>
+                取消
+              </button>
+              <button className="primary" type="submit">
+                套用到預覽
+              </button>
+            </div>
+            <small className="footnote">套用後請按「保存我的設計」，同步到你的雲端專案。</small>
+          </form>
+        )}
+      </dialog>
+      <dialog
+        ref={demoDialog}
+        className={`demo-dialog ${demo?.action === 'half' ? 'half' : ''} ${demo?.action === 'full' ? 'full' : ''}`}
+        onCancel={() => setDemo(null)}
+        onClick={(e) => e.target === demoDialog.current && setDemo(null)}
+      >
+        {demo && (
+          <>
+            <div className="dialog-heading">
+              <div>
+                <span className="eyebrow">{actionNames[demo.action]} · 示範</span>
+                <h2>{demo.label || `功能 ${demo.index + 1}`}</h2>
+              </div>
+              <button aria-label="關閉體驗" onClick={() => setDemo(null)}>
+                ×
+              </button>
+            </div>
+            {demo.template === 'scratch' ? (
+              <Scratch content={demo.content} />
+            ) : demo.template === 'health' ? (
+              <div className="health-demo">
+                <span>◎</span>
+                <h3>拍照 → 分析 → 查看結果</h3>
+                <p>此為健康模組展示。正式功能需完成設定與 AI 串接。</p>
+              </div>
+            ) : (
+              <p className="demo-content">
+                {demo.content || '尚未填寫內容，請切換「點格編輯」設定。'}
+              </p>
+            )}
+            <p className="subtle">示範畫面不呼叫 AI、不發放獎品、不自動跳轉外部網址。</p>
+            <button
+              className="primary"
+              onClick={() => {
+                const i = demo.index;
+                setDemo(null);
+                edit(i);
+              }}
+            >
+              編輯這個功能
+            </button>
+          </>
+        )}
+      </dialog>
+      <footer>
+        Aprico · 讓每一次互動，都更有趣。
+        <a href="https://github.com/PTgamingLife/Aprico-LINE-OA-KIT">GitHub</a>
+      </footer>
+    </div>
+  );
 }
-function Scratch({content}){const [shown,setShown]=useState(false);return <button className="scratch-demo" onClick={()=>setShown(true)}>{shown?(content.split('\n').find(x=>x.trim())||'恭喜！這是展示獎項'):'✧ 點一下揭曉示範獎項 ✧'}</button>;}
-createRoot(document.getElementById('root')).render(<App/>);
+function Scratch({ content }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <button className="scratch-demo" onClick={() => setShown(true)}>
+      {shown
+        ? content.split('\n').find((x) => x.trim()) || '恭喜！這是展示獎項'
+        : '✧ 點一下揭曉示範獎項 ✧'}
+    </button>
+  );
+}
+createRoot(document.getElementById('root')).render(<App />);

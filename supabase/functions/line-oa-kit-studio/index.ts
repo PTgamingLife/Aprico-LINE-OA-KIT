@@ -1,208 +1,612 @@
+import { OAW_ACTIONS, oawBuildAction } from '../_shared/oaw-build.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
-import { emptySetup, validateSetup, requirementIssues, safeContactUrl, passwordsMatch } from '../../../src/build-model.ts';
-import {runBuildJob} from '../_shared/run-build-job.ts';
-import {textBuildSpec} from '../_shared/source-builder.ts';
-import {deploymentAction,deploymentIssue} from '../_shared/deploy-handler.ts';
-import {trialAction} from '../_shared/trial-handler.ts';
-import {previewPlatform} from '../_shared/trial-line.ts';
-import {learningAction} from '../_shared/learning-handler.ts';
-import {broadcastAction} from '../_shared/broadcast-handler.ts';
-import {paymentAction} from '../_shared/payment-handler.ts';
-import {githubSettings,installationToken,ghRequest} from '../_shared/github-app.ts';
-import {issueRuntimeKey} from '../_shared/runtime-ai.ts';
-import {pushReviewNotice} from '../_shared/chat-design.ts';
-import {prefillInput,suggestBuildText} from '../_shared/build-prefill.ts';
+import {
+  emptySetup,
+  validateSetup,
+  requirementIssues,
+  safeContactUrl,
+  passwordsMatch,
+} from '../../../src/build-model.ts';
+import { runBuildJob } from '../_shared/run-build-job.ts';
+import { textBuildSpec } from '../_shared/source-builder.ts';
+import { deploymentAction, deploymentIssue } from '../_shared/deploy-handler.ts';
+import { trialAction } from '../_shared/trial-handler.ts';
+import { previewPlatform } from '../_shared/trial-line.ts';
+import { learningAction } from '../_shared/learning-handler.ts';
+import { broadcastAction } from '../_shared/broadcast-handler.ts';
+import { paymentAction } from '../_shared/payment-handler.ts';
+import { githubSettings, installationToken, ghRequest } from '../_shared/github-app.ts';
+import { issueRuntimeKey } from '../_shared/runtime-ai.ts';
+import { pushReviewNotice } from '../_shared/chat-design.ts';
+import { prefillInput, suggestBuildText } from '../_shared/build-prefill.ts';
 
-const allowedOrigins = new Set(['https://facialmonitor-line-kit.ptchen321.chatgpt.site','https://ptgaminglife.github.io']);
+const allowedOrigins = new Set([
+  'https://facialmonitor-line-kit.ptchen321.chatgpt.site',
+  'https://ptgaminglife.github.io',
+]);
 const channelId = '2012197506';
 // Public support destination, not a credential. An Edge setting can override it.
-const contactUrl = ()=>safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL'))||'https://line.me/ti/p/ZC-w2BuPoi';
-Deno.serve(async(req:Request)=>{
-  const requestOrigin=req.headers.get('origin');
-  const origin=requestOrigin&&allowedOrigins.has(requestOrigin)?requestOrigin:'https://facialmonitor-line-kit.ptchen321.chatgpt.site';
-  const headers = {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'content-type','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store','Content-Type':'application/json','Vary':'Origin'};
-  const response = (value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers});
-  if(requestOrigin&&!allowedOrigins.has(requestOrigin))return response({error:'來源不允許'},403);
-  if(req.method==='OPTIONS') return new Response(null,{status:204,headers});
-  if(req.method!=='POST') return response({error:'Method not allowed'},405);
+const contactUrl = () =>
+  safeContactUrl(Deno.env.get('LINE_OA_KIT_CONTACT_URL')) || 'https://line.me/ti/p/ZC-w2BuPoi';
+Deno.serve(async (req: Request) => {
+  const requestOrigin = req.headers.get('origin');
+  const origin =
+    requestOrigin && allowedOrigins.has(requestOrigin)
+      ? requestOrigin
+      : 'https://facialmonitor-line-kit.ptchen321.chatgpt.site';
+  const headers = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Cache-Control': 'no-store',
+    'Content-Type': 'application/json',
+    Vary: 'Origin',
+  };
+  const response = (value: unknown, status = 200) =>
+    new Response(JSON.stringify(value), { status, headers });
+  if (requestOrigin && !allowedOrigins.has(requestOrigin))
+    return response({ error: '來源不允許' }, 403);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+  if (req.method !== 'POST') return response({ error: 'Method not allowed' }, 405);
   try {
     // Bound the stream before parsing; never log bodies or LINE credentials.
-    const reader=req.body?.getReader();if(!reader)return response({error:'缺少內容'},400);
-    const chunks:Uint8Array[]=[];let size=0;
-    while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>1500000){await reader.cancel();return response({error:'內容過大'},413);}chunks.push(part.value);}
-    const raw=new Uint8Array(size);let offset=0;for(const c of chunks){raw.set(c,offset);offset+=c.length;}
-    let b;try{b=JSON.parse(new TextDecoder().decode(raw));}catch{return response({error:'格式錯誤'},400);}
-    if(b.action==='config')return response({liffId:Deno.env.get('LINE_OA_KIT_LIFF_ID')||'',loginChannelId:channelId,contactUrl:contactUrl(),buildPasswordConfigured:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD'))});
-    if(b.action==='trial_info'){try{return response(await previewPlatform(Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET')||''));}catch{return response({available:false,reason:'trial_platform_unavailable'});}}
-    if(!['payment_status','payment_create','payment_confirm','payment_reconcile','owner_status','broadcast_list','broadcast_save','broadcast_prepare','broadcast_test','broadcast_send','learning_list','learning_complete','learning_quiz','trial_apply','trial_config','trial_exit','list','save','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_github_check','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action))return response({error:'不支援的操作'},400);
-    if(typeof b.idToken!=='string'||b.idToken.length>10000||!b.idToken)return response({error:'請先使用 LINE 登入'},401);
-    const verified=await fetch('https://api.line.me/oauth2/v2.1/verify',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({id_token:b.idToken,client_id:channelId}),signal:AbortSignal.timeout(10000)});
-    if(!verified.ok)return response({error:'登入已失效，請重新登入'},401);
-    const identity=await verified.json();
-    if(identity.aud!==channelId||identity.iss!=='https://access.line.me'||typeof identity.sub!=='string'||!/^U[0-9a-f]{32}$/.test(identity.sub)||!Number.isFinite(identity.exp)||identity.exp*1000<=Date.now())return response({error:'登入憑證不符'},401);
-    const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
-    // Every query is scoped to the server-verified LINE subject, never a client owner ID.
-    if(b.action==='owner_status'||b.action.startsWith('broadcast_'))return await broadcastAction(b,db,identity.sub,Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID')||'',Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',response,fetch,typeof identity.name==='string'?identity.name:'LINE 會員');
-    if(['learning_list','learning_complete','learning_quiz'].includes(b.action))return await learningAction(b,db,identity.sub,response);
-    if(['trial_apply','trial_config','trial_exit'].includes(b.action))return await trialAction(b,db,identity.sub,response);
-    if(b.action==='list'){
-      const {data,error}=await db.from('line_oa_kit_designs').select('id,config,revision,updated_at').eq('line_subject',identity.sub).order('updated_at',{ascending:false}).limit(50);
-      if(error)return response({error:'讀取失敗，請稍後重試'},503);
-      return response({projects:data,displayName:typeof identity.name==='string'?identity.name:'LINE 會員'});
+    const reader = req.body?.getReader();
+    if (!reader) return response({ error: '缺少內容' }, 400);
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    while (true) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.length;
+      if (size > 1500000) {
+        await reader.cancel();
+        return response({ error: '內容過大' }, 413);
+      }
+      chunks.push(part.value);
     }
-    if(['payment_status','payment_create','payment_confirm','payment_reconcile','build_status','unlock_build','save_build_setup','prefill_build_setup','check_build','generate_source','build_jobs','build_job','deploy_github_check','deploy_target_check','deploy_prepare','deploy_start','deploy_status','deploy_acceptance','runtime_key_rotate','runtime_key_revoke'].includes(b.action)){
-      if(typeof b.projectId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.projectId))return response({error:'請先選擇並保存專案'},400);
-      const {data:project,error:projectError}=await db.from('line_oa_kit_designs').select('id,config,revision,confirmed_revision').eq('id',b.projectId).eq('line_subject',identity.sub).maybeSingle();
-      if(projectError)return response({error:'讀取專案失敗'},503);
-      if(!project)return response({error:'專案不存在或沒有存取權'},404);
-      if(b.action.startsWith('payment_'))return await paymentAction(b,db,identity.sub,project,response,k=>Deno.env.get(k),fetch,orderId=>{
-        EdgeRuntime.waitUntil(pushReviewNotice(Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN')||'',identity.sub,project.id,orderId).catch(()=>{}));
+    const raw = new Uint8Array(size);
+    let offset = 0;
+    for (const c of chunks) {
+      raw.set(c, offset);
+      offset += c.length;
+    }
+    let b;
+    try {
+      b = JSON.parse(new TextDecoder().decode(raw));
+    } catch {
+      return response({ error: '格式錯誤' }, 400);
+    }
+    if (b.action === 'config')
+      return response({
+        liffId: Deno.env.get('LINE_OA_KIT_LIFF_ID') || '',
+        loginChannelId: channelId,
+        contactUrl: contactUrl(),
+        buildPasswordConfigured: Boolean(Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD')),
       });
-      let {data:access,error:accessError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
-      if(accessError)return response({error:'讀取開通狀態失敗'},503);
-      const reviewRequired=access?.grant_method==='line_pay'&&project.confirmed_revision!==project.revision;
-      const pointsEnabled=Deno.env.get('LINE_OA_KIT_POINTS_OFFER_ENABLED')==='true';
-      const runtimeEndpoint=Deno.env.get('SUPABASE_URL')+'/functions/v1/line-oa-kit-runtime-ai';
-      const issueKey=()=>issueRuntimeKey(db,project.id,identity.sub);
-      async function readCredits(){
-        const args={p_project:project.id,p_subject:identity.sub};
-        if(pointsEnabled&&access?.grant_method==='line_pay'){
-          const points=await db.rpc('line_oa_kit_points_status',args);
-          if(points.error||points.data)return points;
+    if (b.action === 'trial_info') {
+      try {
+        return response(
+          await previewPlatform(
+            Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN') || '',
+            Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET') || '',
+          ),
+        );
+      } catch {
+        return response({ available: false, reason: 'trial_platform_unavailable' });
+      }
+    }
+    if (
+      ![
+        'payment_status',
+        'payment_create',
+        'payment_confirm',
+        'payment_reconcile',
+        'owner_status',
+        'broadcast_list',
+        'broadcast_save',
+        'broadcast_prepare',
+        'broadcast_test',
+        'broadcast_send',
+        'learning_list',
+        'learning_complete',
+        'learning_quiz',
+        'trial_apply',
+        'trial_config',
+        'trial_exit',
+        'list',
+        'save',
+        'build_status',
+        'unlock_build',
+        'save_build_setup',
+        'prefill_build_setup',
+        'check_build',
+        'generate_source',
+        'build_jobs',
+        'build_job',
+        'deploy_github_check',
+        'deploy_target_check',
+        'deploy_prepare',
+        'deploy_start',
+        'deploy_status',
+        'deploy_acceptance',
+        'runtime_key_rotate',
+        'runtime_key_revoke',
+        ...OAW_ACTIONS,
+      ].includes(b.action)
+    )
+      return response({ error: '不支援的操作' }, 400);
+    if (typeof b.idToken !== 'string' || b.idToken.length > 10000 || !b.idToken)
+      return response({ error: '請先使用 LINE 登入' }, 401);
+    const verified = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ id_token: b.idToken, client_id: channelId }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!verified.ok) return response({ error: '登入已失效，請重新登入' }, 401);
+    const identity = await verified.json();
+    if (
+      identity.aud !== channelId ||
+      identity.iss !== 'https://access.line.me' ||
+      typeof identity.sub !== 'string' ||
+      !/^U[0-9a-f]{32}$/.test(identity.sub) ||
+      !Number.isFinite(identity.exp) ||
+      identity.exp * 1000 <= Date.now()
+    )
+      return response({ error: '登入憑證不符' }, 401);
+    const db = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    // Every query is scoped to the server-verified LINE subject, never a client owner ID.
+    if (b.action === 'owner_status' || b.action.startsWith('broadcast_'))
+      return await broadcastAction(
+        b,
+        db,
+        identity.sub,
+        Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID') || '',
+        Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN') || '',
+        response,
+        fetch,
+        typeof identity.name === 'string' ? identity.name : 'LINE 會員',
+      );
+    if (['learning_list', 'learning_complete', 'learning_quiz'].includes(b.action))
+      return await learningAction(b, db, identity.sub, response);
+    if (['trial_apply', 'trial_config', 'trial_exit'].includes(b.action))
+      return await trialAction(b, db, identity.sub, response);
+    if (b.action === 'list') {
+      const { data, error } = await db
+        .from('line_oa_kit_designs')
+        .select('id,config,revision,updated_at')
+        .eq('line_subject', identity.sub)
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      if (error) return response({ error: '讀取失敗，請稍後重試' }, 503);
+      return response({
+        projects: data,
+        displayName: typeof identity.name === 'string' ? identity.name : 'LINE 會員',
+      });
+    }
+    if (
+      [
+        'payment_status',
+        'payment_create',
+        'payment_confirm',
+        'payment_reconcile',
+        'build_status',
+        'unlock_build',
+        'save_build_setup',
+        'prefill_build_setup',
+        'check_build',
+        'generate_source',
+        'build_jobs',
+        'build_job',
+        'deploy_github_check',
+        'deploy_target_check',
+        'deploy_prepare',
+        'deploy_start',
+        'deploy_status',
+        'deploy_acceptance',
+        'runtime_key_rotate',
+        'runtime_key_revoke',
+        ...OAW_ACTIONS,
+      ].includes(b.action)
+    ) {
+      if (typeof b.projectId !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.projectId))
+        return response({ error: '請先選擇並保存專案' }, 400);
+      const { data: project, error: projectError } = await db
+        .from('line_oa_kit_designs')
+        .select('id,config,revision,confirmed_revision')
+        .eq('id', b.projectId)
+        .eq('line_subject', identity.sub)
+        .maybeSingle();
+      if (projectError) return response({ error: '讀取專案失敗' }, 503);
+      if (!project) return response({ error: '專案不存在或沒有存取權' }, 404);
+      if (b.action.startsWith('payment_'))
+        return await paymentAction(
+          b,
+          db,
+          identity.sub,
+          project,
+          response,
+          (k) => Deno.env.get(k),
+          fetch,
+          (orderId) => {
+            EdgeRuntime.waitUntil(
+              pushReviewNotice(
+                Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN') || '',
+                identity.sub,
+                project.id,
+                orderId,
+              ).catch(() => {}),
+            );
+          },
+        );
+      if (OAW_ACTIONS.includes(b.action))
+        return await oawBuildAction(b, db, identity.sub, project, response);
+      let { data: access, error: accessError } = await db
+        .from('line_oa_kit_build_access')
+        .select('granted_at,grant_method,setup,setup_revision,updated_at')
+        .eq('project_id', project.id)
+        .eq('line_subject', identity.sub)
+        .maybeSingle();
+      if (accessError) return response({ error: '讀取開通狀態失敗' }, 503);
+      const reviewRequired =
+        access?.grant_method === 'line_pay' && project.confirmed_revision !== project.revision;
+      const pointsEnabled = Deno.env.get('LINE_OA_KIT_POINTS_OFFER_ENABLED') === 'true';
+      const runtimeEndpoint = Deno.env.get('SUPABASE_URL') + '/functions/v1/line-oa-kit-runtime-ai';
+      const issueKey = () => issueRuntimeKey(db, project.id, identity.sub);
+      async function readCredits() {
+        const args = { p_project: project.id, p_subject: identity.sub };
+        if (pointsEnabled && access?.grant_method === 'line_pay') {
+          const points = await db.rpc('line_oa_kit_points_status', args);
+          if (points.error || points.data) return points;
         }
-        return await db.rpc('line_oa_kit_build_credits',args);
+        return await db.rpc('line_oa_kit_build_credits', args);
       }
-      if(b.action==='build_status'){
-        const credits=access?await readCredits():null;
-        if(credits?.error)return response({error:'讀取建置額度失敗'},503);
-        return response({unlocked:Boolean(access),access,reviewRequired,credits:credits?.data||null,runtimeAvailable:pointsEnabled&&credits?.data?.mode==='points',contactUrl:contactUrl()});
+      if (b.action === 'build_status') {
+        const credits = access ? await readCredits() : null;
+        if (credits?.error) return response({ error: '讀取建置額度失敗' }, 503);
+        return response({
+          unlocked: Boolean(access),
+          access,
+          reviewRequired,
+          credits: credits?.data || null,
+          runtimeAvailable: pointsEnabled && credits?.data?.mode === 'points',
+          contactUrl: contactUrl(),
+        });
       }
-      if(b.action==='unlock_build'){
-        if(access)return response({unlocked:true,access});
-        const expected=Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD')||'';
-        if(!expected)return response({error:'開通密碼尚未設定，請聯絡專員'},503);
-        if(typeof b.password!=='string'||!b.password||b.password.length>256)return response({error:'請輸入開通密碼'},400);
-        const {data:allowed,error:limitError}=await db.rpc('line_oa_kit_consume_unlock_attempt',{p_subject:identity.sub});
-        if(limitError)return response({error:'目前無法驗證，請稍後再試'},503);
-        if(allowed!==true)return response({error:'嘗試次數已達上限，請於 15 分鐘後重試'},429);
-        if(!await passwordsMatch(b.password,expected))return response({error:'開通密碼不正確，請確認後重試'},403);
+      if (b.action === 'unlock_build') {
+        if (access) return response({ unlocked: true, access });
+        const expected = Deno.env.get('LINE_OA_KIT_BUILD_PASSWORD') || '';
+        if (!expected) return response({ error: '開通密碼尚未設定，請聯絡專員' }, 503);
+        if (typeof b.password !== 'string' || !b.password || b.password.length > 256)
+          return response({ error: '請輸入開通密碼' }, 400);
+        const { data: allowed, error: limitError } = await db.rpc(
+          'line_oa_kit_consume_unlock_attempt',
+          { p_subject: identity.sub },
+        );
+        if (limitError) return response({ error: '目前無法驗證，請稍後再試' }, 503);
+        if (allowed !== true)
+          return response({ error: '嘗試次數已達上限，請於 15 分鐘後重試' }, 429);
+        if (!(await passwordsMatch(b.password, expected)))
+          return response({ error: '開通密碼不正確，請確認後重試' }, 403);
         // Ignore duplicates to preserve any existing setup and entitlement during retries.
-        const {error:grantError}=await db.from('line_oa_kit_build_access').upsert({project_id:project.id,line_subject:identity.sub,grant_method:'manual_password'},{onConflict:'project_id',ignoreDuplicates:true});
-        if(grantError)return response({error:'開通失敗，請稍後再試'},503);
-        const {data:granted,error:readError}=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at').eq('project_id',project.id).eq('line_subject',identity.sub).single();
-        if(readError)return response({error:'讀取開通狀態失敗，請重新整理'},503);
-        return response({unlocked:true,access:granted});
+        const { error: grantError } = await db
+          .from('line_oa_kit_build_access')
+          .upsert(
+            { project_id: project.id, line_subject: identity.sub, grant_method: 'manual_password' },
+            { onConflict: 'project_id', ignoreDuplicates: true },
+          );
+        if (grantError) return response({ error: '開通失敗，請稍後再試' }, 503);
+        const { data: granted, error: readError } = await db
+          .from('line_oa_kit_build_access')
+          .select('granted_at,grant_method,setup,setup_revision,updated_at')
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .single();
+        if (readError) return response({ error: '讀取開通狀態失敗，請重新整理' }, 503);
+        return response({ unlocked: true, access: granted });
       }
-      if(!access)return response({error:'請先使用專員提供的密碼開通此專案'},403);
-      if(b.action==='prefill_build_setup'){
-        if(reviewRequired)return response({status:'locked',access});
-        const input=prefillInput(validateDraft(project.config));
-        if(!input)return response({status:'missing_goal',access});
-        const key=Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY');
-        if(!key)return response({status:'unavailable',access});
-        const args={p_project:project.id,p_subject:identity.sub};
-        const started=await db.rpc('line_oa_kit_begin_prefill',{...args,p_revision:project.revision,p_retry:b.retry===true});
-        if(started.error||!started.data)return response({error:'暫時無法預填建置資料'},503);
-        let status=started.data.status;
-        if(started.data.claim){
-          let values=null,cost=null;
-          try{values=await suggestBuildText(key,input,used=>{cost=used;});}catch{/* Leave the existing setup available to edit. */}
-          const finished=await db.rpc('line_oa_kit_finish_prefill',{...args,p_claim:started.data.claim,p_values:values,p_cost_usd:cost});
-          if(finished.error)return response({error:'預填結果暫時無法保存'},503);
-          status=finished.data?'done':'failed';
+      if (!access) return response({ error: '請先使用專員提供的密碼開通此專案' }, 403);
+      if (b.action === 'prefill_build_setup') {
+        if (reviewRequired) return response({ status: 'locked', access });
+        const input = prefillInput(validateDraft(project.config));
+        if (!input) return response({ status: 'missing_goal', access });
+        const key = Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY');
+        if (!key) return response({ status: 'unavailable', access });
+        const args = { p_project: project.id, p_subject: identity.sub };
+        const started = await db.rpc('line_oa_kit_begin_prefill', {
+          ...args,
+          p_revision: project.revision,
+          p_retry: b.retry === true,
+        });
+        if (started.error || !started.data) return response({ error: '暫時無法預填建置資料' }, 503);
+        let status = started.data.status;
+        if (started.data.claim) {
+          let values = null,
+            cost = null;
+          try {
+            values = await suggestBuildText(key, input, (used) => {
+              cost = used;
+            });
+          } catch {
+            /* Leave the existing setup available to edit. */
+          }
+          const finished = await db.rpc('line_oa_kit_finish_prefill', {
+            ...args,
+            p_claim: started.data.claim,
+            p_values: values,
+            p_cost_usd: cost,
+          });
+          if (finished.error) return response({ error: '預填結果暫時無法保存' }, 503);
+          status = finished.data ? 'done' : 'failed';
         }
-        const fresh=await db.from('line_oa_kit_build_access').select('granted_at,grant_method,setup,setup_revision,updated_at')
-          .eq('project_id',project.id).eq('line_subject',identity.sub).single();
-        if(fresh.error)return response({error:'讀取建置資料失敗'},503);
-        return response({status,access:fresh.data});
+        const fresh = await db
+          .from('line_oa_kit_build_access')
+          .select('granted_at,grant_method,setup,setup_revision,updated_at')
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .single();
+        if (fresh.error) return response({ error: '讀取建置資料失敗' }, 503);
+        return response({ status, access: fresh.data });
       }
-      if(b.action==='runtime_key_rotate'||b.action==='runtime_key_revoke'){
-        if(!pointsEnabled)return response({error:'營運點數方案尚未開放'},409);
-        if(b.confirmRuntimeKey!==true)return response({error:'請先確認憑證操作'},400);
-        const keys=db.from('line_oa_kit_runtime_keys');
-        if(b.action==='runtime_key_revoke'){
-          const {error}=await keys.update({revoked_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub);
-          return error?response({error:'停用憑證失敗'},503):response({revoked:true});
+      if (b.action === 'runtime_key_rotate' || b.action === 'runtime_key_revoke') {
+        if (!pointsEnabled) return response({ error: '營運點數方案尚未開放' }, 409);
+        if (b.confirmRuntimeKey !== true) return response({ error: '請先確認憑證操作' }, 400);
+        const keys = db.from('line_oa_kit_runtime_keys');
+        if (b.action === 'runtime_key_revoke') {
+          const { error } = await keys
+            .update({ revoked_at: new Date().toISOString() })
+            .eq('project_id', project.id)
+            .eq('line_subject', identity.sub);
+          return error ? response({ error: '停用憑證失敗' }, 503) : response({ revoked: true });
         }
-        if(!pointsEnabled||reviewRequired)return response({error:'請先完成點數方案與建置設計確認'},409);
-        const credits=await readCredits();
-        if(credits.error)return response({error:'無法核對點數方案'},503);
-        if(credits.data?.mode!=='points')return response({error:'此專案未開通點數方案'},403);
-        const {key}=await issueKey();
-        return response({key,endpoint:runtimeEndpoint});
+        if (!pointsEnabled || reviewRequired)
+          return response({ error: '請先完成點數方案與建置設計確認' }, 409);
+        const credits = await readCredits();
+        if (credits.error) return response({ error: '無法核對點數方案' }, 503);
+        if (credits.data?.mode !== 'points')
+          return response({ error: '此專案未開通點數方案' }, 403);
+        const { key } = await issueKey();
+        return response({ key, endpoint: runtimeEndpoint });
       }
-      if(reviewRequired&&['generate_source','deploy_prepare','deploy_start'].includes(b.action)){
-        return response({error:'請先在 Aprico LINE 聊天室確認這版設計',code:'design_review_required'},409);
+      if (
+        reviewRequired &&
+        ['generate_source', 'deploy_prepare', 'deploy_start'].includes(b.action)
+      ) {
+        return response(
+          { error: '請先在 Aprico LINE 聊天室確認這版設計', code: 'design_review_required' },
+          409,
+        );
       }
-      const runtimeCredits=pointsEnabled&&!reviewRequired&&access.setup?.runtimeAiProvider==='platform'&&Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')?await readCredits():null;
-      if(runtimeCredits?.error)return response({error:'無法核對營運點數'},503);
-      const runtimeReady=runtimeCredits?.data?.mode==='points'&&runtimeCredits.data.estimateMax!==null;
-      if(b.action.startsWith('deploy_'))return await deploymentAction(b,db,identity.sub,project,access,response,p=>EdgeRuntime.waitUntil(p),fetch,async()=>{
-        const settings=githubSettings(k=>Deno.env.get(k));if(!settings)throw Error('github_app_not_configured');
-        const r=await db.from('line_oa_kit_github_connections').select('installation_id,repository_id,full_name,revoked_at').eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
-        if(r.error)throw Error('github_access_unavailable');
-        if(!r.data||r.data.revoked_at)throw Error('github_binding_required');
-        const actionsPages=b.flowVersion===2;
-        const token=await installationToken(settings,r.data,access.setup?.githubRepo,fetch,actionsPages);
-        return {token,repositoryId:r.data.repository_id,actionsPages,release:async()=>{await ghRequest('/installation/token',token,'DELETE');}};
-      },runtimeReady?async()=>({endpoint:runtimeEndpoint,...await issueKey()}):undefined);
-      if(b.action==='build_jobs'||b.action==='build_job'){
+      const runtimeCredits =
+        pointsEnabled &&
+        !reviewRequired &&
+        access.setup?.runtimeAiProvider === 'platform' &&
+        Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')
+          ? await readCredits()
+          : null;
+      if (runtimeCredits?.error) return response({ error: '無法核對營運點數' }, 503);
+      const runtimeReady =
+        runtimeCredits?.data?.mode === 'points' && runtimeCredits.data.estimateMax !== null;
+      if (b.action.startsWith('deploy_'))
+        return await deploymentAction(
+          b,
+          db,
+          identity.sub,
+          project,
+          access,
+          response,
+          (p) => EdgeRuntime.waitUntil(p),
+          fetch,
+          async () => {
+            const settings = githubSettings((k) => Deno.env.get(k));
+            if (!settings) throw Error('github_app_not_configured');
+            const r = await db
+              .from('line_oa_kit_github_connections')
+              .select('installation_id,repository_id,full_name,revoked_at')
+              .eq('project_id', project.id)
+              .eq('line_subject', identity.sub)
+              .maybeSingle();
+            if (r.error) throw Error('github_access_unavailable');
+            if (!r.data || r.data.revoked_at) throw Error('github_binding_required');
+            const actionsPages = b.flowVersion === 2;
+            const token = await installationToken(
+              settings,
+              r.data,
+              access.setup?.githubRepo,
+              fetch,
+              actionsPages,
+            );
+            return {
+              token,
+              repositoryId: r.data.repository_id,
+              actionsPages,
+              release: async () => {
+                await ghRequest('/installation/token', token, 'DELETE');
+              },
+            };
+          },
+          runtimeReady
+            ? async () => ({ endpoint: runtimeEndpoint, ...(await issueKey()) })
+            : undefined,
+        );
+      if (b.action === 'build_jobs' || b.action === 'build_job') {
         // A stopped worker must never be silently retried with another paid request.
-        await db.from('line_oa_kit_build_jobs').update({status:'interrupted',error_code:'worker_interrupted',updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub).in('status',['queued','running']).lt('created_at',new Date(Date.now()-300000).toISOString());
-        if(b.action==='build_job'){
-          if(typeof b.jobId!=='string'||!/^[0-9a-f-]{36}$/i.test(b.jobId))return response({error:'工作編號不正確'},400);
-          const {data:job,error}=await db.from('line_oa_kit_build_jobs').select('id,status,artifact,usage,error_code,cost_usd,created_at,updated_at,design_revision,setup_revision').eq('id',b.jobId).eq('project_id',project.id).eq('line_subject',identity.sub).maybeSingle();
-          if(error)return response({error:'讀取工作失敗'},503);if(!job)return response({error:'工作不存在'},404);return response({job});
+        await db
+          .from('line_oa_kit_build_jobs')
+          .update({
+            status: 'interrupted',
+            error_code: 'worker_interrupted',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .in('status', ['queued', 'running'])
+          .lt('created_at', new Date(Date.now() - 300000).toISOString());
+        if (b.action === 'build_job') {
+          if (typeof b.jobId !== 'string' || !/^[0-9a-f-]{36}$/i.test(b.jobId))
+            return response({ error: '工作編號不正確' }, 400);
+          const { data: job, error } = await db
+            .from('line_oa_kit_build_jobs')
+            .select(
+              'id,status,artifact,usage,error_code,cost_usd,created_at,updated_at,design_revision,setup_revision',
+            )
+            .eq('id', b.jobId)
+            .eq('project_id', project.id)
+            .eq('line_subject', identity.sub)
+            .maybeSingle();
+          if (error) return response({ error: '讀取工作失敗' }, 503);
+          if (!job) return response({ error: '工作不存在' }, 404);
+          return response({ job });
         }
-        const {data:jobs,error}=await db.from('line_oa_kit_build_jobs').select('id,status,usage,error_code,cost_usd,created_at,design_revision,setup_revision').eq('project_id',project.id).eq('line_subject',identity.sub).order('created_at',{ascending:false}).limit(10);
-        if(error)return response({error:'讀取工作紀錄失敗'},503);
-        const credits=await readCredits();
-        if(credits.error)return response({error:'讀取建置額度失敗'},503);
-        if(credits.data?.mode!=='points')return response({jobs,credits:credits.data});
-        const usage=await db.from('line_oa_kit_ai_usage').select('request_id,purpose,used_points,created_at,feature:usage->>feature')
-          .eq('project_id',project.id).eq('line_subject',identity.sub).order('created_at',{ascending:false}).limit(12);
-        if(usage.error)return response({error:'讀取點數用量失敗'},503);
-        return response({jobs,credits:credits.data,usage:usage.data});
+        const { data: jobs, error } = await db
+          .from('line_oa_kit_build_jobs')
+          .select('id,status,usage,error_code,cost_usd,created_at,design_revision,setup_revision')
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (error) return response({ error: '讀取工作紀錄失敗' }, 503);
+        const credits = await readCredits();
+        if (credits.error) return response({ error: '讀取建置額度失敗' }, 503);
+        if (credits.data?.mode !== 'points') return response({ jobs, credits: credits.data });
+        const usage = await db
+          .from('line_oa_kit_ai_usage')
+          .select('request_id,purpose,used_points,created_at,feature:usage->>feature')
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .order('created_at', { ascending: false })
+          .limit(12);
+        if (usage.error) return response({ error: '讀取點數用量失敗' }, 503);
+        return response({ jobs, credits: credits.data, usage: usage.data });
       }
-      if(b.action==='save_build_setup'){
-        let setup;try{setup=validateSetup(b.setup);}catch{return response({error:'設定欄位格式不正確'},400);}
-        if(!Number.isSafeInteger(b.setupRevision)||b.setupRevision<0)return response({error:'版本格式不正確'},400);
-        const {data:updated,error:updateError}=await db.from('line_oa_kit_build_access').update({setup,setup_revision:b.setupRevision+1,updated_at:new Date().toISOString()}).eq('project_id',project.id).eq('line_subject',identity.sub).eq('setup_revision',b.setupRevision).select('granted_at,grant_method,setup,setup_revision,updated_at').maybeSingle();
-        if(updateError)return response({error:'保存建置設定失敗'},503);
-        if(!updated)return response({error:'設定已在其他分頁變更，請重新載入確認'},409);
-        return response({access:updated});
+      if (b.action === 'save_build_setup') {
+        let setup;
+        try {
+          setup = validateSetup(b.setup);
+        } catch {
+          return response({ error: '設定欄位格式不正確' }, 400);
+        }
+        if (!Number.isSafeInteger(b.setupRevision) || b.setupRevision < 0)
+          return response({ error: '版本格式不正確' }, 400);
+        const { data: updated, error: updateError } = await db
+          .from('line_oa_kit_build_access')
+          .update({
+            setup,
+            setup_revision: b.setupRevision + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('project_id', project.id)
+          .eq('line_subject', identity.sub)
+          .eq('setup_revision', b.setupRevision)
+          .select('granted_at,grant_method,setup,setup_revision,updated_at')
+          .maybeSingle();
+        if (updateError) return response({ error: '保存建置設定失敗' }, 503);
+        if (!updated) return response({ error: '設定已在其他分頁變更，請重新載入確認' }, 409);
+        return response({ access: updated });
       }
-      const setup=access.setup_revision>0?validateSetup(access.setup):emptySetup();
-      const issues=requirementIssues(validateDraft(project.config),setup);
-      const unsupported=deploymentIssue(project.config,setup,runtimeReady);
-      if(unsupported)issues.push(unsupported);
-      if(b.action==='generate_source'){
-        if(b.confirmGenerate!==true)return response({error:'請先確認本次 AI 網站草稿產生'},400);
-        if(issues.length)return response({error:'請先補齊建置需求',issues},400);
-        const apiKey=Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')||'';if(!apiKey)return response({error:'平台 AI 建置金鑰尚未設定'},503);
-        const snapshot={design:project.config,setup};if(JSON.stringify(textBuildSpec(snapshot)).length>24000)return response({error:'需求內容過長，請精簡後再試'},400);
-        const {data:started,error}=await db.rpc('line_oa_kit_begin_build',{p_project:project.id,p_subject:identity.sub,p_design_revision:project.revision,p_setup_revision:access.setup_revision});
-        if(error?.message==='points_insufficient')return response({error:'可用點數不足，請聯絡客服加購'},409);
-        if(error)return response({error:'無法建立工作，請稍後再試'},503);
-        if(started.error)return response({error:started.error==='build_credits_exhausted'?'此專案包含的 5 次 AI 建置已用完，請聯絡客服詢問加購；不會自動扣款':started.error==='pilot_budget_exhausted'?'平台建置服務暫時無可用額度，本次不扣建置次數，請聯絡客服':started.error==='revision_conflict'?'需求已變更，請重新載入':'請先開通專案'},409);
-        if(started.created)EdgeRuntime.waitUntil(runBuildJob(db,started.job_id,apiKey));
-        return response({jobId:started.job_id,status:started.status,reused:!started.created},202);
+      const setup = access.setup_revision > 0 ? validateSetup(access.setup) : emptySetup();
+      const issues = requirementIssues(validateDraft(project.config), setup);
+      const unsupported = deploymentIssue(project.config, setup, runtimeReady);
+      if (unsupported) issues.push(unsupported);
+      if (b.action === 'generate_source') {
+        if (b.confirmGenerate !== true)
+          return response({ error: '請先確認本次 AI 網站草稿產生' }, 400);
+        if (issues.length) return response({ error: '請先補齊建置需求', issues }, 400);
+        const apiKey = Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY') || '';
+        if (!apiKey) return response({ error: '平台 AI 建置金鑰尚未設定' }, 503);
+        const snapshot = { design: project.config, setup };
+        if (JSON.stringify(textBuildSpec(snapshot)).length > 24000)
+          return response({ error: '需求內容過長，請精簡後再試' }, 400);
+        const { data: started, error } = await db.rpc('line_oa_kit_begin_build', {
+          p_project: project.id,
+          p_subject: identity.sub,
+          p_design_revision: project.revision,
+          p_setup_revision: access.setup_revision,
+        });
+        if (error?.message === 'points_insufficient')
+          return response({ error: '可用點數不足，請聯絡客服加購' }, 409);
+        if (error) return response({ error: '無法建立工作，請稍後再試' }, 503);
+        if (started.error)
+          return response(
+            {
+              error:
+                started.error === 'build_credits_exhausted'
+                  ? '此專案包含的 5 次 AI 建置已用完，請聯絡客服詢問加購；不會自動扣款'
+                  : started.error === 'pilot_budget_exhausted'
+                    ? '平台建置服務暫時無可用額度，本次不扣建置次數，請聯絡客服'
+                    : started.error === 'revision_conflict'
+                      ? '需求已變更，請重新載入'
+                      : '請先開通專案',
+            },
+            409,
+          );
+        if (started.created) EdgeRuntime.waitUntil(runBuildJob(db, started.job_id, apiKey));
+        return response(
+          { jobId: started.job_id, status: started.status, reused: !started.created },
+          202,
+        );
       }
-      return response({requirementsReady:issues.length===0,issues,generationAvailable:Boolean(Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')),deploymentReady:false,nextSteps:['先產生並檢查網站草稿','依下方圖片教學提供一次性 GitHub／Supabase／LINE 授權','部署後開啟 Use webhook，完成網站、LINE、LIFF 與選單驗收'],message:issues.length?'請先補齊需求與平台資訊':'需求檢查完成，可以先產生網站草稿；尚未執行部署'});
+      return response({
+        requirementsReady: issues.length === 0,
+        issues,
+        generationAvailable: Boolean(Deno.env.get('LINE_OA_KIT_BUILD_OPENAI_API_KEY')),
+        deploymentReady: false,
+        nextSteps: [
+          '先產生並檢查網站草稿',
+          '依下方圖片教學提供一次性 GitHub／Supabase／LINE 授權',
+          '部署後開啟 Use webhook，完成網站、LINE、LIFF 與選單驗收',
+        ],
+        message: issues.length
+          ? '請先補齊需求與平台資訊'
+          : '需求檢查完成，可以先產生網站草稿；尚未執行部署',
+      });
     }
-    let config;try{config=validateDraft(b.config);}catch{return response({error:'請檢查欄位內容與長度'},400);}
-    if(typeof b.id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.id)||!Number.isSafeInteger(b.revision)||b.revision<0)return response({error:'專案版本不正確'},400);
-    if(b.revision===0){
-      const {data,error}=await db.from('line_oa_kit_designs').insert({id:b.id,line_subject:identity.sub,config,revision:1}).select('id,revision,updated_at').single();
-      if(error)return response({error:error.code==='23505'?'此專案已保存，請重新載入確認版本':'保存失敗，請稍後重試'},error.code==='23505'?409:503);
-      return response({project:data});
+    let config;
+    try {
+      config = validateDraft(b.config);
+    } catch {
+      return response({ error: '請檢查欄位內容與長度' }, 400);
     }
-    const {data,error}=await db.from('line_oa_kit_designs').update({config,revision:b.revision+1,updated_at:new Date().toISOString()}).eq('id',b.id).eq('line_subject',identity.sub).eq('revision',b.revision).select('id,revision,updated_at').maybeSingle();
-    if(error)return response({error:'保存失敗，請稍後重試'},503);
-    if(!data)return response({error:'版本已變更或專案不存在，請先重新載入'},409);
-    return response({project:data});
-  }catch{return response({error:'暫時無法連線，請保留內容後重試'},503);}
+    if (
+      typeof b.id !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(b.id) ||
+      !Number.isSafeInteger(b.revision) ||
+      b.revision < 0
+    )
+      return response({ error: '專案版本不正確' }, 400);
+    if (b.revision === 0) {
+      const { data, error } = await db
+        .from('line_oa_kit_designs')
+        .insert({ id: b.id, line_subject: identity.sub, config, revision: 1 })
+        .select('id,revision,updated_at')
+        .single();
+      if (error)
+        return response(
+          {
+            error:
+              error.code === '23505' ? '此專案已保存，請重新載入確認版本' : '保存失敗，請稍後重試',
+          },
+          error.code === '23505' ? 409 : 503,
+        );
+      return response({ project: data });
+    }
+    const { data, error } = await db
+      .from('line_oa_kit_designs')
+      .update({ config, revision: b.revision + 1, updated_at: new Date().toISOString() })
+      .eq('id', b.id)
+      .eq('line_subject', identity.sub)
+      .eq('revision', b.revision)
+      .select('id,revision,updated_at')
+      .maybeSingle();
+    if (error) return response({ error: '保存失敗，請稍後重試' }, 503);
+    if (!data) return response({ error: '版本已變更或專案不存在，請先重新載入' }, 409);
+    return response({ project: data });
+  } catch {
+    return response({ error: '暫時無法連線，請保留內容後重試' }, 503);
+  }
 });
-
-

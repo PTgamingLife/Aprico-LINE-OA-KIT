@@ -1,1 +1,19 @@
-.github-connection{border:1px solid #ced9c8;background:#edf2e8;padding:18px;border-radius:16px;margin:20px 0}.github-connection button,.github-connection .guide-link{margin:8px 8px 8px 0;max-width:100%;overflow-wrap:anywhere}.github-connection .footnote{font-size:12px}.github-connection strong{overflow-wrap:anywhere}
+.github-connection {
+  border: 1px solid #ced9c8;
+  background: #edf2e8;
+  padding: 18px;
+  border-radius: 16px;
+  margin: 20px 0;
+}
+.github-connection button,
+.github-connection .guide-link {
+  margin: 8px 8px 8px 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.github-connection .footnote {
+  font-size: 12px;
+}
+.github-connection strong {
+  overflow-wrap: anywhere;
+}

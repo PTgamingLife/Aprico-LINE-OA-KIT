@@ -1,22 +1,345 @@
-import React,{useEffect,useRef,useState} from 'react';
-import SecretaryCharacter,{EquipmentIcon} from './SecretaryCharacter.jsx';
-import {safeSecretaryProfile,safeSecretaryNotes,sensitiveNote,equipmentForStep} from './equipment-model.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import SecretaryCharacter, { EquipmentIcon } from './SecretaryCharacter.jsx';
+import {
+  safeSecretaryProfile,
+  safeSecretaryNotes,
+  sensitiveNote,
+  equipmentForStep,
+} from './equipment-model.ts';
 import './secretary-room.css';
-export default function SecretaryRoom({projectId,user,draft,progress,groups,steps,currentStep,firstOpen,running,selected,onOpen,onClose,onStep,onDesign,children}){
- const key='aprico-secretary:'+projectId,modal=useRef(null);
- const [profile,setProfile]=useState(()=>{try{return safeSecretaryProfile(JSON.parse(localStorage.getItem(key)||'{}'));}catch{return safeSecretaryProfile(null);}});
- const [notes,setNotes]=useState(()=>{try{return safeSecretaryNotes(JSON.parse(localStorage.getItem(key+':notes')||'[]'));}catch{return [];}}),[message,setMessage]=useState(''),[noteError,setNoteError]=useState('');
- useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(safeSecretaryProfile(profile)));}catch{}},[key,profile]);
- useEffect(()=>{try{localStorage.setItem(key+':notes',JSON.stringify(safeSecretaryNotes(notes)));}catch{}},[key,notes]);
- useEffect(()=>{if(selected&&!modal.current?.open)modal.current?.showModal();else if(!selected&&modal.current?.open)modal.current.close();},[selected]);
- const appearance=draft.portrait?(draft.portrait.endsWith('-female')?'female':'male'):profile.appearance;
- const group=groups.find(g=>g.id===selected),active=equipmentForStep(currentStep),complete=groups.filter(g=>g.complete).length;
- function submit(e){e.preventDefault();const text=message.trim();if(!text)return;if(sensitiveNote(text)){setNoteError('請勿在需求筆記輸入金鑰、Token 或私鑰。請使用任務內的安全欄位。');return;}setNotes(n=>safeSecretaryNotes([...n,{text,date:new Date().toISOString()}]));setMessage('');setNoteError('');}
- return <section className="secretary-room" aria-label="秘書角色裝備室" data-active-equipment={selected||''} data-current-task={currentStep}>
-  <div className="room-heading"><div><span>APRICO · YOUR SECRETARY</span><h2>秘書裝備室</h2></div><small>{running?'系統任務處理中':'一件裝備，一步靠近你的專屬秘書'}</small></div>
-  <div className="room-layout"><aside className="secretary-account"><small>帳號名稱</small><strong className="room-account-name">{user||'我的 LINE 帳號'}</strong><small>建置完成度</small><strong className="room-percentage" aria-label={`總完成 ${progress.percent}%`}>{progress.percent}<span>%</span></strong><progress max="100" value={progress.percent} aria-label="建置細項完成百分比"/><small>{progress.done} / {progress.total} 細項</small><h3>主要設定</h3><dl><div><dt>專案</dt><dd>{draft.name||'尚未命名'}</dd></div><div><dt>LINE OA</dt><dd>{draft.oaName||'尚未填寫'}</dd></div><div><dt>選單</dt><dd>{draft.grid} 格</dd></div><div><dt>狀態</dt><dd>{progress.percent===100?'已完成本人驗收':running?'處理中':'準備裝備中'}</dd></div></dl><button type="button" onClick={onDesign} disabled={running}>主要設定 ↗</button>{draft.portrait?<small className="room-device-note">召喚形象已保存到這個專案。</small>:<><fieldset className="secretary-appearance"><legend>秘書形象</legend>{[['female','女生秘書'],['male','男生秘書']].map(([value,label])=><label key={value}><input type="radio" name={'secretary-'+projectId} checked={profile.appearance===value} onChange={()=>setProfile({appearance:value})}/>{label}</label>)}</fieldset><small className="room-device-note">形象保存在這部裝置，切換形象不影響任務。</small></>}</aside>
-  <div className="secretary-dressing"><div className="room-stage-header"><h3>你的專屬秘書</h3><span>點裝備開啟任務</span></div><div className="secretary-stage">{[0,1].map(side=><div className={'equipment-slots '+(side?'right':'left')} key={side}>{groups.slice(side*4,side*4+4).map(g=><button type="button" key={g.id} className={'equipment-slot '+(g.complete?'complete':g.done?'partial':'')} aria-label={`${g.name}，${g.done} / ${g.total} 細項，開啟任務`} onClick={()=>onOpen(g.id)}><EquipmentIcon type={g.id}/><span>{g.name}</span><small>{g.complete?'✓ 已裝備':`${g.done} / ${g.total}`}</small></button>)}</div>)}<div className="secretary-portrait"><SecretaryCharacter appearance={appearance} groups={groups} portrait={draft.portrait}/><strong>{appearance==='male'?'男生秘書':'女生秘書'}</strong><small>完成後，虛影裝備會變成實體</small></div></div><div className="equipment-footer"><span>已裝備 {complete} / {groups.length} 件</span><button className="primary" onClick={()=>onOpen('badge')}>{progress.percent===100?'查看啟用與驗收結果':'繼續準備／驗收 →'}</button></div></div></div>
-  <section className="secretary-conversation" aria-label="專案需求對話與筆記"><div className="room-chat-heading"><h3>和秘書一起整理需求</h3><span>本機需求筆記</span></div><p className="secretary-speech">點選我身旁的裝備，就能開始對應任務。你也可以先記下想調整的內容。</p>{notes.length>0&&<div className="secretary-notes">{notes.map((n,i)=><article key={n.date+i}><p>{n.text}</p><small>{n.date&&new Date(n.date).toLocaleString('zh-TW')}</small></article>)}</div>}<form onSubmit={submit}><label htmlFor={'secretary-note-'+projectId}>想補充或修改什麼？</label><div><textarea id={'secretary-note-'+projectId} rows={2} maxLength={1200} value={message} onChange={e=>setMessage(e.target.value)} placeholder="例如：把活動入口改為本月優惠。請勿填入金鑰。"/><button type="submit" disabled={!message.trim()}>保存需求筆記</button></div></form>{noteError&&<p role="alert" className="notice error">{noteError}</p>}<p className="room-chat-limit">筆記只保存在這部裝置的目前專案，不會執行 AI 或修改網站。要立即修改選單，請<button type="button" disabled={running} onClick={onDesign}>前往設計頁</button>；AI 對話修改與點數結算尚未開放。</p>{notes.length>0&&<button className="text-button" onClick={()=>{if(confirm('清除此專案在本機的需求筆記？'))setNotes([]);}}>清除本機筆記</button>}</section>
-  <dialog ref={modal} className="equipment-dialog" onCancel={e=>{e.preventDefault();onClose();}} onClick={e=>e.target===modal.current&&onClose()}><div className="equipment-dialog-header"><div><small>裝備任務</small><h2>{group?.name}</h2></div><button type="button" aria-label="關閉裝備任務" onClick={onClose}>關閉 ×</button></div>{group&&<><p className="equipment-description">{group.description}</p>{group.pages.length?<><nav className="equipment-page-nav" aria-label="這件裝備的任務">{steps.filter(s=>group.pages.includes(s.id)).map(s=>{const i=steps.findIndex(p=>p.id===s.id),p=progress.pages.find(p=>p.id===s.id);return <button key={s.id} type="button" aria-current={s.id===currentStep?'step':undefined} disabled={running?s.id!=='automatic':firstOpen!==-1&&i>firstOpen} onClick={()=>onStep(s.id)}>{p.complete?'✓ ':''}{s.title}<small>{p.done} / {p.total}</small></button>;})}</nav>{active===selected?children:<div className="equipment-prerequisite"><h3>先完成前面的準備</h3><p>這件裝備需要前面的資料或授權。完成後就能繼續，不會因點擊裝備而自動建置。</p><button type="button" onClick={()=>onStep(steps[Math.max(0,firstOpen)].id)}>前往下一個待完成任務 →</button></div>}</>:<div className="equipment-design-summary"><EquipmentIcon type={group.id}/><h3>{group.complete?'已從保存的設計取得裝備':'先完成並保存你的設計'}</h3>{group.id==='uniform'?<p>選單配色與印花來自你的設計頁。保存後回到這裡，制服就會實體化。</p>:<><p>此裝備代表各格功能與回覆需求已填妥並保存，不代表營運 AI 已經串接。</p><ul>{draft.cells.slice(0,draft.grid).map((c,i)=><li key={i}>{c.label||`第 ${i+1} 格`}：{c.content?'已有需求內容':'待填寫需求'}</li>)}</ul></>}<button type="button" className="primary" disabled={running} onClick={onDesign}>開啟設計與回覆設定 ↗</button></div>}</>}</dialog>
- </section>;
+export default function SecretaryRoom({
+  projectId,
+  user,
+  draft,
+  progress,
+  groups,
+  steps,
+  currentStep,
+  firstOpen,
+  running,
+  selected,
+  onOpen,
+  onClose,
+  onStep,
+  onDesign,
+  children,
+}) {
+  const key = 'aprico-secretary:' + projectId,
+    modal = useRef(null);
+  const [profile, setProfile] = useState(() => {
+    try {
+      return safeSecretaryProfile(JSON.parse(localStorage.getItem(key) || '{}'));
+    } catch {
+      return safeSecretaryProfile(null);
+    }
+  });
+  const [notes, setNotes] = useState(() => {
+      try {
+        return safeSecretaryNotes(JSON.parse(localStorage.getItem(key + ':notes') || '[]'));
+      } catch {
+        return [];
+      }
+    }),
+    [message, setMessage] = useState(''),
+    [noteError, setNoteError] = useState('');
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(safeSecretaryProfile(profile)));
+    } catch {}
+  }, [key, profile]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(key + ':notes', JSON.stringify(safeSecretaryNotes(notes)));
+    } catch {}
+  }, [key, notes]);
+  useEffect(() => {
+    if (selected && !modal.current?.open) modal.current?.showModal();
+    else if (!selected && modal.current?.open) modal.current.close();
+  }, [selected]);
+  const appearance = draft.portrait
+    ? draft.portrait.endsWith('-female')
+      ? 'female'
+      : 'male'
+    : profile.appearance;
+  const group = groups.find((g) => g.id === selected),
+    active = equipmentForStep(currentStep),
+    complete = groups.filter((g) => g.complete).length;
+  function submit(e) {
+    e.preventDefault();
+    const text = message.trim();
+    if (!text) return;
+    if (sensitiveNote(text)) {
+      setNoteError('請勿在需求筆記輸入金鑰、Token 或私鑰。請使用任務內的安全欄位。');
+      return;
+    }
+    setNotes((n) => safeSecretaryNotes([...n, { text, date: new Date().toISOString() }]));
+    setMessage('');
+    setNoteError('');
+  }
+  return (
+    <section
+      className="secretary-room"
+      aria-label="秘書角色裝備室"
+      data-active-equipment={selected || ''}
+      data-current-task={currentStep}
+    >
+      <div className="room-heading">
+        <div>
+          <span>APRICO · YOUR SECRETARY</span>
+          <h2>秘書裝備室</h2>
+        </div>
+        <small>{running ? '系統任務處理中' : '一件裝備，一步靠近你的專屬秘書'}</small>
+      </div>
+      <div className="room-layout">
+        <aside className="secretary-account">
+          <small>帳號名稱</small>
+          <strong className="room-account-name">{user || '我的 LINE 帳號'}</strong>
+          <small>建置完成度</small>
+          <strong className="room-percentage" aria-label={`總完成 ${progress.percent}%`}>
+            {progress.percent}
+            <span>%</span>
+          </strong>
+          <progress max="100" value={progress.percent} aria-label="建置細項完成百分比" />
+          <small>
+            {progress.done} / {progress.total} 細項
+          </small>
+          <h3>主要設定</h3>
+          <dl>
+            <div>
+              <dt>專案</dt>
+              <dd>{draft.name || '尚未命名'}</dd>
+            </div>
+            <div>
+              <dt>LINE OA</dt>
+              <dd>{draft.oaName || '尚未填寫'}</dd>
+            </div>
+            <div>
+              <dt>選單</dt>
+              <dd>{draft.grid} 格</dd>
+            </div>
+            <div>
+              <dt>狀態</dt>
+              <dd>
+                {progress.percent === 100 ? '已完成本人驗收' : running ? '處理中' : '準備裝備中'}
+              </dd>
+            </div>
+          </dl>
+          <button type="button" onClick={onDesign} disabled={running}>
+            主要設定 ↗
+          </button>
+          {draft.portrait ? (
+            <small className="room-device-note">召喚形象已保存到這個專案。</small>
+          ) : (
+            <>
+              <fieldset className="secretary-appearance">
+                <legend>秘書形象</legend>
+                {[
+                  ['female', '女生秘書'],
+                  ['male', '男生秘書'],
+                ].map(([value, label]) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name={'secretary-' + projectId}
+                      checked={profile.appearance === value}
+                      onChange={() => setProfile({ appearance: value })}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+              <small className="room-device-note">形象保存在這部裝置，切換形象不影響任務。</small>
+            </>
+          )}
+        </aside>
+        <div className="secretary-dressing">
+          <div className="room-stage-header">
+            <h3>你的專屬秘書</h3>
+            <span>點裝備開啟任務</span>
+          </div>
+          <div className="secretary-stage">
+            {[0, 1].map((side) => (
+              <div className={'equipment-slots ' + (side ? 'right' : 'left')} key={side}>
+                {groups.slice(side * 4, side * 4 + 4).map((g) => (
+                  <button
+                    type="button"
+                    key={g.id}
+                    className={
+                      'equipment-slot ' + (g.complete ? 'complete' : g.done ? 'partial' : '')
+                    }
+                    aria-label={`${g.name}，${g.done} / ${g.total} 細項，開啟任務`}
+                    onClick={() => onOpen(g.id)}
+                  >
+                    <EquipmentIcon type={g.id} />
+                    <span>{g.name}</span>
+                    <small>{g.complete ? '✓ 已裝備' : `${g.done} / ${g.total}`}</small>
+                  </button>
+                ))}
+              </div>
+            ))}
+            <div className="secretary-portrait">
+              <SecretaryCharacter
+                appearance={appearance}
+                groups={groups}
+                portrait={draft.portrait}
+              />
+              <strong>{appearance === 'male' ? '男生秘書' : '女生秘書'}</strong>
+              <small>完成後，虛影裝備會變成實體</small>
+            </div>
+          </div>
+          <div className="equipment-footer">
+            <span>
+              已裝備 {complete} / {groups.length} 件
+            </span>
+            <button className="primary" onClick={() => onOpen('badge')}>
+              {progress.percent === 100 ? '查看啟用與驗收結果' : '繼續準備／驗收 →'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <section className="secretary-conversation" aria-label="專案需求對話與筆記">
+        <div className="room-chat-heading">
+          <h3>和秘書一起整理需求</h3>
+          <span>本機需求筆記</span>
+        </div>
+        <p className="secretary-speech">
+          點選我身旁的裝備，就能開始對應任務。你也可以先記下想調整的內容。
+        </p>
+        {notes.length > 0 && (
+          <div className="secretary-notes">
+            {notes.map((n, i) => (
+              <article key={n.date + i}>
+                <p>{n.text}</p>
+                <small>{n.date && new Date(n.date).toLocaleString('zh-TW')}</small>
+              </article>
+            ))}
+          </div>
+        )}
+        <form onSubmit={submit}>
+          <label htmlFor={'secretary-note-' + projectId}>想補充或修改什麼？</label>
+          <div>
+            <textarea
+              id={'secretary-note-' + projectId}
+              rows={2}
+              maxLength={1200}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="例如：把活動入口改為本月優惠。請勿填入金鑰。"
+            />
+            <button type="submit" disabled={!message.trim()}>
+              保存需求筆記
+            </button>
+          </div>
+        </form>
+        {noteError && (
+          <p role="alert" className="notice error">
+            {noteError}
+          </p>
+        )}
+        <p className="room-chat-limit">
+          筆記只保存在這部裝置的目前專案，不會執行 AI 或修改網站。要立即修改選單，請
+          <button type="button" disabled={running} onClick={onDesign}>
+            前往設計頁
+          </button>
+          ；AI 對話修改與點數結算尚未開放。
+        </p>
+        {notes.length > 0 && (
+          <button
+            className="text-button"
+            onClick={() => {
+              if (confirm('清除此專案在本機的需求筆記？')) setNotes([]);
+            }}
+          >
+            清除本機筆記
+          </button>
+        )}
+      </section>
+      <dialog
+        ref={modal}
+        className="equipment-dialog"
+        onCancel={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+        onClick={(e) => e.target === modal.current && onClose()}
+      >
+        <div className="equipment-dialog-header">
+          <div>
+            <small>裝備任務</small>
+            <h2>{group?.name}</h2>
+          </div>
+          <button type="button" aria-label="關閉裝備任務" onClick={onClose}>
+            關閉 ×
+          </button>
+        </div>
+        {group && (
+          <>
+            <p className="equipment-description">{group.description}</p>
+            {group.pages.length ? (
+              <>
+                <nav className="equipment-page-nav" aria-label="這件裝備的任務">
+                  {steps
+                    .filter((s) => group.pages.includes(s.id))
+                    .map((s) => {
+                      const i = steps.findIndex((p) => p.id === s.id),
+                        p = progress.pages.find((p) => p.id === s.id);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          aria-current={s.id === currentStep ? 'step' : undefined}
+                          disabled={
+                            running ? s.id !== 'automatic' : firstOpen !== -1 && i > firstOpen
+                          }
+                          onClick={() => onStep(s.id)}
+                        >
+                          {p.complete ? '✓ ' : ''}
+                          {s.title}
+                          <small>
+                            {p.done} / {p.total}
+                          </small>
+                        </button>
+                      );
+                    })}
+                </nav>
+                {active === selected ? (
+                  children
+                ) : (
+                  <div className="equipment-prerequisite">
+                    <h3>先完成前面的準備</h3>
+                    <p>這件裝備需要前面的資料或授權。完成後就能繼續，不會因點擊裝備而自動建置。</p>
+                    <button type="button" onClick={() => onStep(steps[Math.max(0, firstOpen)].id)}>
+                      前往下一個待完成任務 →
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="equipment-design-summary">
+                <EquipmentIcon type={group.id} />
+                <h3>{group.complete ? '已從保存的設計取得裝備' : '先完成並保存你的設計'}</h3>
+                {group.id === 'uniform' ? (
+                  <p>選單配色與印花來自你的設計頁。保存後回到這裡，制服就會實體化。</p>
+                ) : (
+                  <>
+                    <p>此裝備代表各格功能與回覆需求已填妥並保存，不代表營運 AI 已經串接。</p>
+                    <ul>
+                      {draft.cells.slice(0, draft.grid).map((c, i) => (
+                        <li key={i}>
+                          {c.label || `第 ${i + 1} 格`}：{c.content ? '已有需求內容' : '待填寫需求'}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+                <button type="button" className="primary" disabled={running} onClick={onDesign}>
+                  開啟設計與回覆設定 ↗
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </dialog>
+    </section>
+  );
 }
