@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --experimental-strip-types --test tests/model.test.ts tests/build-access.test.ts tests/source-builder.test.ts tests/build-jobs.test.ts tests/deployment.test.ts tests/project-guides.test.ts tests/trial.test.ts tests/games.test.ts tests/learning.test.ts tests/broadcast.test.ts tests/payment.test.ts tests/onboarding-cards.test.ts tests/onboarding-probe.test.ts tests/intro-delivery.test.ts tests/journey.test.ts tests/github-app.test.ts tests/oaw-api.test.ts tests/oaw-connect.test.ts tests/oaw-health.test.ts tests/oaw-build.test.ts tests/oaw-build-page.test.ts"
+    "test": "node --experimental-strip-types --test tests/model.test.ts tests/build-access.test.ts tests/source-builder.test.ts tests/build-jobs.test.ts tests/deployment.test.ts tests/project-guides.test.ts tests/trial.test.ts tests/games.test.ts tests/learning.test.ts tests/broadcast.test.ts tests/payment.test.ts tests/onboarding-cards.test.ts tests/onboarding-probe.test.ts tests/intro-delivery.test.ts tests/journey.test.ts tests/github-app.test.ts tests/oaw-api.test.ts tests/oaw-connect.test.ts tests/oaw-health.test.ts tests/oaw-build.test.ts tests/oaw-build-page.test.ts tests/oaw-billing.test.ts"
   },
   "dependencies": {
     "libsodium-wrappers": "^0.7.15",

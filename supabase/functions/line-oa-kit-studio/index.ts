@@ -1,3 +1,4 @@
+import { BILLING_ACTIONS, billingAction } from '../_shared/oaw-billing.ts';
 import { OAW_ACTIONS, oawBuildAction } from '../_shared/oaw-build.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { validateDraft } from '../../../src/model.ts';
@@ -133,6 +134,7 @@ Deno.serve(async (req: Request) => {
         'runtime_key_rotate',
         'runtime_key_revoke',
         ...OAW_ACTIONS,
+        ...BILLING_ACTIONS,
       ].includes(b.action)
     )
       return response({ error: '不支援的操作' }, 400);
@@ -172,6 +174,8 @@ Deno.serve(async (req: Request) => {
         fetch,
         typeof identity.name === 'string' ? identity.name : 'LINE 會員',
       );
+    if (BILLING_ACTIONS.includes(b.action))
+      return await billingAction(b, db, identity.sub, response, (k) => Deno.env.get(k));
     if (['learning_list', 'learning_complete', 'learning_quiz'].includes(b.action))
       return await learningAction(b, db, identity.sub, response);
     if (['trial_apply', 'trial_config', 'trial_exit'].includes(b.action))

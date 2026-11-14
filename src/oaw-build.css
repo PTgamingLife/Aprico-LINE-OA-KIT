@@ -154,3 +154,13 @@
 .oaw-build details[open] summary {
   margin-bottom: 10px;
 }
+.oaw-build .plans {
+  display: grid;
+  gap: 8px;
+}
+.oaw-notice {
+  background: #f1dfcf;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 0;
+}
