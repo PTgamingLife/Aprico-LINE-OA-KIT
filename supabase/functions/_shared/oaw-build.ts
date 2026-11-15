@@ -19,13 +19,13 @@ export const OAW_SECRETS = [
   'OAW_LINE_LOGIN_ID',
   'OAW_LINE_LOGIN_SECRET',
 ];
-const PERMISSIONS = {
+export const PERMISSIONS: Record<string, string> = {
   contents: 'write',
   pages: 'write',
   secrets: 'write',
   actions: 'write',
   actions_variables: 'write',
-} as const;
+};
 
 type Respond = (data: unknown, status?: number) => Response;
 type Project = { id: string };
@@ -39,13 +39,18 @@ const settingsUrl = (installation: any) =>
     : `https://github.com/settings/installations/${installation?.id}`;
 
 /** GitHub App JWT; tests pass their own. */
-async function defaultJwt() {
+export async function defaultJwt() {
   const settings = githubSettings((k) => Deno.env.get(k));
   if (!settings) throw Error('github_app_not_configured');
   return appJwt(settings);
 }
 
-async function repoToken(conn: any, fetcher: typeof fetch, makeJwt: () => Promise<string>) {
+export async function repoToken(
+  conn: any,
+  fetcher: typeof fetch,
+  makeJwt: () => Promise<string>,
+  permissions: Record<string, string> = PERMISSIONS,
+) {
   const jwt = await makeJwt();
   const installation = await ghRequest(
     `/repos/${conn.full_name}/installation`,
@@ -56,7 +61,7 @@ async function repoToken(conn: any, fetcher: typeof fetch, makeJwt: () => Promis
   );
   if (installation?.id !== conn.installation_id || installation.suspended_at)
     throw Error('github_installation_unavailable');
-  const missing = Object.entries(PERMISSIONS).filter(
+  const missing = Object.entries(permissions).filter(
     ([k, v]) => installation.permissions?.[k] !== v,
   );
   if (missing.length)
@@ -65,7 +70,7 @@ async function repoToken(conn: any, fetcher: typeof fetch, makeJwt: () => Promis
     `/app/installations/${conn.installation_id}/access_tokens`,
     jwt,
     'POST',
-    { repository_ids: [conn.repository_id], permissions: PERMISSIONS },
+    { repository_ids: [conn.repository_id], permissions },
     fetcher,
   );
   if (typeof issued.token !== 'string') throw Error('github_installation_unavailable');
@@ -86,7 +91,7 @@ async function setVariable(
   }
 }
 
-async function readStatus(repo: string, token: string, f: typeof fetch) {
+export async function readStatus(repo: string, token: string, f: typeof fetch) {
   const file = await ghRequest(
     `/repos/${repo}/contents/oaw/status.json`,
     token,
