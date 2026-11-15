@@ -11,6 +11,8 @@ export type BroadcastConfig = {
   buttonLabel: string;
   url: string;
   imageUrl: string;
+  /** The image is an APNG that LINE should play (welcome cards). */
+  animated?: boolean;
   theme: keyof typeof broadcastThemes;
 };
 export function isBroadcastOwner(subject: string, owner: string) {
@@ -60,6 +62,7 @@ export function validateBroadcast(v: any): BroadcastConfig {
     buttonLabel: text(v.buttonLabel, 20),
     url: publicUrl(v.url),
     imageUrl,
+    ...(imageUrl && v.animated === true ? { animated: true } : {}),
     theme: v.theme,
   };
 }
@@ -80,6 +83,7 @@ export function broadcastCard(raw: BroadcastConfig) {
               size: 'full',
               aspectRatio: '16:9',
               aspectMode: 'cover',
+              ...(c.animated ? { animated: true } : {}),
             },
           }
         : {}),
