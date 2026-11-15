@@ -175,6 +175,8 @@ test('points errors map to clear status codes', async () => {
 test('config validator and digest cleaner guard the boundary', () => {
   assert.ok(validOawConfig(config));
   assert.ok(!validOawConfig({ ...config, theme: 9 }));
+  assert.ok(validOawConfig({ ...config, shape: 2 }));
+  assert.ok(!validOawConfig({ ...config, shape: 6 }));
   assert.ok(
     !validOawConfig({
       ...config,
