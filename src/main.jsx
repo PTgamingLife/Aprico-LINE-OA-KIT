@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { themes, emptyDraft, validateDraft, actionNames } from './model.ts';
 import './style.css';
 import OawBuild from './OawBuild.jsx';
+import OawUpdate, { UPDATE_FLAG } from './OawUpdate.jsx';
 import { launchGithub } from './github-launch.js';
 import { githubNotice } from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
@@ -11,6 +12,16 @@ import { renderTrialMenu } from './trial-canvas.js';
 import { TRIAL_CHAT } from './trial-model.ts';
 import './trial.css';
 const API = 'https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-studio';
+// The 版本更新 card opens build.html?update=1; the flag survives the GitHub sign-in round trip.
+const isUpdate = () => {
+  try {
+    return (
+      new URLSearchParams(location.search).has('update') || !!sessionStorage.getItem(UPDATE_FLAG)
+    );
+  } catch {
+    return false;
+  }
+};
 const LIFF_ID = '2012197506-Vmb4O5iT';
 const route = document.body.dataset.page;
 function App() {
@@ -611,7 +622,11 @@ function App() {
                   </div>
                 )}
               </section>
-              <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />
+              {isUpdate() ? (
+                <OawUpdate key={current?.id || 'none'} api={api} projectId={current?.id} />
+              ) : (
+                <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />
+              )}
             </div>
           </>
         )}
