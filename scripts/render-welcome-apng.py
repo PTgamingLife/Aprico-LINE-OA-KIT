@@ -1,5 +1,7 @@
 """Welcome-card hero: summoning sigil spins and glows while the secretary materialises.
 Usage: python3 scripts/render-welcome-apng.py public/secretaries/secretary-female-v2.png public/summoning-sigil.png public/welcome/welcome-female.png"""
+# Chibi cards: crop public/secretaries/secretary-chibi-pair-v1.png at x=752 (female left, male right)
+# and pass each half as the secretary image.
 import sys
 from PIL import Image, ImageChops, ImageEnhance, ImageFilter
 
