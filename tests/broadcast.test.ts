@@ -180,6 +180,18 @@ test('broadcast owner is explicit verified LINE subject, never name or caller cl
   assert.equal(s.authorized, false);
   assert.doesNotMatch(JSON.stringify(s), new RegExp(owner));
 });
+test('welcome cards can carry an animated APNG hero', () => {
+  const img = 'https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/welcome/welcome-female.png';
+  const on = broadcastCard({ ...gamesBroadcast(), imageUrl: img, animated: true });
+  assert.equal(on.contents.hero.animated, true);
+  assert.equal(on.contents.hero.aspectRatio, '16:9');
+  assert.equal(
+    broadcastCard({ ...gamesBroadcast(), imageUrl: img }).contents.hero.animated,
+    undefined,
+  );
+  // No image, no animation flag.
+  assert.equal(validateBroadcast({ ...gamesBroadcast(), animated: true }).animated, undefined);
+});
 test('broadcast model accepts fixed Flex card and rejects unsafe destinations/images', () => {
   const c = gamesBroadcast(),
     m = broadcastCard(c);
