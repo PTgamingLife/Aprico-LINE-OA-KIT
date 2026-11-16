@@ -150,6 +150,19 @@ export async function oawUpdateAction(
         { error: '請在 GitHub 同意 Aprico 新增的權限', code: e.message, url: e.url },
         409,
       );
+    // The App was removed (after the last build or update) or the repo moved: this binding is
+    // stale. Close it so the page asks for a fresh authorisation instead of failing forever.
+    if (e?.message === 'github_installation_unavailable' || [401, 403, 404].includes(e?.status)) {
+      await db
+        .from('line_oa_kit_github_connections')
+        .update({ revoked_at: new Date().toISOString() })
+        .eq('project_id', project.id)
+        .eq('line_subject', subject);
+      return respond(
+        { error: '之前的 GitHub 授權已收回，請重新授權', code: 'github_binding_required' },
+        409,
+      );
+    }
     return respond({ error: 'GitHub 暫時無法存取', code: 'github_unavailable' }, 503);
   }
   try {

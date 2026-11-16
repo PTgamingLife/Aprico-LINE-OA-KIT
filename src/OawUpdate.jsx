@@ -69,6 +69,8 @@ export default function OawUpdate({ api, projectId }) {
     try {
       setPlan(await api({ action: 'oaw_update_plan', projectId }));
     } catch (e) {
+      // A stale binding was closed on the server: go back to the authorise step.
+      if (e.code === 'github_binding_required') return void (await refresh());
       setError(e);
     } finally {
       setBusy(false);
@@ -198,7 +200,23 @@ export default function OawUpdate({ api, projectId }) {
         done={Boolean(startedAt) || removed}
         open={connected && !startedAt && !removed}
       >
-        {!plan && <p className="oaw-note">{busy ? '比對中…' : '準備比對你的專案'}</p>}
+        <p className="oaw-note">
+          更新到：{gh?.connection?.full_name}{' '}
+          <button
+            type="button"
+            className="link"
+            onClick={() =>
+              api({ action: 'github_disconnect', projectId }).then(() => {
+                setPlan(null);
+                setError(null);
+                refresh();
+              })
+            }
+          >
+            換一個 repo
+          </button>
+        </p>
+        {!plan && !error && <p className="oaw-note">{busy ? '比對中…' : '準備比對你的專案'}</p>}
         {plan?.upToDate && (
           <>
             <p>已經是最新版本，不需要更新。</p>
