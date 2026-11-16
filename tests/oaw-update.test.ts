@@ -209,3 +209,31 @@ test('updates need a subscription and the workflows permission', async () => {
   assert.equal(res.status, 409);
   assert.equal((await res.json()).code, 'github_permissions_required');
 });
+
+test('a removed App installation closes the stale binding and asks to re-authorise', async () => {
+  const s = setup();
+  const updates: any[] = [];
+  const q: any = {
+    select: () => q,
+    eq: () => q,
+    update: (v: any) => (updates.push(v), q),
+    maybeSingle: async () => ({
+      data: { installation_id: 7, repository_id: 9, full_name: 'cust/my-oa' },
+    }),
+  };
+  const db = { from: () => q, rpc: async () => ({ data: { paid: true } }) };
+  const gone = async () => new Response('', { status: 404 });
+  const res = await oawUpdateAction(
+    { action: 'oaw_update_plan' },
+    db,
+    subject,
+    project,
+    respond,
+    gone as any,
+    async () => 'jwt',
+    await withShas(s),
+  );
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).code, 'github_binding_required');
+  assert.ok(updates[0]?.revoked_at);
+});
