@@ -71,6 +71,8 @@ function App() {
           'payment_confirm',
           'payment_reconcile',
           'prefill_build_setup',
+          'oaw_update_plan',
+          'oaw_update_apply',
         ].includes(body.action)
           ? 120000
           : 20000,

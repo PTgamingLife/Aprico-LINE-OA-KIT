@@ -117,7 +117,9 @@ export default function OawUpdate({ api, projectId }) {
   const conflicts = plan?.conflicts ?? [];
   const errorBox = error && (
     <p className="oaw-error">
-      {error.message}
+      {/^(Fetch is aborted|The operation was aborted|signal timed out)/i.test(error.message)
+        ? '等候逾時，更新可能已在進行；請按「重新檢查」確認。'
+        : error.message}
       {error.url && (
         <>
           {' '}
@@ -125,7 +127,18 @@ export default function OawUpdate({ api, projectId }) {
             前往 GitHub 同意 ↗
           </a>
         </>
-      )}
+      )}{' '}
+      <button
+        type="button"
+        className="link"
+        onClick={() => {
+          setError(null);
+          setPlan(null);
+          refresh().then(check);
+        }}
+      >
+        重新檢查
+      </button>
     </p>
   );
 
