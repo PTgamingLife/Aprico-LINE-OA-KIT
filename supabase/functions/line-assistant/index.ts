@@ -40,6 +40,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 const MODEL = 'claude-sonnet-5';
 // 「小A」開頭,大小寫與全形都收,後面允許空格/標點
 const TRIGGER_RE = /^小\s*[AaＡａ][\s,，、:：!！?？]*/;
+const DIRECT_HELP =
+  '這裡是 Aprico 建置中心，收到你的訊息了 🙌\n\n' +
+  '・要調整你自己的官方帳號（例如停止推播、改通知、改選單），請到「你的官方帳號」直接跟 AI 秘書說，它會先給你確認卡。\n' +
+  '・建置、續訂、版本更新：點下方選單「開始建置」。\n' +
+  '・問課程或 AI 問題：用「小A」開頭，例如「小A 什麼是 Prompt」。\n' +
+  '・其他問題：點選單「聯絡專員」，負責人員會回覆你。';
 const KB_TABLE = 'aistudio_kb';
 const KB_KEY = 'course_info';
 const LOG_TABLE = 'aistudio_bot_messages';
@@ -226,6 +232,13 @@ async function handleEvent(event: any): Promise<void> {
     return;
   }
 
+  // 1:1 messages that are not a command used to get no answer at all. Say where things are
+  // done instead: settings of a customer's own OA are changed in that OA, not here.
+  if (!groupId && event.source?.type === 'user' && !TRIGGER_RE.test(raw)) {
+    await replyMessage(replyToken, DIRECT_HELP);
+    return;
+  }
+
   // 只服務指定群組(ASSIST_TARGET_GROUP_ID 留空 = 不限制)
   if (TARGET_GROUP_ID && groupId !== TARGET_GROUP_ID) return;
 
@@ -274,7 +287,7 @@ Deno.serve(async (req) => {
       ok: true,
       trialChatReady: Boolean(
         Deno.env.get('LINE_OA_KIT_MESSAGING_CHANNEL_SECRET') &&
-          Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN'),
+        Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN'),
       ),
     });
   }
