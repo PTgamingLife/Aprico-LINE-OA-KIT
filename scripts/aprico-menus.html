@@ -82,6 +82,42 @@
           }
         ctx.restore();
       }
+      // Jigsaw print: every piece draws only its right and bottom edge, each with a knob,
+      // so the left/top edges come from the neighbours and nothing is drawn twice.
+      function jigsaw(ctx, x0, y0, x1, y1, color) {
+        const s = 84,
+          r = s * 0.16,
+          k = r * 0.71;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let y = y0 - s; y < y1 + s; y += s)
+          for (let x = x0 - s; x < x1 + s; x += s) {
+            const cy = y + s / 2,
+              cx = x + s / 2;
+            ctx.moveTo(x + s, y);
+            ctx.lineTo(x + s, cy - k);
+            ctx.arc(x + s + r * 0.6, cy, r, Math.PI * 1.25, Math.PI * 0.75);
+            ctx.lineTo(x + s, y + s);
+            ctx.moveTo(x, y + s);
+            ctx.lineTo(cx - k, y + s);
+            ctx.arc(cx, y + s + r * 0.6, r, Math.PI * 1.25, Math.PI * 1.75, true);
+            ctx.lineTo(x + s, y + s);
+          }
+        ctx.stroke();
+      }
+      function puzzlePrint(ctx, line, light) {
+        jigsaw(ctx, 0, 0, W, H, line);
+        // The dark call-to-action cell: repaint it and use a light print instead.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(800, 405, 400, 405);
+        ctx.clip();
+        ctx.fillStyle = '#4A3B32';
+        ctx.fillRect(800, 405, 400, 405);
+        jigsaw(ctx, 800, 405, W, H, light);
+        ctx.restore();
+      }
       window.render = async (name) => {
         const m = MENUS[name];
         await document.fonts.load('800 40px "Noto Sans TC"', m.cells.flat().join(''));
@@ -89,7 +125,17 @@
         const ctx = document.getElementById('c').getContext('2d');
         ctx.fillStyle = m.paper;
         ctx.fillRect(0, 0, W, H);
-        paintCells(ctx, areas, 6, m.shape, (a) => m.colors[a.index], W, H);
+        if (name === 'showcase') {
+          // Arch cells on a transparent layer, puzzle print kept inside them (source-atop).
+          const layer = document.createElement('canvas');
+          layer.width = W;
+          layer.height = H;
+          const lc = layer.getContext('2d');
+          paintCells(lc, areas, 6, m.shape, (a) => m.colors[a.index], W, H);
+          lc.globalCompositeOperation = 'source-atop';
+          puzzlePrint(lc, 'rgba(74,59,50,0.10)', 'rgba(255,255,255,0.16)');
+          ctx.drawImage(layer, 0, 0);
+        } else paintCells(ctx, areas, 6, m.shape, (a) => m.colors[a.index], W, H);
         if (name === 'build') {
           // Arch print inside each puzzle piece, then redraw the seams over it.
           for (const a of areas) arches(ctx, a, 'rgba(41,67,55,0.12)');
