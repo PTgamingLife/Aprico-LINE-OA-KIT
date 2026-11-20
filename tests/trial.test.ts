@@ -399,15 +399,10 @@ test('chat design resumes after 24 hours and saves a records design before simul
   await send('打造我的 LINE OA');
   assert.match(JSON.stringify(reply!), /繼續未完成設計/);
   await send('resume', true);
-  assert.match(JSON.stringify(reply!), /LINE OA 名稱/);
-  const oaAction = reply![0].contents.footer.contents[0].action;
-  assert.equal(oaAction.label, '輸入 LINE OA 名稱');
-  assert.equal(oaAction.inputOption, 'openKeyboard');
-  assert.equal(oaAction.fillInText, '填寫 ');
-  await send('open_name', true);
-  assert.equal(session.state.step, 'oaName');
-  await send('填寫 秘書服務');
+  // One name now covers both the project and the OA: the next card is the goal.
   assert.match(JSON.stringify(reply!), /主要設計目標/);
+  assert.equal(session.state.draft.name, '我的秘書');
+  assert.equal(session.state.draft.oaName, '我的秘書');
   await send('填寫 減少整理客戶行程的時間');
   const scopeRevision = session.revision;
   await send('personal', true);
