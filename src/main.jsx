@@ -4,6 +4,7 @@ import { themes, emptyDraft, validateDraft, actionNames } from './model.ts';
 import './style.css';
 import OawBuild from './OawBuild.jsx';
 import OawUpdate, { UPDATE_FLAG } from './OawUpdate.jsx';
+import OawSecurity, { SECURITY_FLAG } from './OawSecurity.jsx';
 import { launchGithub } from './github-launch.js';
 import { githubNotice } from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
@@ -17,6 +18,17 @@ const isUpdate = () => {
   try {
     return (
       new URLSearchParams(location.search).has('update') || !!sessionStorage.getItem(UPDATE_FLAG)
+    );
+  } catch {
+    return false;
+  }
+};
+// build.html?security=1: emergency lock, unlock and ownership recovery.
+const isSecurity = () => {
+  try {
+    return (
+      new URLSearchParams(location.search).has('security') ||
+      !!sessionStorage.getItem(SECURITY_FLAG)
     );
   } catch {
     return false;
@@ -73,6 +85,8 @@ function App() {
           'prefill_build_setup',
           'oaw_update_plan',
           'oaw_update_apply',
+          'oaw_recover',
+          'oaw_unlock',
         ].includes(body.action)
           ? 120000
           : 20000,
@@ -624,7 +638,9 @@ function App() {
                   </div>
                 )}
               </section>
-              {isUpdate() ? (
+              {isSecurity() ? (
+                <OawSecurity key={current?.id || 'none'} api={api} projectId={current?.id} />
+              ) : isUpdate() ? (
                 <OawUpdate key={current?.id || 'none'} api={api} projectId={current?.id} />
               ) : (
                 <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />

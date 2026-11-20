@@ -1,7 +1,7 @@
 // API for customer OA apps built from the OAW template (PTgamingLife/oaw-template).
 // The app calls with its per-project key (`aprico_…`, stored hashed in
 // line_oa_kit_runtime_keys). Routes (POST, suffix of the function URL):
-//   /status  → { paid }                         no AI, no points
+//   /status  → { paid, locked }                 no AI, no points
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
 // Nothing the app sends is stored here except the usage row written by metering.
@@ -151,7 +151,16 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
     const code = (e as Error).message;
     return respond({ error: code }, code === 'input_too_large' ? 413 : 400);
   }
-  if (route === 'status') return respond(await oawQuota(db, grant));
+  if (route === 'status') {
+    // The emergency lock is checked here too; the app refuses owner actions while locked.
+    const lock = await db
+      .from('line_oa_kit_owner_locks')
+      .select('project_id')
+      .eq('project_id', grant.project_id)
+      .maybeSingle();
+    if (lock.error) return respond({ error: 'runtime_unavailable' }, 503);
+    return respond({ ...(await oawQuota(db, grant)), locked: Boolean(lock.data) });
+  }
 
   const meter = (
     purpose: string,
