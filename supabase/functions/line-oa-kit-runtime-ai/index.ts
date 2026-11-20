@@ -6,7 +6,7 @@ import { healthScan } from '../_shared/oaw-health.ts';
 import { billingReminders } from '../_shared/oaw-billing.ts';
 
 // OAW template apps call /status, /design, /digest, /connect and /health-scan under this function.
-const OAW_ROUTES = new Set(['status', 'design', 'digest', 'settings']);
+const OAW_ROUTES = new Set(['status', 'design', 'digest', 'settings', 'link']);
 
 Deno.serve((req) => {
   // Both routes bill the subscription quota and run on Claude.
