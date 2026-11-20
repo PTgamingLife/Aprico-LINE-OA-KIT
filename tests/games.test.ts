@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access, readdir } from 'node:fs/promises';
 import vm from 'node:vm';
-import { centerMenu } from '../src/center-menu.ts';
+import { centerMenu, showcaseMenu } from '../src/center-menu.ts';
 const games = new URL('../public/games/', import.meta.url);
 test('six center buttons preserve design/build and add teaching/games without personal linking', () => {
   const menu = centerMenu('https://learning.example/');
@@ -18,6 +18,12 @@ test('six center buttons preserve design/build and add teaching/games without pe
   });
   assert.match(JSON.stringify(menu.areas[4]), /learning.example/);
   assert.match(JSON.stringify(menu.areas[5]), /games.html/);
+  assert.deepEqual(menu.areas[2].action, {
+    type: 'richmenuswitch',
+    label: '回展示中心',
+    richMenuAliasId: 'aprico-showcase',
+    data: 'aprico_menu=showcase',
+  });
   assert.throws(() => centerMenu(''));
   assert.throws(() => centerMenu('javascript:alert(1)'));
   assert.throws(() => centerMenu('https://user:pass@example.com'));
@@ -57,4 +63,20 @@ test('cat game has ten valid levels and its first puzzle can be completed', asyn
   engine.cbPull(game, 0);
   for (let i = 0; i < 1000 && game.state === 'play'; i++) engine.cbStep(game);
   assert.equal(game.state, 'win');
+});
+
+test('showcase menu: five pages and a switch to the build center', () => {
+  const m = showcaseMenu();
+  assert.equal(m.areas.length, 6);
+  assert.equal(
+    m.areas.reduce((sum, a) => sum + a.bounds.width * a.bounds.height, 0),
+    1200 * 810,
+  );
+  assert.match(JSON.stringify(m.areas.slice(0, 4)), /showcase.html#line.*#oa.*#ai.*#cases/);
+  assert.deepEqual(m.areas[5].action, {
+    type: 'richmenuswitch',
+    label: '我想要建置',
+    richMenuAliasId: 'aprico-build',
+    data: 'aprico_menu=build',
+  });
 });

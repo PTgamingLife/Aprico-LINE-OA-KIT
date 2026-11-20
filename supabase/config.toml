@@ -18,3 +18,7 @@ verify_jwt = false
 [functions.line-oa-kit-runtime-ai]
 verify_jwt = false
 # Server-to-server API with revocable per-project bearer credentials.
+
+[functions.line-oa-kit-menu-setup]
+verify_jwt = false
+# Only a database-issued, hashed, single-use 90-second tick is accepted.

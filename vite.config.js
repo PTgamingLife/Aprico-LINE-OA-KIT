@@ -5,10 +5,17 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: Object.fromEntries(
-        ['index', 'design', 'build', 'trial', 'games', 'learning', 'admin', 'intro'].map((n) => [
-          n,
-          fileURLToPath(new URL(`./${n}.html`, import.meta.url)),
-        ]),
+        [
+          'index',
+          'design',
+          'build',
+          'trial',
+          'games',
+          'learning',
+          'admin',
+          'intro',
+          'showcase',
+        ].map((n) => [n, fileURLToPath(new URL(`./${n}.html`, import.meta.url))]),
       ),
     },
   },
