@@ -218,7 +218,13 @@ function card(
   };
 }
 const fields: Partial<Record<Step, [string, string, number, string]>> = {
-  name: ['專案名稱', '為你的召喚法陣命名。這個專案名稱會幫你找回這份設計。', 80, '輸入專案名稱'],
+  // One name for both: the project (to find this design again) and the OA customers see.
+  name: [
+    '官方帳號名稱',
+    '為你的秘書命名。這是顧客在 LINE 看到的官方帳號名稱，也會用來幫你找回這份設計。',
+    80,
+    '輸入名稱',
+  ],
   oaName: [
     'LINE OA 名稱',
     '現在為秘書的服務入口命名。這是顧客會在 LINE 看到的官方帳號名稱。',
@@ -475,7 +481,7 @@ function show(s: State, v: string) {
       return card(
         '核對召喚法陣',
         [
-          s.draft.name + ' · ' + s.draft.oaName,
+          s.draft.name === s.draft.oaName ? s.draft.name : s.draft.name + ' · ' + s.draft.oaName,
           s.draft.goal,
           directions[s.draft.secretary!.direction],
           ...(s.draft.secretary!.direction !== 'records'
@@ -656,7 +662,8 @@ function advance(s: State, value: string, typed: boolean): boolean {
       break;
     case 'name':
       d.name = value;
-      s.step = 'oaName';
+      d.oaName = value;
+      s.step = 'goal';
       break;
     case 'oaName':
       d.oaName = value;
