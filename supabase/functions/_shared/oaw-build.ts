@@ -77,7 +77,7 @@ export async function repoToken(
   return { token: issued.token as string, jwt };
 }
 
-async function setVariable(
+export async function setVariable(
   repo: string,
   token: string,
   name: string,

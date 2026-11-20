@@ -149,6 +149,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
     'introFollowGateway',
     'chatDesignGateway',
     'connectGateway',
+    'lockGateway',
     code,
   )(
     {
@@ -166,6 +167,7 @@ test('integrated entrypoint validates raw platform and original assistant HMAC s
     },
     broadcastGateway,
     introFollowGateway,
+    async () => false,
     async () => false,
     async () => false,
   );

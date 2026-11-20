@@ -31,7 +31,7 @@ const config = {
   secretary: false,
 };
 
-function fixture(paidRows: unknown[] = []) {
+function fixture(paidRows: unknown[] = [], locked = false) {
   const calls: any[] = [];
   const db = {
     from(table: string) {
@@ -40,7 +40,14 @@ function fixture(paidRows: unknown[] = []) {
         eq: () => q,
         is: () => q,
         limit: async () => ({ data: table === 'line_oa_kit_payments' ? paidRows : [] }),
-        maybeSingle: async () => ({ data: { project_id: projectId, line_subject: owner } }),
+        maybeSingle: async () => ({
+          data:
+            table === 'line_oa_kit_owner_locks'
+              ? locked
+                ? { project_id: projectId }
+                : null
+              : { project_id: projectId, line_subject: owner },
+        }),
       };
       return q;
     },
@@ -89,11 +96,17 @@ test('every OAW route requires a valid project key', async () => {
 test('status reports the subscription quota as percentages', async () => {
   assert.deepEqual(await (await oawApi(req('status', {}), fixture().db, 'k')).json(), {
     paid: false,
+    locked: false,
   });
   assert.deepEqual(
     await (await oawApi(req('status', {}), fixture([{ project_id: projectId }]).db, 'k')).json(),
-    { paid: true, percentLeft: 63, extraTwdLeft: 20 },
+    { paid: true, percentLeft: 63, extraTwdLeft: 20, locked: false },
   );
+});
+
+test('status reports the emergency lock', async () => {
+  const body = await (await oawApi(req('status', {}), fixture([], true).db, 'k')).json();
+  assert.equal(body.locked, true);
 });
 
 test('design returns a validated config and bills the owner quota as design', async () => {

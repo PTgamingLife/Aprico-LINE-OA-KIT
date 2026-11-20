@@ -19,7 +19,7 @@ const loadAnswers = () => {
 };
 
 /** GitHub wants each secret sealed with the repo's public key (libsodium sealed box). */
-async function seal(publicKey, values) {
+export async function seal(publicKey, values) {
   const { default: sodium } = await import('libsodium-wrappers');
   await sodium.ready;
   const key = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);

@@ -181,3 +181,10 @@
 .oaw-conflict small {
   margin-left: 4px;
 }
+.oaw-code {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  text-align: center;
+  margin: 0;
+}
