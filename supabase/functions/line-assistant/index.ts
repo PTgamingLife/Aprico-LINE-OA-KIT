@@ -5,6 +5,7 @@ import { routeAssistantEvent } from '../_shared/assistant-trial.ts';
 import { broadcastGateway } from '../_shared/broadcast-gateway.ts';
 import { connectGateway } from '../_shared/oaw-connect.ts';
 import { lockGateway } from '../_shared/oaw-security.ts';
+import { menuGateway } from '../_shared/menu-switch.ts';
 import { chatDesignGateway } from '../_shared/chat-design.ts';
 import { introFollowGateway, processIntroJob } from '../_shared/intro-delivery.ts';
 // 小A — Aprico AI 助教(LINE 群組問答機器人)— Supabase Edge Function (Deno)
@@ -358,6 +359,8 @@ Deno.serve(async (req) => {
               messages,
             });
           if (await lockGateway(e, { authenticated: trialAuthenticated, db: trialDb, reply }))
+            return;
+          if (await menuGateway(e, { authenticated: trialAuthenticated, token: trialToken, reply }))
             return;
           if (await connectGateway(e, { authenticated: trialAuthenticated, db: trialDb, reply }))
             return;

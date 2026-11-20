@@ -1,0 +1,126 @@
+<!doctype html>
+<!-- Renders the two Aprico OA rich menus (1200x810) with Noto Sans TC.
+     Run: node scripts/render-aprico-menus.cjs (serves this repo and oaw-template locally). -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body style="margin: 0">
+    <canvas id="c" width="1200" height="810"></canvas>
+    <script type="module">
+      import { paintCells } from '/oaw-template/liff/menu-shapes.js';
+      const W = 1200,
+        H = 810;
+      const areas = Array.from({ length: 6 }, (_, i) => ({
+        index: i,
+        x: (i % 3) * 400,
+        y: Math.floor(i / 3) * 405,
+        w: 400,
+        h: 405,
+      }));
+      const MENUS = {
+        // 展示中心: 暖杏 arches; the last cell is the call to action.
+        showcase: {
+          paper: '#FAF7F2',
+          shape: 3,
+          ink: '#4A3B32',
+          colors: ['#E7C5A8', '#E8D6B6', '#D6C4B9', '#C9D0B4', '#EAD9C8', '#4A3B32'],
+          inks: [null, null, null, null, null, '#FFFFFF'],
+          cells: [
+            ['LINE 的好處', '客人不用下載 App'],
+            ['OA 能長什麼樣子', '六種造型任你選'],
+            ['AI 秘書能做什麼', '記帳・行程・健康'],
+            ['使用案例', '看看別人怎麼用'],
+            ['聯絡專員', '聊聊你的想法'],
+            ['我想要建置', '進入建置中心 →'],
+          ],
+        },
+        // 建置中心: the approved six-arch colours with puzzle edges; cell 3 goes back.
+        build: {
+          paper: '#FFFEF9',
+          shape: 2,
+          ink: '#294337',
+          colors: ['#BDD0BE', '#DDD5BC', '#B9CCCF', '#D4C2B8', '#C9C1D6', '#E7C5A8'],
+          inks: [],
+          cells: [
+            ['打造我的\nLINE OA', '把點子變成互動'],
+            ['開始建置', '一步一步完成'],
+            ['回展示中心', '看看 LINE 與 AI 秘書'],
+            ['聯絡專員', '聊聊你的想法'],
+            ['AI 官方內容\n中文版教學', '輕鬆學會 AI'],
+            ['小遊戲專區', '休息一下，玩一局'],
+          ],
+        },
+      };
+      function arches(ctx, a, color) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(a.x, a.y, a.w, a.h);
+        ctx.clip();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.8;
+        for (let row = -1; row < 5; row++)
+          for (let col = -1; col < 5; col++) {
+            const tx = a.x + col * 96,
+              ty = a.y + row * 96;
+            for (const inset of [6, 20, 34]) {
+              const d = 84 - 2 * (inset - 6),
+                left = tx + inset,
+                top = ty + 8 + (inset - 6),
+                r = d / 2;
+              ctx.beginPath();
+              ctx.moveTo(left, ty + 92);
+              ctx.lineTo(left, top + r);
+              ctx.arc(left + r, top + r, r, Math.PI, 0);
+              ctx.lineTo(left + d, ty + 92);
+              ctx.stroke();
+            }
+          }
+        ctx.restore();
+      }
+      window.render = async (name) => {
+        const m = MENUS[name];
+        await document.fonts.load('800 40px "Noto Sans TC"', m.cells.flat().join(''));
+        await document.fonts.load('500 20px "Noto Sans TC"', m.cells.flat().join(''));
+        const ctx = document.getElementById('c').getContext('2d');
+        ctx.fillStyle = m.paper;
+        ctx.fillRect(0, 0, W, H);
+        paintCells(ctx, areas, 6, m.shape, (a) => m.colors[a.index], W, H);
+        if (name === 'build') {
+          // Arch print inside each puzzle piece, then redraw the seams over it.
+          for (const a of areas) arches(ctx, a, 'rgba(41,67,55,0.12)');
+          // Transparent fills: only the paper seams are drawn again, over the print.
+          paintCells(ctx, areas, 6, 2, () => 'rgba(0,0,0,0)', W, H);
+        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (const a of areas) {
+          const [title, sub] = m.cells[a.index],
+            ink = m.inks[a.index] || m.ink,
+            cx = a.x + a.w / 2;
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.beginPath();
+          ctx.arc(cx, a.y + 100, 34, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = m.inks[a.index] ? '#4A3B32' : ink;
+          ctx.font = '800 26px "Noto Sans TC"';
+          ctx.fillText(String(a.index + 1).padStart(2, '0'), cx, a.y + 101);
+          ctx.fillStyle = ink;
+          ctx.font = '800 38px "Noto Sans TC"';
+          const lines = title.split('\n');
+          lines.forEach((l, i) =>
+            ctx.fillText(l, cx, a.y + 215 + (i - (lines.length - 1) / 2) * 48),
+          );
+          ctx.font = '500 21px "Noto Sans TC"';
+          ctx.fillText(sub, cx, a.y + 320);
+        }
+        return document.getElementById('c').toDataURL('image/png');
+      };
+      window.ready = true;
+    </script>
+  </body>
+</html>
