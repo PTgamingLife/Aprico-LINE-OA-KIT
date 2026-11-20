@@ -6,6 +6,7 @@
 //   /digest  → { events, expenses, todos, life, summary }  metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
+import { oawLinks } from './oaw-links.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
 const MAX_BODY = 16000;
@@ -151,6 +152,10 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
     const code = (e as Error).message;
     return respond({ error: code }, code === 'input_too_large' ? 413 : 400);
   }
+  if (route === 'link')
+    return oawLinks(body, db, grant, respond, fetcher, (p) =>
+      typeof EdgeRuntime !== 'undefined' ? EdgeRuntime.waitUntil(p) : void p,
+    );
   if (route === 'status') {
     // The emergency lock is checked here too; the app refuses owner actions while locked.
     const lock = await db
