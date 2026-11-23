@@ -4,9 +4,11 @@
 //   /status  → { paid, locked }                 no AI, no points
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
+//   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
+import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
 const MAX_BODY = 16000;
@@ -235,6 +237,23 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         input,
       );
       if (!out) return respond({ error: 'settings_invalid' }, 502);
+      return respond(out);
+    }
+    if (route === 'compose') {
+      const c = requestIdOk(body.requestId) ? composeInput(body) : null;
+      if (!c) return respond({ error: 'invalid_input' }, 400);
+      const out = composeOutput(
+        JSON.parse(
+          await meter(
+            'compose',
+            JSON.stringify(c.input),
+            COMPOSE_INSTRUCTIONS[c.mode],
+            COMPOSE_SCHEMA,
+            'oaw_compose',
+          ),
+        ),
+      );
+      if (!out) return respond({ error: 'compose_invalid' }, 502);
       return respond(out);
     }
     if (route === 'digest') {

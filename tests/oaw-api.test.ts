@@ -214,3 +214,17 @@ test('rate limited owners get 429 instead of an AI call', async () => {
   );
   assert.equal(res.status, 429);
 });
+
+test('compose returns a short text and rejects bad input before billing', async () => {
+  const { db, calls } = fixture();
+  const bad = await oawApi(req('compose', { requestId: 'evt-compose-0001', mode: 'x', text: 'a' }), db, 'k');
+  assert.equal(bad.status, 400);
+  assert.equal(calls.length, 0);
+  const res = await oawApi(
+    req('compose', { requestId: 'evt-compose-0002', mode: 'polish', text: '週六十點門口集合' }),
+    fixture().db,
+    'k',
+    ai({ text: '📢 週六上午 10 點在門口集合，記得準時喔！' }),
+  );
+  assert.deepEqual(await res.json(), { text: '📢 週六上午 10 點在門口集合，記得準時喔！' });
+});
