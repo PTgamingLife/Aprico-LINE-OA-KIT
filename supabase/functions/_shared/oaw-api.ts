@@ -8,6 +8,7 @@
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
+import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
 import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
@@ -237,6 +238,18 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         input,
       );
       if (!out) return respond({ error: 'settings_invalid' }, 502);
+      return respond(out);
+    }
+    if (route === 'orb') {
+      const input = requestIdOk(body.requestId) ? orbInput(body) : null;
+      if (!input) return respond({ error: 'invalid_input' }, 400);
+      const out = orbOutput(
+        JSON.parse(
+          await meter('orb', JSON.stringify(input), ORB_INSTRUCTIONS, ORB_SCHEMA, 'oaw_orb'),
+        ),
+        input,
+      );
+      if (!out) return respond({ error: 'orb_invalid' }, 502);
       return respond(out);
     }
     if (route === 'compose') {
