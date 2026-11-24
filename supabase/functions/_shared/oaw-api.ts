@@ -1,12 +1,18 @@
 // API for customer OA apps built from the OAW template (PTgamingLife/oaw-template).
 // The app calls with its per-project key (`aprico_…`, stored hashed in
 // line_oa_kit_runtime_keys). Routes (POST, suffix of the function URL):
-//   /status  → { paid, locked }                 no AI, no points
+//   /status  → { paid, locked, plan }           no AI, no points
+//   /unlock  → { plan }  redeem a one-time 領航者 code for this project
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
+//   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
+import { isNavigator, oawUnlock } from './oaw-navigator.ts';
+import { TALLY_INSTRUCTIONS, TALLY_SCHEMA, tallyInput, tallyOutput } from './oaw-tally.ts';
+import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
+import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
 const MAX_BODY = 16000;
@@ -164,7 +170,21 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
       .eq('project_id', grant.project_id)
       .maybeSingle();
     if (lock.error) return respond({ error: 'runtime_unavailable' }, 503);
-    return respond({ ...(await oawQuota(db, grant)), locked: Boolean(lock.data) });
+    return respond({
+      ...(await oawQuota(db, grant)),
+      locked: Boolean(lock.data),
+      plan: (await isNavigator(db, grant.project_id)) ? 'navigator' : 'secretary',
+    });
+  }
+  if (route === 'unlock') {
+    // Refused while the account is locked, like every other owner action.
+    const lock = await db
+      .from('line_oa_kit_owner_locks')
+      .select('project_id')
+      .eq('project_id', grant.project_id)
+      .maybeSingle();
+    if (lock.error || lock.data) return respond({ error: 'owner_locked' }, 423);
+    return oawUnlock(body, db, grant.project_id, respond);
   }
 
   const meter = (
@@ -237,6 +257,47 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
       if (!out) return respond({ error: 'settings_invalid' }, 502);
       return respond(out);
     }
+    if (route === 'orb') {
+      const input = requestIdOk(body.requestId) ? orbInput(body) : null;
+      if (!input) return respond({ error: 'invalid_input' }, 400);
+      const out = orbOutput(
+        JSON.parse(
+          await meter('orb', JSON.stringify(input), ORB_INSTRUCTIONS, ORB_SCHEMA, 'oaw_orb'),
+        ),
+        input,
+      );
+      if (!out) return respond({ error: 'orb_invalid' }, 502);
+      return respond(out);
+    }
+    if (route === 'tally') {
+      const input = requestIdOk(body.requestId) ? tallyInput(body) : null;
+      if (!input) return respond({ error: 'invalid_input' }, 400);
+      const out = tallyOutput(
+        JSON.parse(
+          await meter('tally', JSON.stringify(input), TALLY_INSTRUCTIONS, TALLY_SCHEMA, 'oaw_tally'),
+        ),
+        input,
+      );
+      if (!out) return respond({ error: 'tally_invalid' }, 502);
+      return respond(out);
+    }
+    if (route === 'compose') {
+      const c = requestIdOk(body.requestId) ? composeInput(body) : null;
+      if (!c) return respond({ error: 'invalid_input' }, 400);
+      const out = composeOutput(
+        JSON.parse(
+          await meter(
+            'compose',
+            JSON.stringify(c.input),
+            COMPOSE_INSTRUCTIONS[c.mode],
+            COMPOSE_SCHEMA,
+            'oaw_compose',
+          ),
+        ),
+      );
+      if (!out) return respond({ error: 'compose_invalid' }, 502);
+      return respond(out);
+    }
     if (route === 'digest') {
       const lines = body.messages;
       if (
@@ -254,9 +315,16 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         )
       )
         return respond({ error: 'invalid_input' }, 400);
-      const transcript = lines
-        .map((m: any) => `[${m.at}] ${m.who === 'owner' ? '我' : '朋友'}：${m.text}`)
-        .join('\n');
+      // Optional: the owner's 「紀錄」 piece names what to keep (data for the model, not a rule change).
+      const focus =
+        typeof body.focus === 'string' && body.focus.trim()
+          ? `（只需要記下和「${body.focus.trim().slice(0, 60)}」有關的內容，其他略過）\n`
+          : '';
+      const transcript =
+        focus +
+        lines
+          .map((m: any) => `[${m.at}] ${m.who === 'owner' ? '我' : '朋友'}：${m.text}`)
+          .join('\n');
       const out = JSON.parse(
         await meter('digest', transcript, DIGEST_INSTRUCTIONS, DIGEST_SCHEMA, 'oaw_digest'),
       );
