@@ -255,6 +255,11 @@ export async function oawUpdateAction(
       })),
     ];
     await db.from('line_oa_kit_update_reports').insert(rows);
+    // Make sure the pages can be published (a repo built before this was turned on
+    // automatically may still have it off). Harmless when it is already on.
+    await ghRequest(`/repos/${repo}/pages`, token, 'POST', { build_type: 'workflow' }, fetcher).catch(
+      () => null,
+    );
     const startedAt = new Date().toISOString();
     await ghRequest(
       `/repos/${repo}/actions/workflows/oaw-setup.yml/dispatches`,
