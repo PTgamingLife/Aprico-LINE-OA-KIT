@@ -136,3 +136,36 @@ revoke all on function public.line_oa_kit_sec_user(text), public.line_oa_kit_sec
   public.line_oa_kit_sec_refer(text, text), public.line_oa_kit_sec_gift(text) from public, anon, authenticated;
 grant execute on function public.line_oa_kit_sec_user(text), public.line_oa_kit_sec_take(text, boolean),
   public.line_oa_kit_sec_refer(text, text), public.line_oa_kit_sec_gift(text) to service_role;
+
+-- New price: NT$180 a month. The AI budget stays one fifth of the price.
+insert into public.line_oa_kit_quota_rates (version, usd_to_twd, monthly_price_twd, cost_ratio, grace_price_twd)
+values (2, 32, 180, 0.2, 20) on conflict (version) do nothing;
+
+-- Problem reports: at 21:00 Asia/Taipei the day's reports are summarised and sent to the operator.
+create table if not exists public.line_oa_kit_sec_ticks (
+  token_hash text primary key,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+alter table public.line_oa_kit_sec_ticks enable row level security;
+revoke all on public.line_oa_kit_sec_ticks from public, anon, authenticated;
+grant select, delete on public.line_oa_kit_sec_ticks to service_role;
+
+create schema if not exists line_oa_kit_internal;
+create or replace function line_oa_kit_internal.invoke_report_digest()
+returns bigint language plpgsql set search_path = '' as $$
+declare k text; request bigint;
+begin
+  delete from public.line_oa_kit_sec_ticks where created_at < now() - interval '7 days';
+  k := encode(extensions.gen_random_bytes(32), 'hex');
+  insert into public.line_oa_kit_sec_ticks (token_hash, expires_at)
+    values (encode(extensions.digest(k, 'sha256'), 'hex'), now() + interval '90 seconds');
+  select net.http_post(
+    url := 'https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-runtime-ai/report-digest',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-sec-tick', k),
+    body := '{}'::jsonb, timeout_milliseconds := 60000) into request;
+  return request;
+end;
+$$;
+revoke all on function line_oa_kit_internal.invoke_report_digest() from public, anon, authenticated;
+select cron.schedule('aprico-report-digest', '0 13 * * *', 'select line_oa_kit_internal.invoke_report_digest();');
