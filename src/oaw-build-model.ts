@@ -109,3 +109,34 @@ export function buildPhase(s: any) {
   if (run.status !== 'completed') return 'running';
   return run.conclusion === 'success' ? 'done' : 'failed';
 }
+
+/**
+ * Turn the setup script's last error into plain words: what went wrong, which step holds
+ * the field to fix (4 = LINE, 5 = Supabase, 0 = unknown) and what to do.
+ */
+export function setupTrouble(error: unknown) {
+  const e = typeof error === 'string' ? error : '';
+  if (/Supabase Token|SUPABASE_ACCESS_TOKEN/i.test(e))
+    return {
+      step: 5,
+      title: 'Supabase 的 Access Token 不能用',
+      fix: '常見原因：複製時少了幾個字、Token 已過期或被刪除，或建立時選了有權限限制的類型。請到 Supabase 的 Access Tokens 頁面重新產生一組（不要限制權限），再貼到第 5 步。',
+    };
+  if (/free projects|免費專案|maximum limits/i.test(e))
+    return {
+      step: 5,
+      title: 'Supabase 免費專案已經滿了',
+      fix: '免費帳號最多 2 個專案。請在第 5 步展開「已經有 2 個 Supabase 免費專案？」填入要沿用的專案 ID，或先到 Supabase 刪掉一個不用的專案。',
+    };
+  if (/LINE Channel|Channel ID|Secret 不正確|LINE Login/i.test(e))
+    return {
+      step: 4,
+      title: 'LINE 的代碼不正確',
+      fix: e.slice(0, 120) + '。請回 LINE Developers 重新複製 Channel ID 和 Channel secret，貼到第 4 步。',
+    };
+  return {
+    step: 0,
+    title: e ? e.slice(0, 120) : '打造過程中斷了',
+    fix: '可以直接再按一次「開始打造」；如果還是一樣，請到「問題回報」告訴我們。',
+  };
+}

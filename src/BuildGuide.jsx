@@ -1,5 +1,5 @@
 // 建置頁的教學彈窗與「打造前的說明」頁。內容在 build-guides.js。
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { GUIDES, INTRO } from './build-guides.js';
 
 // 教學：一顆小按鈕，打開這一小步的說明彈窗。
@@ -62,5 +62,26 @@ export function Intro({ onStart }) {
         開始打造
       </button>
     </div>
+  );
+}
+
+// A step opens by itself when it is the next thing to do; its title also opens and closes it,
+// so an earlier answer (like the account name) can always be looked at and changed.
+export function Step({ n, title, done, open, children }) {
+  const [manual, setManual] = useState(null);
+  const shown = manual ?? open;
+  return (
+    <section className={`oaw-step${done ? ' done' : ''}${shown ? ' open' : ''}`}>
+      <h2>
+        <button type="button" className="step-toggle" aria-expanded={shown} onClick={() => setManual(!shown)}>
+          <span className="num">{done ? '✓' : n}</span>
+          {title}
+          <span className="chev" aria-hidden="true">
+            {shown ? '收合' : '展開'}
+          </span>
+        </button>
+      </h2>
+      {shown && <div className="body">{children}</div>}
+    </section>
   );
 }

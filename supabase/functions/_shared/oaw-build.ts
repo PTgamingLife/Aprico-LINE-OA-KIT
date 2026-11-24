@@ -123,6 +123,8 @@ export async function readStatus(repo: string, token: string, f: typeof fetch) {
     ok: status?.ok === true,
     steps: status?.steps ?? {},
     finishedAt: status?.finished_at ?? null,
+    // Why the last setup stopped, in the setup script's own words (never a secret).
+    setupError: typeof status?.error === 'string' ? status.error.slice(0, 300) : '',
     basicId: typeof status?.basic_id === 'string' ? status.basic_id : '',
     run: run
       ? {
@@ -193,11 +195,25 @@ export async function oawBuildAction(
     }
     if (b.action === 'oaw_build_start') {
       const values = b.secrets ?? {};
-      if (typeof b.keyId !== 'string' || !OAW_SECRETS.every((n) => sealed(values[n])))
+      // A retry only needs the values being changed: the others are already in the repo.
+      const listed = await ghRequest(
+        `/repos/${repo}/actions/secrets?per_page=100`,
+        token,
+        'GET',
+        undefined,
+        fetcher,
+      ).catch(() => null);
+      const saved = new Set((listed?.secrets ?? []).map((s: any) => s?.name));
+      const given = OAW_SECRETS.filter((n) => values[n] !== undefined);
+      if (
+        typeof b.keyId !== 'string' ||
+        !given.every((n) => sealed(values[n])) ||
+        !OAW_SECRETS.every((n) => given.includes(n) || saved.has(n))
+      )
         return respond({ error: '金鑰資料不完整', code: 'secrets_invalid' }, 400);
       if (b.config !== undefined && !validOawConfig(b.config))
         return respond({ error: '設定格式不正確', code: 'config_invalid' }, 400);
-      for (const name of OAW_SECRETS)
+      for (const name of given)
         await ghRequest(
           `/repos/${repo}/actions/secrets/${name}`,
           token,
