@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
       return response({ error: '內容格式錯誤或過大' }, 400);
     }
     if (b.action === 'github_begin' && (!origin || !origins.has(origin)))
-      return response({ error: '請從 Aprico 建置中心開始連線' }, 403);
+      return response({ error: '請從 Aprico 的打造頁面開始連線' }, 403);
     if (!['github_status', 'github_begin', 'github_select', 'github_disconnect'].includes(b.action))
       return response({ error: '不支援的操作' }, 400);
     if (typeof b.idToken !== 'string' || !b.idToken || b.idToken.length > 10000)

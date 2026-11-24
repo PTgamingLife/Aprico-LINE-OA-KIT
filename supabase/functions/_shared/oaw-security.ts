@@ -157,10 +157,10 @@ export async function lockGateway(
   try {
     const n = await lockAllFor(deps.db, subject);
     text = n
-      ? `🔒 已鎖定你的 ${n} 個官方帳號的管理功能，客人那邊照常運作。\n\n解鎖或找回老闆身分，請到建置中心用 GitHub 驗證：\n${BUILD_URL}`
+      ? `🔒 已鎖定你的 ${n} 個官方帳號的管理功能，客人那邊照常運作。\n\n解鎖或找回老闆身分，請到會員中心的「帳號安全」用 GitHub 驗證：\n${BUILD_URL}`
       : '這個 LINE 帳號沒有連接中的官方帳號，不需要鎖定。';
   } catch {
-    text = '鎖定暫時失敗，請再傳一次「鎖定我的 OA」，或到建置中心按「緊急鎖定」。';
+    text = '鎖定暫時失敗，請再傳一次「鎖定我的 OA」，或到會員中心的「帳號安全」按「緊急鎖定」。';
   }
   await deps.reply(event.replyToken, [{ type: 'text', text }]);
   return true;

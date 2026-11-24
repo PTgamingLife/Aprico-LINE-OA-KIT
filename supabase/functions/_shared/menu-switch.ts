@@ -19,19 +19,19 @@ export const welcomeToBuild = () => ({
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#E7C5A8',
-      contents: [{ type: 'text', text: '✨ 歡迎來到建置中心', weight: 'bold', color: '#4A3B32' }],
+      backgroundColor: '#E4E8FF',
+      contents: [{ type: 'text', text: '✨ 歡迎來到建置中心', weight: 'bold', color: '#2B2A4A' }],
     },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FAF7F2',
+      backgroundColor: '#FFFFFF',
       contents: [
         {
           type: 'text',
           wrap: true,
           size: 'sm',
-          color: '#4A3B32',
+          color: '#2B2A4A',
           text: '下方選單已換成建置中心。先用「打造我的 LINE OA」設計，再到「開始建置」一步一步完成。想回去看看，點「回展示中心」。',
         },
       ],
@@ -44,7 +44,7 @@ export const welcomeToBuild = () => ({
         {
           type: 'button',
           style: 'primary',
-          color: '#4A3B32',
+          color: '#5866D6',
           action: { type: 'message', label: DESIGN_COMMAND, text: DESIGN_COMMAND },
         },
         {
