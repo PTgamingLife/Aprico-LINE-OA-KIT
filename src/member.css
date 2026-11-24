@@ -97,3 +97,17 @@ textarea {
 }
 .tabs button.on { background: linear-gradient(180deg, #fff3c4, #ffe07a); box-shadow: 0 4px 0 #e2b23c; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+/* Month calendar on the 我的秘書 tab (same look as the calendar page of a member's own OA). */
+.cal-head { display: flex; align-items: center; justify-content: space-between; }
+.cal-head b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.cal-nav { border: 0; width: 40px; height: 40px; border-radius: 50%; font-size: 22px; line-height: 1; cursor: pointer; color: var(--accent-deep); background: linear-gradient(180deg, #fff, #eef0ff); box-shadow: 0 4px 0 var(--line); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal-grid .wd { font-size: 12px; color: var(--ink-soft); padding: 4px 0; }
+.cal-grid .day { border: 0; background: none; border-radius: 14px; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 2px; font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; color: var(--ink); cursor: pointer; padding: 0; }
+.cal-grid .day i { width: 6px; height: 6px; border-radius: 50%; display: block; }
+.cal-grid .day i.dot { background: var(--accent); }
+.cal-grid .day.today { background: linear-gradient(180deg, #fff3c4, #ffe07a); font-weight: 900; }
+.cal-grid .day.on { background: linear-gradient(180deg, #9aa7ff, var(--accent-deep)); color: #fff; font-weight: 900; box-shadow: 0 4px 0 #4350b8; }
+.cal-grid .day.on i.dot { background: #fff; }
+.cal-event { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid #e6e8fa; font-size: 15px; }
+.cal-event time { font-weight: 700; color: var(--accent-deep); font-variant-numeric: tabular-nums; font-size: 14px; }

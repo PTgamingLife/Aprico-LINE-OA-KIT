@@ -26,7 +26,7 @@ const h = (tag, attrs = {}, ...kids) => {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v);
   }
-  for (const c of kids.flat()) if (c != null && c !== false) el.append(c);
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c);
   return el;
 };
 const panel = (...kids) => h('section', { class: 'panel' }, kids);
@@ -53,7 +53,50 @@ function loadSdk() {
     document.head.append(s);
   });
 }
-const eventLine = (e) => `${e.day.slice(5).replace('-', '/')}${e.time ? ' ' + e.time : ''} ${e.title}`;
+
+// Month calendar of the trial secretary's entries: tap a day to see what is on it.
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+const pad2 = (n) => String(n).padStart(2, '0');
+const today = () => new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+let calMonth = today().slice(0, 7);
+let calDay = today();
+function calendar() {
+  const [y, m] = calMonth.split('-').map(Number);
+  const byDay = new Map();
+  for (const e of me.events) byDay.set(e.day, [...(byDay.get(e.day) ?? []), e]);
+  const move = (by) => () => {
+    const d = new Date(Date.UTC(y, m - 1 + by, 1));
+    calMonth = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+    calDay = calMonth === today().slice(0, 7) ? today() : `${calMonth}-01`;
+    render();
+  };
+  const nav = (label, by, name) => {
+    const b = h('button', { class: 'cal-nav', type: 'button', 'aria-label': name }, label);
+    b.addEventListener('click', move(by));
+    return b;
+  };
+  const grid = h('div', { class: 'cal-grid' }, WEEK.map((w) => h('span', { class: 'wd' }, w)));
+  const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  for (let i = 0; i < first; i++) grid.append(h('span', {}));
+  for (let d = 1; d <= days; d++) {
+    const day = `${calMonth}-${pad2(d)}`;
+    const n = byDay.get(day)?.length ?? 0;
+    const b = h('button', { class: 'day' + (day === calDay ? ' on' : '') + (day === today() ? ' today' : ''), type: 'button', 'aria-pressed': String(day === calDay), 'aria-label': `${d} 日${n ? `，${n} 個行程` : ''}` }, String(d), h('i', { class: n ? 'dot' : '' }));
+    b.addEventListener('click', () => ((calDay = day), render()));
+    grid.append(b);
+  }
+  const list = byDay.get(calDay) ?? [];
+  const title = `${Number(calDay.slice(5, 7))} 月 ${Number(calDay.slice(8))} 日（${WEEK[new Date(calDay + 'T00:00:00Z').getUTCDay()]}）`;
+  return panel(
+    h('div', { class: 'cal-head' }, nav('‹', -1, '上個月'), h('b', {}, `${y} 年 ${m} 月`), nav('›', 1, '下個月')),
+    grid,
+    h('h2', {}, title),
+    list.length
+      ? list.map((e) => h('div', { class: 'cal-event' }, h('time', {}, e.time || '整天'), h('b', {}, e.title)))
+      : h('p', { class: 'muted' }, me.events.length ? '這天沒有行程。' : '還沒有行程。試試傳「週五下午三點開會」。'),
+  );
+}
 
 function secretary() {
   const chat = h('button', { class: 'btn3d', type: 'button' }, '回聊天室傳訊息給秘書');
@@ -68,10 +111,7 @@ function secretary() {
       h('p', { class: 'muted' }, left),
       chat,
     ),
-    panel(
-      h('h2', {}, '接下來的行程'),
-      h('p', { class: me.events.length ? 'list' : 'muted' }, me.events.length ? me.events.map(eventLine).join('\n') : '還沒有行程。試試傳「週五下午三點開會」。'),
-    ),
+    calendar(),
     !me.connected &&
       panel(
         h('h2', {}, '想要更多？'),
@@ -232,7 +272,13 @@ async function main() {
     tab = 'member';
     try {
       const r = await api('sub_confirm', { orderId: q('order') });
-      notice = ['paid', 'test_paid'].includes(r.order?.status) ? '🎉 付款完成，歡迎成為會員！' : '付款還在確認中，稍後重新整理這一頁。';
+      // A sandbox (test) payment charges nothing and opens no membership; say so plainly.
+      notice =
+        r.order?.status === 'paid'
+          ? '🎉 付款完成，歡迎成為會員！'
+          : r.order?.status === 'test_paid'
+            ? '這是測試環境的付款：沒有實際扣款，會員也不會開通。'
+            : '付款還在確認中，稍後重新整理這一頁。';
     } catch (e) {
       notice = e.message;
     }
