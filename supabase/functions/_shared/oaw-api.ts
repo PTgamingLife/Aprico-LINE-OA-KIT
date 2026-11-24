@@ -8,6 +8,7 @@
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
+import { TALLY_INSTRUCTIONS, TALLY_SCHEMA, tallyInput, tallyOutput } from './oaw-tally.ts';
 import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
 import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
@@ -252,6 +253,18 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
       if (!out) return respond({ error: 'orb_invalid' }, 502);
       return respond(out);
     }
+    if (route === 'tally') {
+      const input = requestIdOk(body.requestId) ? tallyInput(body) : null;
+      if (!input) return respond({ error: 'invalid_input' }, 400);
+      const out = tallyOutput(
+        JSON.parse(
+          await meter('tally', JSON.stringify(input), TALLY_INSTRUCTIONS, TALLY_SCHEMA, 'oaw_tally'),
+        ),
+        input,
+      );
+      if (!out) return respond({ error: 'tally_invalid' }, 502);
+      return respond(out);
+    }
     if (route === 'compose') {
       const c = requestIdOk(body.requestId) ? composeInput(body) : null;
       if (!c) return respond({ error: 'invalid_input' }, 400);
@@ -286,9 +299,16 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         )
       )
         return respond({ error: 'invalid_input' }, 400);
-      const transcript = lines
-        .map((m: any) => `[${m.at}] ${m.who === 'owner' ? '我' : '朋友'}：${m.text}`)
-        .join('\n');
+      // Optional: the owner's 「紀錄」 piece names what to keep (data for the model, not a rule change).
+      const focus =
+        typeof body.focus === 'string' && body.focus.trim()
+          ? `（只需要記下和「${body.focus.trim().slice(0, 60)}」有關的內容，其他略過）\n`
+          : '';
+      const transcript =
+        focus +
+        lines
+          .map((m: any) => `[${m.at}] ${m.who === 'owner' ? '我' : '朋友'}：${m.text}`)
+          .join('\n');
       const out = JSON.parse(
         await meter('digest', transcript, DIGEST_INSTRUCTIONS, DIGEST_SCHEMA, 'oaw_digest'),
       );
