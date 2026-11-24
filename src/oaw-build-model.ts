@@ -130,7 +130,7 @@ export function setupTrouble(error: unknown) {
       title: 'Supabase 的 Access Token 不能用',
       fix: '常見原因：複製時少了幾個字、Token 已過期或被刪除，或建立時選了有權限限制的類型。請到 Supabase 的 Access Tokens 頁面重新產生一組（不要限制權限），再貼到第 5 步。',
     };
-  if (/free projects|免費專案|maximum limits/i.test(e))
+  if (/free projects|免費專案|免費方案|maximum limits/i.test(e))
     return {
       step: 5,
       title: 'Supabase 免費專案已經滿了',
