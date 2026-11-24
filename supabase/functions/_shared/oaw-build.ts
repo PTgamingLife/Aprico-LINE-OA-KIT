@@ -273,7 +273,9 @@ export async function oawBuildAction(
     if (b.action === 'oaw_build_status') return respond(await readStatus(repo, token, fetcher));
     if (b.action === 'oaw_build_finish') {
       const status = await readStatus(repo, token, fetcher);
-      if (!status.ok) return respond({ error: '建置尚未完成', code: 'not_finished' }, 409);
+      // Keep access until the pages are published too, so a retry can still be started.
+      if (!status.ok || status.run?.conclusion === 'failure')
+        return respond({ error: '建置尚未完成', code: 'not_finished' }, 409);
       await ghRequest(
         `/app/installations/${conn.installation_id}`,
         jwt,

@@ -125,7 +125,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
   // After a failed try the codes are already saved (encrypted) in the member's own GitHub,
   // so a blank field means "keep what I gave last time".
   const retry = phase === 'failed';
-  const trouble = retry ? setupTrouble(status?.setupError) : null;
+  const trouble = retry ? setupTrouble(status?.setupError, status?.ok) : null;
   const keyOk = (...names) =>
     names.every((n) => (retry && !String(keys[n] || '').trim()) || cleanKey(n, keys[n]));
   const lineOk = keyOk('OAW_LINE_MSG_ID', 'OAW_LINE_MSG_SECRET', 'OAW_LINE_LOGIN_ID', 'OAW_LINE_LOGIN_SECRET');
@@ -424,7 +424,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
           <div className="oaw-error">
             <b>上一次沒有完成：{trouble.title}</b>
             <p>{trouble.fix}</p>
-            <p>其他代碼都還留著，不用重填；只要在第 {trouble.step || '4、5'} 步改掉有問題的那一格，再按一次「開始打造」。</p>
+            {!status?.ok && <p>其他代碼都還留著，不用重填；只要在第 {trouble.step || '4、5'} 步改掉有問題的那一格，再按一次「開始打造」。</p>}
             {status?.run?.url && (
               <a href={status.run.url} target="_blank" rel="noreferrer">
                 查看紀錄 ↗

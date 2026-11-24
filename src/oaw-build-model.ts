@@ -103,8 +103,10 @@ export const SETUP_STEPS: [string, string][] = [
 
 /** Where the build is: idle (nothing started), running, failed, or done. */
 export function buildPhase(s: any) {
-  if (s?.ok) return 'done';
   const run = s?.run;
+  // Setup finished but a later job (publishing the pages) failed: not done yet.
+  if (s?.ok && run?.status === 'completed' && run.conclusion === 'failure') return 'failed';
+  if (s?.ok) return 'done';
   if (!run) return 'idle';
   if (run.status !== 'completed') return 'running';
   return run.conclusion === 'success' ? 'done' : 'failed';
@@ -114,8 +116,14 @@ export function buildPhase(s: any) {
  * Turn the setup script's last error into plain words: what went wrong, which step holds
  * the field to fix (4 = LINE, 5 = Supabase, 0 = unknown) and what to do.
  */
-export function setupTrouble(error: unknown) {
+export function setupTrouble(error: unknown, setupOk = false) {
   const e = typeof error === 'string' ? error : '';
+  if (setupOk)
+    return {
+      step: 0,
+      title: '秘書裝好了，但秘書的頁面還沒辦法發布',
+      fix: '你的 GitHub 空間還沒開啟「Pages（網頁）」功能。請打開你的 GitHub 空間 → Settings → 左邊選 Pages → Build and deployment 的 Source 選「GitHub Actions」。選好後回來再按一次「開始打造」，所有欄位都留空就可以。',
+    };
   // A limited (scoped) token: Supabase names the permission it is missing.
   const missing = e.match(/Missing required permission\(s\): ([a-z_, ]+)/i);
   if (missing)
