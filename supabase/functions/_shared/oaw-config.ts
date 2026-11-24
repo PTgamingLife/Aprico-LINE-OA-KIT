@@ -13,7 +13,7 @@ const CELL = {
 export const OAW_CONFIG_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['oaName', 'grid', 'theme', 'shape', 'cells', 'welcome', 'failure', 'secretary'],
+  required: ['oaName', 'grid', 'theme', 'shape', 'cells', 'card', 'welcome', 'failure', 'secretary'],
   properties: {
     oaName: { type: 'string' },
     grid: { type: 'integer', enum: [4, 6, 8] },
@@ -22,6 +22,16 @@ export const OAW_CONFIG_SCHEMA = {
     // Menu cell shape: 0 方塊 1 圓角 2 拼圖 3 拱門 4 票券 5 花邊.
     shape: { type: 'integer', enum: [0, 1, 2, 3, 4, 5] },
     cells: { type: 'array', items: CELL },
+    // Card look (領航者版). Pictures are placed by the owner on the page, never by the AI.
+    card: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['head', 'size'],
+      properties: {
+        head: { type: 'string', enum: ['band', 'plain', 'image'] },
+        size: { type: 'string', enum: ['kilo', 'mega', 'giga'] },
+      },
+    },
     welcome: { type: 'string' },
     failure: { type: 'string' },
     secretary: { type: 'boolean' },
@@ -41,6 +51,8 @@ export function validOawConfig(v: any) {
     s(v.welcome, 500) &&
     s(v.failure, 300) &&
     typeof v.secretary === 'boolean' &&
+    (v.card === undefined ||
+      (v.card && ['band', 'plain', 'image'].includes(v.card.head) && ['kilo', 'mega', 'giga'].includes(v.card.size))) &&
     Array.isArray(v.cells) &&
     v.cells.length === 8 &&
     v.cells.every(

@@ -193,6 +193,9 @@ test('config validator and digest cleaner guard the boundary', () => {
   assert.ok(!validOawConfig({ ...config, theme: 9 }));
   assert.ok(validOawConfig({ ...config, shape: 2 }));
   assert.ok(!validOawConfig({ ...config, shape: 6 }));
+  // Card look (領航者版): optional for older apps, checked when present; picture names pass through.
+  assert.ok(validOawConfig({ ...config, card: { head: 'image', size: 'giga', hero: 'abcdef0123456789.jpg' } }));
+  assert.ok(!validOawConfig({ ...config, card: { head: 'fancy', size: 'mega' } }));
   assert.ok(
     !validOawConfig({
       ...config,
