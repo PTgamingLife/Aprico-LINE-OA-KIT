@@ -20,6 +20,9 @@ export function githubNotice(params: URLSearchParams) {
       'GitHub 帳號核對未通過，請重新連接；若仍失敗，請聯絡專員檢查 App 設定。',
     github_account_list_failed:
       'GitHub 專案清單讀取失敗，請確認已安裝 Aprico App 並授權專用 repo，再重新連接。',
+    login_expired: 'LINE 登入過期了，已經幫你重新登入，請再按一次「連接 GitHub」。',
+    not_subscribed: '要先完成訂閱，才能連接 GitHub。',
+    begin_failed: 'GitHub 連線暫時無法開始，請稍後再按一次「連接 GitHub」。',
     github_callback_save_failed: 'GitHub 帳號核對結果未能保存，請重新連接；若仍失敗，請聯絡專員。',
   };
   const reason = params.get('reason') || '';

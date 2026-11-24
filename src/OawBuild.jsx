@@ -7,6 +7,8 @@ import {
   cleanKey,
   initialConfig,
 } from './oaw-build-model.ts';
+import { GUIDES } from './build-guides.js';
+import { Guide, Intro, INTRO_KEY } from './BuildGuide.jsx';
 import './oaw-build.css';
 import './build-sky.css';
 
@@ -80,6 +82,13 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
   const params = new URLSearchParams(location.search);
   const [billingOpen, setBillingOpen] = useState(params.has('renew') || params.has('topup'));
   const [notice, setNotice] = useState('');
+  const [intro, setIntro] = useState(() => {
+    try {
+      return !localStorage.getItem(INTRO_KEY);
+    } catch {
+      return false;
+    }
+  });
 
   async function refresh() {
     const [b, g, s] = await Promise.all([
@@ -146,6 +155,26 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
 
   const answered = Boolean(answers.oaName.trim());
   const connected = Boolean(gh?.connection);
+  const keyOk = (...names) => names.every((n) => cleanKey(n, keys[n]));
+  const lineOk = keyOk('OAW_LINE_MSG_ID', 'OAW_LINE_MSG_SECRET', 'OAW_LINE_LOGIN_ID', 'OAW_LINE_LOGIN_SECRET');
+  const sbOk = keyOk('SUPABASE_ACCESS_TOKEN');
+  const idle = phase === 'idle' || phase === 'failed';
+  const field = (name, label) => {
+    const f = KEY_FIELDS.find((k) => k.name === name);
+    return (
+      <label key={name}>
+        {label || f.label}
+        <input
+          value={keys[name] || ''}
+          autoComplete="off"
+          spellCheck={false}
+          className={keys[name] && !cleanKey(name, keys[name]) ? 'bad' : ''}
+          onChange={(e) => setKeys({ ...keys, [name]: e.target.value })}
+        />
+        {keys[name] && !cleanKey(name, keys[name]) && <small>格式不太對，請再複製一次。</small>}
+      </label>
+    );
+  };
   const keysOk =
     KEY_FIELDS.every((f) => cleanKey(f.name, keys[f.name])) &&
     (!sbRef.trim() || /^[a-z]{20}$/.test(sbRef.trim()));
@@ -180,6 +209,21 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
 
   if (!projectId) return <p className="oaw-note">請先建立或選擇一個專案。</p>;
   if (gate === 'loading') return <p className="oaw-note">讀取中…</p>;
+  // First visit: explain in plain words why the secretary lives in the member's own accounts.
+  if (intro && !connected && phase === 'idle' && !billingOpen)
+    return (
+      <Intro
+        onStart={() => {
+          try {
+            localStorage.setItem(INTRO_KEY, '1');
+          } catch {
+            // Shown again next time; harmless.
+          }
+          setIntro(false);
+          scrollTo(0, 0);
+        }}
+      />
+    );
 
   return (
     <div className="oaw-build">
@@ -236,12 +280,12 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
 
       <Step
         n="2"
-        title="幫你的官方帳號取個名字"
+        title="幫你的秘書設定一個名字"
         done={gate === 'ready' && answered}
         open={gate === 'ready' && !connected}
       >
         <label>
-          官方帳號名稱
+          秘書的名字
           <input
             value={answers.oaName}
             maxLength={40}
@@ -249,97 +293,134 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
             onChange={(e) => setAnswers({ ...answers, oaName: e.target.value })}
           />
         </label>
-        {answers.oaName.trim() && (
-          <p className="oaw-note">
-            {answers.oaName.trim() === projectName.trim()
-              ? '✓ 和專案名稱相同，可以直接下一步；想換名字就在上面改。'
-              : '✓ 已填好，可以繼續下一步。'}
-          </p>
-        )}
+        {answers.oaName.trim() && <p className="oaw-note">✓ 已填好，可以繼續下一步。之後還可以再改。</p>}
       </Step>
 
       <Step
         n="3"
-        title="建立你的 GitHub 專案"
+        title="準備秘書的家（GitHub）"
         done={connected}
         open={gate === 'ready' && answered && !connected}
       >
         <ol>
           <li>
-            <a className="btn" href={TEMPLATE_REPO} target="_blank" rel="noreferrer">
-              從 Aprico 範本建立 ↗
-            </a>
-            <small>名稱自取，選 Public。</small>
+            <div className="sub">
+              <a className="btn" href={TEMPLATE_REPO} target="_blank" rel="noreferrer">
+                從 Aprico 範本建立 ↗
+              </a>
+              <Guide id="repo" />
+            </div>
+            <small>名稱自取（英文），選 Public。</small>
           </li>
           <li>
-            <a className="btn" href={gh?.installationUrl} target="_blank" rel="noreferrer">
-              安裝 Aprico App ↗
-            </a>
-            <small>選「Only select repositories」，只勾剛建立的 repo。</small>
+            <div className="sub">
+              {gh?.installationUrl ? (
+                <a className="btn" href={gh.installationUrl} target="_blank" rel="noreferrer">
+                  安裝程序小助手 ↗
+                </a>
+              ) : (
+                <button className="btn" type="button" onClick={refresh}>
+                  安裝程序小助手（重新讀取）
+                </button>
+              )}
+              <Guide id="app" />
+            </div>
+            <small>
+              {gh?.installationUrl
+                ? '選「Only select repositories」，只勾剛建立的那一個。'
+                : '還沒讀到連線資料，按一下重新讀取；還是不行請重新整理這一頁。'}
+            </small>
           </li>
           <li>
-            {gh?.flow?.choices?.length ? (
-              gh.flow.choices.map((r) => (
+            <div className="sub">
+              {gh?.flow?.choices?.length ? (
+                gh.flow.choices.map((r) => (
+                  <button
+                    key={r.repositoryId}
+                    className="btn brand"
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      api({
+                        action: 'github_select',
+                        projectId,
+                        flowId: gh.flow.id,
+                        repositoryId: r.repositoryId,
+                      }).then(refresh)
+                    }
+                  >
+                    使用 {r.fullName}
+                  </button>
+                ))
+              ) : (
                 <button
-                  key={r.repositoryId}
                   className="btn brand"
                   type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    api({
-                      action: 'github_select',
-                      projectId,
-                      flowId: gh.flow.id,
-                      repositoryId: r.repositoryId,
-                    }).then(refresh)
-                  }
+                  onClick={() => api({ action: 'github_begin', projectId })}
                 >
-                  使用 {r.fullName}
+                  連接 GitHub
                 </button>
-              ))
-            ) : (
-              <button
-                className="btn brand"
-                type="button"
-                onClick={() => api({ action: 'github_begin', projectId })}
-              >
-                連接 GitHub
-              </button>
-            )}
+              )}
+              <Guide id="connect" />
+            </div>
           </li>
         </ol>
       </Step>
 
       <Step
         n="4"
-        title="貼上金鑰並開始建置"
-        done={phase !== 'idle'}
-        open={connected && (phase === 'idle' || phase === 'failed')}
+        title="建立你的 LINE 官方帳號"
+        done={lineOk || !idle}
+        open={connected && idle && !lineOk}
       >
-        <p className="oaw-note">
-          建置到：{gh?.connection?.full_name}{' '}
-          <button
-            type="button"
-            className="link"
-            onClick={() => api({ action: 'github_disconnect', projectId }).then(refresh)}
-          >
-            換一個 repo
-          </button>
-        </p>
-        <p className="oaw-note">金鑰會在你的手機上加密後才送出，Aprico 看不到內容，也不會保存。</p>
-        {KEY_FIELDS.map((f) => (
-          <label key={f.name}>
-            {f.label}
-            <input
-              value={keys[f.name] || ''}
-              autoComplete="off"
-              spellCheck={false}
-              className={keys[f.name] && !cleanKey(f.name, keys[f.name]) ? 'bad' : ''}
-              onChange={(e) => setKeys({ ...keys, [f.name]: e.target.value })}
-            />
-            <small>{f.hint}</small>
-          </label>
-        ))}
+        <p className="oaw-note">代碼會在你的手機上加密後才送出，Aprico 看不到內容，也不會保存。</p>
+        <ol>
+          <li>
+            <div className="sub">
+              <a className="btn" href={GUIDES.oa.link[1]} target="_blank" rel="noreferrer">
+                建立 LINE 官方帳號 ↗
+              </a>
+              <Guide id="oa" />
+            </div>
+            <small>免費。建好後在後台「設定 → Messaging API」按啟用。</small>
+          </li>
+          <li>
+            <div className="sub">
+              <a className="btn" href={GUIDES.msg.link[1]} target="_blank" rel="noreferrer">
+                打開 LINE Developers ↗
+              </a>
+              <Guide id="msg" />
+            </div>
+            <small>複製官方帳號（Messaging API）的兩組代碼。</small>
+            {field('OAW_LINE_MSG_ID')}
+            {field('OAW_LINE_MSG_SECRET')}
+          </li>
+          <li>
+            <div className="sub">
+              <b>建立 LINE Login</b>
+              <Guide id="login" />
+            </div>
+            <small>同一個服務提供者底下新增 LINE Login，並改成 Published。</small>
+            {field('OAW_LINE_LOGIN_ID')}
+            {field('OAW_LINE_LOGIN_SECRET')}
+          </li>
+        </ol>
+      </Step>
+
+      <Step
+        n="5"
+        title="建立秘書的記憶（Supabase 資料庫）"
+        done={sbOk || !idle}
+        open={connected && idle && lineOk && !sbOk}
+      >
+        <div className="sub">
+          <a className="btn" href={GUIDES.supabase.link[1]} target="_blank" rel="noreferrer">
+            打開 Supabase ↗
+          </a>
+          <Guide id="supabase" />
+        </div>
+        <small>免費註冊後，產生一組 sbp_ 開頭的 Access Token 貼在下面。</small>
+        {field('SUPABASE_ACCESS_TOKEN')}
         <details>
           <summary>已經有 2 個 Supabase 免費專案？</summary>
           <label>
@@ -354,12 +435,26 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
             <small>Supabase 專案網址 supabase.com/dashboard/project/ 後面那 20 個英文字母。</small>
           </label>
         </details>
+      </Step>
+
+      <Step n="6" title="開始打造" done={phase !== 'idle'} open={connected && idle}>
+        <p className="oaw-note">
+          秘書會裝到：{gh?.connection?.full_name}{' '}
+          <button
+            type="button"
+            className="link"
+            onClick={() => api({ action: 'github_disconnect', projectId }).then(refresh)}
+          >
+            換一個
+          </button>
+        </p>
+        {!keysOk && <p className="oaw-note">把第 4、5 步的代碼都填好，這顆按鈕就會亮起來。</p>}
         <button className="btn brand" type="button" disabled={!keysOk || busy} onClick={start}>
-          {busy ? '加密並送出中…' : '開始建置'}
+          {busy ? '加密並送出中…' : '開始打造'}
         </button>
         {phase === 'failed' && (
           <p className="oaw-error">
-            上一次建置沒有完成，確認金鑰後再試一次。
+            上一次沒有完成，確認代碼後再試一次。
             {status?.run?.url && (
               <a href={status.run.url} target="_blank" rel="noreferrer">
                 {' '}
@@ -370,7 +465,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
         )}
       </Step>
 
-      <Step n="5" title="建置中" done={phase === 'done'} open={phase === 'running'}>
+      <Step n="7" title="打造中" done={phase === 'done'} open={phase === 'running'}>
         <ul className="progress">
           {SETUP_STEPS.map(([k, l]) => (
             <li key={k} className={status?.steps?.[k] ? 'ok' : ''}>
@@ -381,7 +476,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
         <p className="oaw-note">大約 2–3 分鐘，可以先離開，回來會接著顯示進度。</p>
       </Step>
 
-      <Step n="6" title="最後三件事" done={false} open={phase === 'done'}>
+      <Step n="8" title="最後三件事" done={false} open={phase === 'done'}>
         <ol>
           <li>
             到{' '}

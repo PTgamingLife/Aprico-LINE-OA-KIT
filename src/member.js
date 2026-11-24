@@ -2,6 +2,7 @@
 // 我的秘書 / 會員中心 / 推薦好友 / 問題回報. Every call carries the LIFF ID token; the studio
 // function checks it and scopes everything to that LINE user.
 import './fresh.js';
+import { relogin, tokenExpired } from './relogin.js';
 const LIFF_ID = '2012197506-Vmb4O5iT';
 const API = 'https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-studio';
 const OA_ADD = 'https://line.me/R/ti/p/@228srwlt';
@@ -35,12 +36,15 @@ const row = (label, text, cls) => h('div', { class: 'row' }, h('b', {}, label), 
 const money = (n) => 'NT$' + Number(n).toLocaleString('en-US');
 
 async function api(action, extra = {}) {
+  // An out-of-date LINE token is renewed quietly instead of failing the call.
+  if (tokenExpired(window.liff) && relogin(window.liff)) return new Promise(() => {});
   const res = await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, idToken: window.liff.getIDToken(), ...extra }),
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && relogin(window.liff)) return new Promise(() => {});
   if (!res.ok) throw Error(typeof data.error === 'string' ? data.error : '暫時無法連線，請稍後再試');
   return data;
 }
@@ -186,10 +190,10 @@ function member() {
   } else if (!me.connected) {
     out.push(
       panel(
-        h('h2', {}, '下一步：建立你自己的官方帳號'),
+        h('h2', {}, '下一步：打造你的專屬秘書'),
         h('div', { class: 'steps' }, h('i', { class: 'done' }), h('i', { class: me.github ? 'done' : '' }), h('i'), h('i')),
-        h('p', { class: 'muted' }, '① 付費（完成）② 建立 GitHub 專案 ③ 貼上 LINE 與資料庫金鑰 ④ 自動建置。秘書和資料都在你自己的帳號裡。'),
-        h('a', { class: 'btn3d', href: './build.html' }, me.github ? '繼續建立' : '建立我的官方帳號'),
+        h('p', { class: 'muted' }, '① 付費（完成）② 放秘書的程式（GitHub）③ 開官方帳號與資料庫 ④ 自動完成。秘書和資料都在你自己的帳號裡，每一步都有教學。'),
+        h('a', { class: 'btn3d', href: './build.html' }, me.github ? '繼續打造' : '打造我的專屬秘書'),
       ),
     );
   } else {
