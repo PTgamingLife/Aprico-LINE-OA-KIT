@@ -192,6 +192,24 @@ export async function secretaryGateway(event: any, deps: Deps) {
     return true;
   }
 
+  // Someone whose own OA is connected: their secretary lives there now.
+  const { data: own } = await deps.db
+    .from('line_oa_kit_runtime_keys')
+    .select('project_id')
+    .eq('line_subject', userId)
+    .is('revoked_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (own) {
+    await reply(
+      card(
+        '你的秘書在你自己的官方帳號',
+        '請到你自己的官方帳號傳訊息，行程和設定都在那裡。這裡可以查看會員狀態、推薦好友和回報問題。',
+        { button: { label: '打開會員中心', uri: MEMBER_URL } },
+      ),
+    );
+    return true;
+  }
   // Check the allowance first, call the AI, and only count the message once it was answered.
   const peek = (await deps.db.rpc('line_oa_kit_sec_take', { p_user: userId, p_commit: false })).data;
   if (!peek?.allowed) {

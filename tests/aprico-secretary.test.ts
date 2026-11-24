@@ -18,7 +18,7 @@ const ai = (payload: unknown) => async () =>
       content: [{ type: 'text', text: JSON.stringify(payload) }],
     }),
   );
-function fixture(take: any[], refer: any = { ok: false, error: 'unknown' }) {
+function fixture(take: any[], refer: any = { ok: false, error: 'unknown' }, ownOa = false) {
   const sent: any[] = [],
     pushed: any[] = [],
     saved: any[] = [],
@@ -36,7 +36,9 @@ function fixture(take: any[], refer: any = { ok: false, error: 'unknown' }) {
         eq: () => q,
         gte: () => q,
         order: () => q,
-        limit: async () => ({ data: saved }),
+        is: () => q,
+        maybeSingle: async () => ({ data: ownOa ? { project_id: 'p' } : null }),
+        limit: (n: number) => (n === 1 ? q : Promise.resolve({ data: saved })),
         insert: async (rows: any[]) => (saved.push(...rows), { error: null }),
       };
       return q;
@@ -122,4 +124,13 @@ test('groups, unsigned requests and non-text messages are left to other handlers
   assert.equal(await secretaryGateway({ ...msg('hi'), source: { type: 'group', groupId: 'C1', userId: U } }, f.deps()), false);
   assert.equal(await secretaryGateway(msg('hi'), { ...f.deps(), authenticated: false }), false);
   assert.equal(await secretaryGateway({ ...msg(''), message: { type: 'image' } }, f.deps()), false);
+});
+
+test('a member whose own OA is connected is sent there instead of using the shared secretary', async () => {
+  const f = fixture([], undefined, true);
+  let called = false;
+  await secretaryGateway(msg('明天開會'), f.deps(async () => ((called = true), new Response('{}'))));
+  assert.equal(called, false);
+  assert.equal(f.calls.length, 0);
+  assert.match(JSON.stringify(f.sent[0]), /你自己的官方帳號/);
 });

@@ -67,3 +67,24 @@ export function centerMenu(learningUrl: string) {
     ),
   };
 }
+
+/** New Aprico OA: the OA itself is the secretary. One menu, four cells, for every friend. */
+export const MEMBER_PAGE = CENTER_LIFF + '/member.html';
+export function secretaryMenu() {
+  const cells = [
+    ['我的秘書', 'secretary'],
+    ['會員中心', 'member'],
+    ['推薦好友', 'refer'],
+    ['問題回報', 'report'],
+  ];
+  return {
+    size: { width: 1200, height: 405 },
+    selected: true,
+    name: 'Aprico secretary four cells',
+    chatBarText: '打開 AI 秘書選單',
+    areas: cells.map(([label, tab], i) => ({
+      bounds: { x: i * 300, y: 0, width: 300, height: 405 },
+      action: { type: 'uri', label, uri: `${MEMBER_PAGE}?tab=${tab}` },
+    })),
+  };
+}

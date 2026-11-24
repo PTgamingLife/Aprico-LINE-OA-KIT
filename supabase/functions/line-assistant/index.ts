@@ -332,6 +332,8 @@ Deno.serve(async (req) => {
   try {
     await Promise.all(
       payload.events.map(async (e) => {
+        // New Aprico OA: a new friend is greeted by the secretary instead of the intro cards.
+        if (Deno.env.get('APRICO_SECRETARY_ENABLED') === 'true' && e?.type === 'follow') return;
         if (
           await introFollowGateway(e, {
             authenticated: trialAuthenticated,
