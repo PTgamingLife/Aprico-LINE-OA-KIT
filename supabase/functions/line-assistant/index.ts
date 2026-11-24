@@ -6,6 +6,7 @@ import { broadcastGateway } from '../_shared/broadcast-gateway.ts';
 import { connectGateway } from '../_shared/oaw-connect.ts';
 import { lockGateway } from '../_shared/oaw-security.ts';
 import { menuGateway } from '../_shared/menu-switch.ts';
+import { secretaryGateway } from '../_shared/aprico-secretary.ts';
 import { chatDesignGateway } from '../_shared/chat-design.ts';
 import { introFollowGateway, processIntroJob } from '../_shared/intro-delivery.ts';
 // 小A — Aprico AI 助教(LINE 群組問答機器人)— Supabase Edge Function (Deno)
@@ -363,6 +364,20 @@ Deno.serve(async (req) => {
           if (await menuGateway(e, { authenticated: trialAuthenticated, token: trialToken, reply }))
             return;
           if (await connectGateway(e, { authenticated: trialAuthenticated, db: trialDb, reply }))
+            return;
+          // New Aprico OA: every 1:1 text goes to the secretary (5 free, then members).
+          // Off until APRICO_SECRETARY_ENABLED is set, so the older flows below keep working.
+          if (
+            Deno.env.get('APRICO_SECRETARY_ENABLED') === 'true' &&
+            (await secretaryGateway(e, {
+              authenticated: trialAuthenticated,
+              db: trialDb,
+              aiKey: Deno.env.get('ANTHROPIC_API_KEY') || '',
+              reply,
+              push: (to, messages) =>
+                trialLine(trialToken)('/v2/bot/message/push', 'POST', { to, messages }),
+            }))
+          )
             return;
           if (
             await broadcastGateway(e, {
