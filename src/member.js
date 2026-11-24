@@ -1,6 +1,7 @@
 // 會員中心 (member.html) of the Aprico OA. Four tabs, the same as the OA's four menu cells:
 // 我的秘書 / 會員中心 / 推薦好友 / 問題回報. Every call carries the LIFF ID token; the studio
 // function checks it and scopes everything to that LINE user.
+import './fresh.js';
 const LIFF_ID = '2012197506-Vmb4O5iT';
 const API = 'https://hhcubvixldieuwdeqnwc.supabase.co/functions/v1/line-oa-kit-studio';
 const OA_ADD = 'https://line.me/R/ti/p/@228srwlt';

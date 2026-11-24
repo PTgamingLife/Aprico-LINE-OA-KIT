@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { themes, emptyDraft, validateDraft, actionNames } from './model.ts';
 import './style.css';
+import './fresh.js';
 import OawBuild from './OawBuild.jsx';
 import OawUpdate, { UPDATE_FLAG } from './OawUpdate.jsx';
 import OawSecurity, { SECURITY_FLAG } from './OawSecurity.jsx';
