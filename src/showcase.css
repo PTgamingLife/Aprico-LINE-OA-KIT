@@ -64,6 +64,9 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--accent-deep); o
 .sc-chat .card b { background: linear-gradient(120deg, #ffe9a8, #ffd27a); padding: 7px 12px; }
 .sc-chat .card span { padding: 8px 12px; line-height: 1.7; }
 
+.sc-shot { margin: 0; display: grid; justify-items: center; }
+.sc-shot img { width: 78%; max-width: 300px; height: auto; border-radius: 26px; border: 6px solid #fff; box-shadow: 0 14px 30px rgba(88, 102, 214, 0.28); }
+
 .sc-orbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
 .sc-orbs li { display: grid; justify-items: center; gap: 8px; min-width: 0; }
 .sc-orbs b { font-size: 14px; }
