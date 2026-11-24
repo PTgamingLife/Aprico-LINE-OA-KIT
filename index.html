@@ -3,8 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta http-equiv="refresh" content="0; url=./member.html" />
     <title>Aprico AI 秘書</title>
+    <!-- LINE opens every LIFF link here first, with the real target in ?liff.state and the
+         login data in the hash. Both must be carried along, or the next page cannot sign in. -->
+    <script>
+      location.replace('./member.html' + location.search + location.hash);
+    </script>
   </head>
   <body>
     <p><a href="./member.html">前往 Aprico AI 秘書會員中心</a></p>
