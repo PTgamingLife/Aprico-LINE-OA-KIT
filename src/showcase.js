@@ -1,6 +1,7 @@
-// 展示中心: what LINE, an OA and the AI secretary can do. The call to action opens the member centre.
+// 「AI 秘書能做什麼」: what the secretary edition does. Two actions: go back to the chat to
+// try it (inside LINE the page simply closes), or open the member centre.
 const LIFF_ID = '2012197506-Vmb4O5iT';
-export const BUILD_WORD = '我想要建置';
+const OA_ADD = 'https://line.me/R/ti/p/@228srwlt';
 
 function loadSdk() {
   if (window.liff) return Promise.resolve(window.liff);
@@ -13,15 +14,17 @@ function loadSdk() {
   });
 }
 
-// New flow: the Aprico OA itself is the secretary, so 「我想要建置」 opens the member centre,
-// where membership and building your own OA live.
-async function goBuild() {
-  location.href = './member.html?tab=member';
+async function backToChat() {
+  try {
+    const liff = await loadSdk();
+    await liff.init({ liffId: LIFF_ID });
+    if (liff.isInClient()) return liff.closeWindow();
+  } catch {
+    // Outside LINE: fall through to the add-friend link.
+  }
+  location.href = OA_ADD;
 }
 
-const status = document.querySelector('[data-status]') ?? document.createElement('p');
+for (const b of document.querySelectorAll('[data-chat]')) b.addEventListener('click', backToChat);
 for (const b of document.querySelectorAll('[data-build]'))
-  b.addEventListener('click', () => {
-    b.disabled = true;
-    goBuild(status).finally(() => (b.disabled = false));
-  });
+  b.addEventListener('click', () => (location.href = './member.html?tab=member'));
