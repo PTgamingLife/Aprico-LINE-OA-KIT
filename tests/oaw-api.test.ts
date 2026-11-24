@@ -42,11 +42,13 @@ function fixture(paidRows: unknown[] = [], locked = false) {
         limit: async () => ({ data: table === 'line_oa_kit_payments' ? paidRows : [] }),
         maybeSingle: async () => ({
           data:
-            table === 'line_oa_kit_owner_locks'
-              ? locked
-                ? { project_id: projectId }
-                : null
-              : { project_id: projectId, line_subject: owner },
+            table === 'line_oa_kit_navigator'
+              ? null
+              : table === 'line_oa_kit_owner_locks'
+                ? locked
+                  ? { project_id: projectId }
+                  : null
+                : { project_id: projectId, line_subject: owner },
         }),
       };
       return q;
@@ -97,10 +99,11 @@ test('status reports the subscription quota as percentages', async () => {
   assert.deepEqual(await (await oawApi(req('status', {}), fixture().db, 'k')).json(), {
     paid: false,
     locked: false,
+    plan: 'secretary',
   });
   assert.deepEqual(
     await (await oawApi(req('status', {}), fixture([{ project_id: projectId }]).db, 'k')).json(),
-    { paid: true, percentLeft: 63, extraTwdLeft: 20, locked: false },
+    { paid: true, percentLeft: 63, extraTwdLeft: 20, locked: false, plan: 'secretary' },
   );
 });
 

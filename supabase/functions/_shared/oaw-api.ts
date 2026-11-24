@@ -1,13 +1,15 @@
 // API for customer OA apps built from the OAW template (PTgamingLife/oaw-template).
 // The app calls with its per-project key (`aprico_…`, stored hashed in
 // line_oa_kit_runtime_keys). Routes (POST, suffix of the function URL):
-//   /status  → { paid, locked }                 no AI, no points
+//   /status  → { paid, locked, plan }           no AI, no points
+//   /unlock  → { plan }  redeem a one-time 領航者 code for this project
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
 //   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
+import { isNavigator, oawUnlock } from './oaw-navigator.ts';
 import { TALLY_INSTRUCTIONS, TALLY_SCHEMA, tallyInput, tallyOutput } from './oaw-tally.ts';
 import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
 import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
@@ -168,7 +170,21 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
       .eq('project_id', grant.project_id)
       .maybeSingle();
     if (lock.error) return respond({ error: 'runtime_unavailable' }, 503);
-    return respond({ ...(await oawQuota(db, grant)), locked: Boolean(lock.data) });
+    return respond({
+      ...(await oawQuota(db, grant)),
+      locked: Boolean(lock.data),
+      plan: (await isNavigator(db, grant.project_id)) ? 'navigator' : 'secretary',
+    });
+  }
+  if (route === 'unlock') {
+    // Refused while the account is locked, like every other owner action.
+    const lock = await db
+      .from('line_oa_kit_owner_locks')
+      .select('project_id')
+      .eq('project_id', grant.project_id)
+      .maybeSingle();
+    if (lock.error || lock.data) return respond({ error: 'owner_locked' }, 423);
+    return oawUnlock(body, db, grant.project_id, respond);
   }
 
   const meter = (
