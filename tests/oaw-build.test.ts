@@ -113,6 +113,30 @@ test('start writes only ciphertext secrets, variables and config, then runs setu
   assert.equal(bad.status, 400);
 });
 
+test('a retry sends only the changed secret; a first build needs all of them', async () => {
+  const one = { SUPABASE_ACCESS_TOKEN: 'c2VhbGVk' };
+  assert.equal((await call({ action: 'oaw_build_start', keyId: 'k1', secrets: one })).status, 400);
+  const g = github();
+  const base = g.fetcher;
+  const fetcher = async (url: any, o: any) =>
+    String(url).includes('/actions/secrets?')
+      ? (g.calls.push('LIST'), Response.json({ secrets: OAW_SECRETS.map((name) => ({ name })) }))
+      : base(url, o);
+  const res = await oawBuildAction(
+    { action: 'oaw_build_start', keyId: 'k1', secrets: one },
+    db(),
+    subject,
+    project,
+    respond,
+    fetcher as any,
+    async () => 'jwt',
+  );
+  assert.equal(res.status, 200);
+  const puts = g.calls.filter((c) => c.startsWith('PUT /repos/cust/my-oa/actions/secrets/'));
+  assert.deepEqual(puts, ['PUT /repos/cust/my-oa/actions/secrets/SUPABASE_ACCESS_TOKEN']);
+  assert.ok(g.calls.includes('POST /repos/cust/my-oa/actions/workflows/oaw-setup.yml/dispatches'));
+});
+
 test('finish removes the App installation after a successful setup', async () => {
   const g = github();
   const res = await call({ action: 'oaw_build_finish' }, db(), g);

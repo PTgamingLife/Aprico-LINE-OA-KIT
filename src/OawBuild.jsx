@@ -6,12 +6,15 @@ import {
   buildPhase,
   cleanKey,
   initialConfig,
+  setupTrouble,
 } from './oaw-build-model.ts';
 import { GUIDES } from './build-guides.js';
-import { Guide, Intro, INTRO_KEY } from './BuildGuide.jsx';
+import { Guide, Intro, INTRO_KEY, Step } from './BuildGuide.jsx';
+import { seal } from './seal.js';
 import './oaw-build.css';
 import './build-sky.css';
 
+export { seal };
 const ANSWERS_KEY = 'aprico-oaw-answers';
 const loadAnswers = () => {
   try {
@@ -20,43 +23,6 @@ const loadAnswers = () => {
     return {};
   }
 };
-
-/** GitHub wants each secret sealed with the repo's public key (libsodium sealed box). */
-export async function seal(publicKey, values) {
-  const { default: sodium } = await import('libsodium-wrappers');
-  await sodium.ready;
-  const key = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
-  return Object.fromEntries(
-    Object.entries(values).map(([k, v]) => [
-      k,
-      sodium.to_base64(
-        sodium.crypto_box_seal(sodium.from_string(v), key),
-        sodium.base64_variants.ORIGINAL,
-      ),
-    ]),
-  );
-}
-
-// A step opens by itself when it is the next thing to do; its title also opens and closes it,
-// so an earlier answer (like the account name) can always be looked at and changed.
-function Step({ n, title, done, open, children }) {
-  const [manual, setManual] = useState(null);
-  const shown = manual ?? open;
-  return (
-    <section className={`oaw-step${done ? ' done' : ''}${shown ? ' open' : ''}`}>
-      <h2>
-        <button type="button" className="step-toggle" aria-expanded={shown} onClick={() => setManual(!shown)}>
-          <span className="num">{done ? '✓' : n}</span>
-          {title}
-          <span className="chev" aria-hidden="true">
-            {shown ? '收合' : '展開'}
-          </span>
-        </button>
-      </h2>
-      {shown && <div className="body">{children}</div>}
-    </section>
-  );
-}
 
 export default function OawBuild({ api, projectId, projectName = '' }) {
   const [gate, setGate] = useState('loading'); // loading | unpaid | ready
@@ -155,7 +121,12 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
 
   const answered = Boolean(answers.oaName.trim());
   const connected = Boolean(gh?.connection);
-  const keyOk = (...names) => names.every((n) => cleanKey(n, keys[n]));
+  // After a failed try the codes are already saved (encrypted) in the member's own GitHub,
+  // so a blank field means "keep what I gave last time".
+  const retry = phase === 'failed';
+  const trouble = retry ? setupTrouble(status?.setupError) : null;
+  const keyOk = (...names) =>
+    names.every((n) => (retry && !String(keys[n] || '').trim()) || cleanKey(n, keys[n]));
   const lineOk = keyOk('OAW_LINE_MSG_ID', 'OAW_LINE_MSG_SECRET', 'OAW_LINE_LOGIN_ID', 'OAW_LINE_LOGIN_SECRET');
   const sbOk = keyOk('SUPABASE_ACCESS_TOKEN');
   const idle = phase === 'idle' || phase === 'failed';
@@ -168,6 +139,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
           value={keys[name] || ''}
           autoComplete="off"
           spellCheck={false}
+          placeholder={retry ? '留空＝沿用上次填的' : ''}
           className={keys[name] && !cleanKey(name, keys[name]) ? 'bad' : ''}
           onChange={(e) => setKeys({ ...keys, [name]: e.target.value })}
         />
@@ -176,7 +148,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
     );
   };
   const keysOk =
-    KEY_FIELDS.every((f) => cleanKey(f.name, keys[f.name])) &&
+    keyOk(...KEY_FIELDS.map((f) => f.name)) &&
     (!sbRef.trim() || /^[a-z]{20}$/.test(sbRef.trim()));
 
   async function start() {
@@ -185,7 +157,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
     try {
       const k = await api({ action: 'oaw_build_key', projectId });
       const plain = Object.fromEntries(
-        KEY_FIELDS.map((f) => [f.name, cleanKey(f.name, keys[f.name])]),
+        KEY_FIELDS.map((f) => [f.name, cleanKey(f.name, keys[f.name])]).filter(([, v]) => v),
       );
       const secrets = await seal(k.key, plain);
       await api({
@@ -370,8 +342,8 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
       <Step
         n="4"
         title="建立你的 LINE 官方帳號"
-        done={lineOk || !idle}
-        open={connected && idle && !lineOk}
+        done={(lineOk && trouble?.step !== 4) || !idle}
+        open={connected && idle && (!lineOk || trouble?.step === 4)}
       >
         <p className="oaw-note">代碼會在你的手機上加密後才送出，Aprico 看不到內容，也不會保存。</p>
         <ol>
@@ -410,8 +382,8 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
       <Step
         n="5"
         title="建立秘書的記憶（Supabase 資料庫）"
-        done={sbOk || !idle}
-        open={connected && idle && lineOk && !sbOk}
+        done={(sbOk && trouble?.step !== 5) || !idle}
+        open={connected && idle && lineOk && (!sbOk || trouble?.step === 5)}
       >
         <div className="sub">
           <a className="btn" href={GUIDES.supabase.link[1]} target="_blank" rel="noreferrer">
@@ -449,20 +421,21 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
           </button>
         </p>
         {!keysOk && <p className="oaw-note">把第 4、5 步的代碼都填好，這顆按鈕就會亮起來。</p>}
-        <button className="btn brand" type="button" disabled={!keysOk || busy} onClick={start}>
-          {busy ? '加密並送出中…' : '開始打造'}
-        </button>
-        {phase === 'failed' && (
-          <p className="oaw-error">
-            上一次沒有完成，確認代碼後再試一次。
+        {retry && (
+          <div className="oaw-error">
+            <b>上一次沒有完成：{trouble.title}</b>
+            <p>{trouble.fix}</p>
+            <p>其他代碼都還留著，不用重填；只要在第 {trouble.step || '4、5'} 步改掉有問題的那一格，再按一次「開始打造」。</p>
             {status?.run?.url && (
               <a href={status.run.url} target="_blank" rel="noreferrer">
-                {' '}
                 查看紀錄 ↗
               </a>
             )}
-          </p>
+          </div>
         )}
+        <button className="btn brand" type="button" disabled={!keysOk || busy} onClick={start}>
+          {busy ? '加密並送出中…' : '開始打造'}
+        </button>
       </Step>
 
       <Step n="7" title="打造中" done={phase === 'done'} open={phase === 'running'}>
