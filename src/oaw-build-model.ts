@@ -116,6 +116,14 @@ export function buildPhase(s: any) {
  */
 export function setupTrouble(error: unknown) {
   const e = typeof error === 'string' ? error : '';
+  // A limited (scoped) token: Supabase names the permission it is missing.
+  const missing = e.match(/Missing required permission\(s\): ([a-z_, ]+)/i);
+  if (missing)
+    return {
+      step: 5,
+      title: 'Supabase 的 Access Token 權限不夠',
+      fix: `這組 Token 有限制權限，缺少：${missing[1].trim()}。請到 Supabase 的 Access Tokens 重新產生一組「不限制權限」的 Token（只需要填名稱的那一種）；如果一定要選權限，請把 Organizations 和 Projects 相關的讀取與寫入都打開，再貼到第 5 步。`,
+    };
   if (/Supabase Token|SUPABASE_ACCESS_TOKEN/i.test(e))
     return {
       step: 5,
