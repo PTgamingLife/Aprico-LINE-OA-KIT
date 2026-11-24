@@ -213,6 +213,25 @@ export async function oawBuildAction(
         return respond({ error: '金鑰資料不完整', code: 'secrets_invalid' }, 400);
       if (b.config !== undefined && !validOawConfig(b.config))
         return respond({ error: '設定格式不正確', code: 'config_invalid' }, 400);
+      // GitHub Pages hosts the secretary's pages. Turn it on first: without it the whole
+      // setup would run and then fail at the very end. (Needs the App's Administration
+      // permission; if this installation lacks it, the member is told how to do it by hand.)
+      const on = await ghRequest(
+        `/repos/${repo}/pages`,
+        token,
+        'POST',
+        { build_type: 'workflow' },
+        fetcher,
+      ).catch(() => null);
+      if (!on && !(await ghRequest(`/repos/${repo}/pages`, token, 'GET', undefined, fetcher).catch(() => null)))
+        return respond(
+          {
+            error:
+              '還沒辦法開啟你 GitHub 空間的網頁功能。請打開你的 GitHub 空間 → Settings → Pages → Source 選「GitHub Actions」，再回來按一次「開始打造」。',
+            code: 'pages_not_enabled',
+          },
+          409,
+        );
       for (const name of given)
         await ghRequest(
           `/repos/${repo}/actions/secrets/${name}`,
@@ -253,14 +272,6 @@ export async function oawBuildAction(
           fetcher,
         );
       }
-      // GitHub Pages hosts the LIFF pages; enabling twice is harmless.
-      await ghRequest(
-        `/repos/${repo}/pages`,
-        token,
-        'POST',
-        { build_type: 'workflow' },
-        fetcher,
-      ).catch(() => {});
       await ghRequest(
         `/repos/${repo}/actions/workflows/oaw-setup.yml/dispatches`,
         token,
