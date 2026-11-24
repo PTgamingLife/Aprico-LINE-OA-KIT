@@ -8,6 +8,7 @@ import {
   initialConfig,
 } from './oaw-build-model.ts';
 import './oaw-build.css';
+import './build-sky.css';
 
 const ANSWERS_KEY = 'aprico-oaw-answers';
 const loadAnswers = () => {
@@ -34,19 +35,28 @@ export async function seal(publicKey, values) {
   );
 }
 
+// A step opens by itself when it is the next thing to do; its title also opens and closes it,
+// so an earlier answer (like the account name) can always be looked at and changed.
 function Step({ n, title, done, open, children }) {
+  const [manual, setManual] = useState(null);
+  const shown = manual ?? open;
   return (
-    <section className={`oaw-step${done ? ' done' : ''}${open ? ' open' : ''}`}>
+    <section className={`oaw-step${done ? ' done' : ''}${shown ? ' open' : ''}`}>
       <h2>
-        <span className="num">{done ? '✓' : n}</span>
-        {title}
+        <button type="button" className="step-toggle" aria-expanded={shown} onClick={() => setManual(!shown)}>
+          <span className="num">{done ? '✓' : n}</span>
+          {title}
+          <span className="chev" aria-hidden="true">
+            {shown ? '收合' : '展開'}
+          </span>
+        </button>
       </h2>
-      {open && <div className="body">{children}</div>}
+      {shown && <div className="body">{children}</div>}
     </section>
   );
 }
 
-export default function OawBuild({ api, projectId }) {
+export default function OawBuild({ api, projectId, projectName = '' }) {
   const [gate, setGate] = useState('loading'); // loading | unpaid | ready
   const [gh, setGh] = useState(null);
   const [answers, setAnswers] = useState({
@@ -55,6 +65,10 @@ export default function OawBuild({ api, projectId }) {
     goal: '',
     ...loadAnswers(),
   });
+  // Until the member types a name, the account takes the project's name (and the step shows ✓).
+  useEffect(() => {
+    if (projectName) setAnswers((a) => (a.oaName.trim() ? a : { ...a, oaName: projectName.slice(0, 40) }));
+  }, [projectName]);
   const [keys, setKeys] = useState({});
   const [sbRef, setSbRef] = useState('');
   const [status, setStatus] = useState(null);
@@ -235,6 +249,13 @@ export default function OawBuild({ api, projectId }) {
             onChange={(e) => setAnswers({ ...answers, oaName: e.target.value })}
           />
         </label>
+        {answers.oaName.trim() && (
+          <p className="oaw-note">
+            {answers.oaName.trim() === projectName.trim()
+              ? '✓ 和專案名稱相同，可以直接下一步；想換名字就在上面改。'
+              : '✓ 已填好，可以繼續下一步。'}
+          </p>
+        )}
       </Step>
 
       <Step

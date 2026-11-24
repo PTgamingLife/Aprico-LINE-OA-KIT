@@ -651,7 +651,12 @@ function App() {
               ) : isUpdate() ? (
                 <OawUpdate key={current?.id || 'none'} api={api} projectId={current?.id} />
               ) : (
-                <OawBuild key={current?.id || 'none'} api={api} projectId={current?.id} />
+                <OawBuild
+                  key={current?.id || 'none'}
+                  api={api}
+                  projectId={current?.id}
+                  projectName={draft.oaName || draft.name}
+                />
               )}
             </div>
           </>
