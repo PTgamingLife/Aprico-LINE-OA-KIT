@@ -98,13 +98,31 @@ function calendar() {
   );
 }
 
+// The secretary on the 我的秘書 tab: tap it (or wait) and it plays the happy expression clip.
+function hero() {
+  const still = h('img', { src: './mascot/secretary.png', alt: 'AI 秘書', width: '402', height: '480' });
+  const clip = h('img', { class: 'clip', alt: '', hidden: '' });
+  const box = h('button', { class: 'hero', type: 'button', 'aria-label': '和秘書打招呼' }, h('span', {}, still, clip));
+  let timer = 0;
+  box.addEventListener('click', () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    clearTimeout(timer);
+    clip.src = ''; // setting the source again restarts the animation
+    clip.src = './mascot/happy.webp';
+    clip.hidden = false;
+    still.style.visibility = 'hidden';
+    timer = setTimeout(() => ((clip.hidden = true), (still.style.visibility = '')), 4050);
+  });
+  return box;
+}
+
 function secretary() {
   const chat = h('button', { class: 'btn3d', type: 'button' }, '回聊天室傳訊息給秘書');
   chat.addEventListener('click', () => (window.liff.isInClient() ? window.liff.closeWindow() : (location.href = OA_ADD)));
   const left =
     me.kind === 'free' ? `免費對話還剩 ${me.left} 則` : me.kind === 'trial' ? `試用中・今天還有 ${me.left} 則` : `會員・今天還有 ${me.left} 則`;
   return [
-    h('div', { class: 'hero' }, h('img', { src: './mascot/secretary.png', alt: 'AI 秘書', width: '402', height: '480' })),
+    hero(),
     panel(
       h('h2', {}, '☀️ 預設秘書：行事曆'),
       h('p', { class: 'muted' }, '把行程傳給我，我會記下來、整理成行事曆；輸入「行事曆」隨時查看。'),
