@@ -137,6 +137,29 @@ test('a retry sends only the changed secret; a first build needs all of them', a
   assert.ok(g.calls.includes('POST /repos/cust/my-oa/actions/workflows/oaw-setup.yml/dispatches'));
 });
 
+test('a repo whose pages cannot be turned on stops before any secret is written', async () => {
+  const g = github();
+  const base = g.fetcher;
+  const fetcher = async (url: any, o: any) =>
+    String(url).endsWith('/repos/cust/my-oa/pages')
+      ? (g.calls.push(`${o.method} pages`), new Response('', { status: 404 }))
+      : base(url, o);
+  const secrets = Object.fromEntries(OAW_SECRETS.map((n) => [n, 'c2VhbGVk']));
+  const res = await oawBuildAction(
+    { action: 'oaw_build_start', keyId: 'k1', secrets },
+    db(),
+    subject,
+    project,
+    respond,
+    fetcher as any,
+    async () => 'jwt',
+  );
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).code, 'pages_not_enabled');
+  assert.ok(!g.calls.some((c) => c.startsWith('PUT /repos/cust/my-oa/actions/secrets/')));
+  assert.ok(!g.calls.some((c) => c.includes('/dispatches')));
+});
+
 test('finish removes the App installation after a successful setup', async () => {
   const g = github();
   const res = await call({ action: 'oaw_build_finish' }, db(), g);

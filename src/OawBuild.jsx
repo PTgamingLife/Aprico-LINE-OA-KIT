@@ -15,6 +15,7 @@ import './oaw-build.css';
 import './build-sky.css';
 
 export { seal };
+const APRICO_OA = '@228srwlt';
 const ANSWERS_KEY = 'aprico-oaw-answers';
 const loadAnswers = () => {
   try {
@@ -124,7 +125,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
   // After a failed try the codes are already saved (encrypted) in the member's own GitHub,
   // so a blank field means "keep what I gave last time".
   const retry = phase === 'failed';
-  const trouble = retry ? setupTrouble(status?.setupError) : null;
+  const trouble = retry ? setupTrouble(status?.setupError, status?.ok) : null;
   const keyOk = (...names) =>
     names.every((n) => (retry && !String(keys[n] || '').trim()) || cleanKey(n, keys[n]));
   const lineOk = keyOk('OAW_LINE_MSG_ID', 'OAW_LINE_MSG_SECRET', 'OAW_LINE_LOGIN_ID', 'OAW_LINE_LOGIN_SECRET');
@@ -188,9 +189,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
         onStart={() => {
           try {
             localStorage.setItem(INTRO_KEY, '1');
-          } catch {
-            // Shown again next time; harmless.
-          }
+          } catch {}
           setIntro(false);
           scrollTo(0, 0);
         }}
@@ -425,7 +424,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
           <div className="oaw-error">
             <b>上一次沒有完成：{trouble.title}</b>
             <p>{trouble.fix}</p>
-            <p>其他代碼都還留著，不用重填；只要在第 {trouble.step || '4、5'} 步改掉有問題的那一格，再按一次「開始打造」。</p>
+            {!status?.ok && <p>其他代碼都還留著，不用重填；只要在第 {trouble.step || '4、5'} 步改掉有問題的那一格，再按一次「開始打造」。</p>}
             {status?.run?.url && (
               <a href={status.run.url} target="_blank" rel="noreferrer">
                 查看紀錄 ↗
@@ -449,7 +448,7 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
         <p className="oaw-note">大約 2–3 分鐘，可以先離開，回來會接著顯示進度。</p>
       </Step>
 
-      <Step n="8" title="最後三件事" done={false} open={phase === 'done'}>
+      <Step n="8" title="完成了！啟動你的專屬秘書" done={false} open={phase === 'done'}>
         <ol>
           <li>
             到{' '}
@@ -459,16 +458,20 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
             ：回應設定 → 開啟「Webhook」、關閉「自動回應訊息」。
           </li>
           <li>
-            回 Aprico 官方 LINE 傳「連接我的OA」，按卡片選你的官方帳號送出，就完成了。
+            按下面的按鈕回到 Aprico 官方 LINE，送出「連接我的OA」（文字會先幫你打好，按送出就可以），再按卡片選你的官方帳號。
             <button
               className="btn brand"
               type="button"
-              onClick={() =>
-                window.liff
-                  ?.sendMessages?.([{ type: 'text', text: '連接我的OA' }])
-                  .then(() => window.liff.closeWindow())
-                  .catch(() => navigator.clipboard?.writeText('連接我的OA'))
-              }
+              onClick={async () => {
+                // Outside the Aprico chat we cannot send for the member: open the chat, text typed.
+                try {
+                  if (!window.liff?.isInClient?.()) throw Error('outside');
+                  await window.liff.sendMessages([{ type: 'text', text: '連接我的OA' }]);
+                  window.liff.closeWindow();
+                } catch {
+                  location.href = `https://line.me/R/oaMessage/${APRICO_OA}/?${encodeURIComponent('連接我的OA')}`;
+                }
+              }}
             >
               傳「連接我的OA」
             </button>
