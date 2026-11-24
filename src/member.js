@@ -272,7 +272,13 @@ async function main() {
     tab = 'member';
     try {
       const r = await api('sub_confirm', { orderId: q('order') });
-      notice = ['paid', 'test_paid'].includes(r.order?.status) ? '🎉 付款完成，歡迎成為會員！' : '付款還在確認中，稍後重新整理這一頁。';
+      // A sandbox (test) payment charges nothing and opens no membership; say so plainly.
+      notice =
+        r.order?.status === 'paid'
+          ? '🎉 付款完成，歡迎成為會員！'
+          : r.order?.status === 'test_paid'
+            ? '這是測試環境的付款：沒有實際扣款，會員也不會開通。'
+            : '付款還在確認中，稍後重新整理這一頁。';
     } catch (e) {
       notice = e.message;
     }
