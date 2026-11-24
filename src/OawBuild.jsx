@@ -130,7 +130,7 @@ export default function OawBuild({ api, projectId }) {
         .catch(() => {});
   }, [phase]);
 
-  const answered = answers.oaName.trim() && answers.goal.trim();
+  const answered = Boolean(answers.oaName.trim());
   const connected = Boolean(gh?.connection);
   const keysOk =
     KEY_FIELDS.every((f) => cleanKey(f.name, keys[f.name])) &&
@@ -222,42 +222,17 @@ export default function OawBuild({ api, projectId }) {
 
       <Step
         n="2"
-        title="這個帳號要做什麼？"
+        title="幫你的官方帳號取個名字"
         done={gate === 'ready' && answered}
         open={gate === 'ready' && !connected}
       >
-        <div className="seg">
-          {[
-            ['general', '一般官方帳號'],
-            ['health', '個人健康秘書'],
-          ].map(([v, l]) => (
-            <button
-              key={v}
-              type="button"
-              className={answers.template === v ? 'on' : ''}
-              onClick={() => setAnswers({ ...answers, template: v })}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
         <label>
           官方帳號名稱
           <input
             value={answers.oaName}
             maxLength={40}
-            placeholder="例如：小美的甜點店"
+            placeholder="例如：小美的 AI 秘書"
             onChange={(e) => setAnswers({ ...answers, oaName: e.target.value })}
-          />
-        </label>
-        <label>
-          用一句話說你的目標
-          <textarea
-            value={answers.goal}
-            maxLength={200}
-            rows={3}
-            placeholder="例如：讓客人方便預約和查詢營業時間"
-            onChange={(e) => setAnswers({ ...answers, goal: e.target.value })}
           />
         </label>
       </Step>
@@ -385,7 +360,7 @@ export default function OawBuild({ api, projectId }) {
         <p className="oaw-note">大約 2–3 分鐘，可以先離開，回來會接著顯示進度。</p>
       </Step>
 
-      <Step n="6" title="最後兩件事" done={false} open={phase === 'done'}>
+      <Step n="6" title="最後三件事" done={false} open={phase === 'done'}>
         <ol>
           <li>
             到{' '}
@@ -408,6 +383,9 @@ export default function OawBuild({ api, projectId }) {
             >
               傳「連接我的OA」
             </button>
+          </li>
+          <li>
+            到你自己的官方帳號，點選單的「打開秘書」：三顆光球就在那裡，第一顆已經幫你開好行事曆秘書。
           </li>
         </ol>
         {status?.basicId && <p className="oaw-note">你的官方帳號：{status.basicId}</p>}

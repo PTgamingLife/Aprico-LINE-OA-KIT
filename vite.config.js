@@ -7,11 +7,7 @@ export default defineConfig({
       input: Object.fromEntries(
         [
           'index',
-          'design',
           'build',
-          'trial',
-          'games',
-          'learning',
           'admin',
           'intro',
           'showcase',

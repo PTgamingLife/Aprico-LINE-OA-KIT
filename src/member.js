@@ -76,6 +76,7 @@ function secretary() {
       panel(
         h('h2', {}, '想要更多？'),
         h('p', { class: 'muted' }, '成為會員並建立自己的官方帳號後，可以設定三顆光球：群組統計、定時推播、每日提醒，資料存在你自己的資料庫。'),
+        h('a', { class: 'btn3d ghost', href: './showcase.html' }, '看看 AI 秘書能做什麼'),
       ),
   ];
 }

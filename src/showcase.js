@@ -1,6 +1,4 @@
-// 展示中心: 「我想要建置」 sends the same words in the Aprico OA chat, where the webhook
-// switches this user's rich menu to the build center and replies with the way in.
-// Outside LINE (or if sending fails) it simply opens the build center page.
+// 展示中心: what LINE, an OA and the AI secretary can do. The call to action opens the member centre.
 const LIFF_ID = '2012197506-Vmb4O5iT';
 export const BUILD_WORD = '我想要建置';
 
@@ -15,20 +13,10 @@ function loadSdk() {
   });
 }
 
-async function goBuild(status) {
-  try {
-    const liff = await loadSdk();
-    await liff.init({ liffId: LIFF_ID });
-    if (liff.isInClient()) {
-      status.textContent = '正在為你開啟建置中心…';
-      await liff.sendMessages([{ type: 'text', text: BUILD_WORD }]);
-      liff.closeWindow();
-      return;
-    }
-  } catch {
-    // Fall through to the page itself.
-  }
-  location.href = './build.html';
+// New flow: the Aprico OA itself is the secretary, so 「我想要建置」 opens the member centre,
+// where membership and building your own OA live.
+async function goBuild() {
+  location.href = './member.html?tab=member';
 }
 
 const status = document.querySelector('[data-status]') ?? document.createElement('p');
