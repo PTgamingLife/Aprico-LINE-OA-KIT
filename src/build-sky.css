@@ -1,0 +1,65 @@
+/* 建置中心 in the secretary look: lavender sky, sun accents, floating 3D buttons — the same
+   palette as the member centre and the 光球 page. Scoped to build.html (body[data-page=build]). */
+body[data-page='build'] {
+  --ink: #2b2a4a; --ink-soft: #6b6a8c; --accent: #7c8cf0; --accent-deep: #5866d6;
+  --sun: #ffc53d; --sun-deep: #f29a1f; --line: #c9cef2;
+  color: var(--ink);
+  background: linear-gradient(160deg, #ede7fb, #d9e4fb 55%, #f7f2ff) fixed;
+  font-family: 'Noto Sans TC', system-ui, -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+}
+body[data-page='build'] .app-shell { color: var(--ink); }
+body[data-page='build'] .app-shell > header { background: transparent; border: 0; }
+body[data-page='build'] .brand b { color: var(--accent-deep); }
+body[data-page='build'] .eyebrow { color: var(--accent-deep); letter-spacing: 0.12em; }
+body[data-page='build'] .page-heading h1 { color: var(--ink); }
+body[data-page='build'] .page-heading p,
+body[data-page='build'] .oaw-note { color: var(--ink-soft); }
+body[data-page='build'] .card,
+body[data-page='build'] .oaw-step {
+  background: rgba(255, 255, 255, 0.84); border: 0; border-radius: 22px;
+  box-shadow: 0 8px 20px rgba(88, 102, 214, 0.12);
+}
+body[data-page='build'] .oaw-step.open { box-shadow: 0 10px 26px rgba(88, 102, 214, 0.2); }
+body[data-page='build'] .oaw-build { --oaw-accent: #ffe07a; --oaw-ink: #2b2a4a; --oaw-paper: #eef0ff; --oaw-line: #c9cef2; color: var(--ink); }
+body[data-page='build'] .oaw-step h2 { color: var(--ink); }
+body[data-page='build'] .oaw-step:not(.open) h2 { color: var(--ink-soft); }
+body[data-page='build'] .app-shell .oaw-step h2 button.step-toggle {
+  all: unset; display: flex; gap: 10px; align-items: center; width: 100%; cursor: pointer; font: inherit; color: inherit;
+}
+body[data-page='build'] .app-shell .oaw-step h2 button.step-toggle:focus-visible { outline: 3px solid var(--accent-deep); outline-offset: 4px; border-radius: 12px; }
+body[data-page='build'] .oaw-step h2 .chev { margin-left: auto; font-size: 13px; color: var(--ink-soft); }
+body[data-page='build'] .oaw-step .num { background: #eef0ff; border: 0; color: var(--accent-deep); font-weight: 700; }
+body[data-page='build'] .oaw-step.open .num { background: linear-gradient(180deg, #ffe07a, #ffc53d); color: #5a3b00; box-shadow: 0 0 12px 2px rgba(255, 214, 92, 0.7); }
+body[data-page='build'] .oaw-step.done .num { background: linear-gradient(180deg, #7fd8b6, #3fae8c); color: #fff; box-shadow: none; }
+body[data-page='build'] .oaw-build input,
+body[data-page='build'] .oaw-build textarea,
+body[data-page='build'] .oaw-build select { border: 2px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); }
+/* Buttons: every action floats; the main one is sun-coloured, links stay quiet. */
+body[data-page='build'] .app-shell button:not(.link):not(.plan):not(.project):not(.step-toggle) {
+  border: 0; border-radius: 999px; padding: 11px 20px; font-weight: 700; color: var(--accent-deep);
+  background: linear-gradient(180deg, #fff, #eef0ff);
+  box-shadow: 0 5px 0 var(--line), 0 12px 18px rgba(88, 102, 214, 0.18), inset 0 2px 0 #fff;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+body[data-page='build'] .app-shell button:not(.link):not(.plan):not(.project):not(.step-toggle):active { transform: translateY(4px); box-shadow: 0 1px 0 var(--line); }
+body[data-page='build'] .app-shell button.primary,
+body[data-page='build'] .app-shell button.btn.brand,
+body[data-page='build'] .app-shell .oaw-build button.primary {
+  color: #fff; background: linear-gradient(180deg, #9aa7ff, var(--accent) 55%, var(--accent-deep));
+  box-shadow: 0 6px 0 #4350b8, 0 14px 22px rgba(88, 102, 214, 0.38), inset 0 2px 0 rgba(255, 255, 255, 0.55);
+}
+body[data-page='build'] .app-shell button:disabled { opacity: 0.55; }
+body[data-page='build'] .app-shell button.link,
+body[data-page='build'] .app-shell a.link { background: none; border: 0; box-shadow: none; color: var(--accent-deep); font-weight: 700; padding: 6px 0; text-decoration: none; }
+body[data-page='build'] .app-shell a { color: var(--accent-deep); }
+body[data-page='build'] .oaw-error { color: #b8405c; }
+body[data-page='build'] .notice { background: rgba(255, 255, 255, 0.9); border: 0; border-radius: 16px; color: var(--ink); }
+body[data-page='build'] .project-picker summary { color: var(--ink-soft); }
+:root:has(body[data-page='build']) { background: #e6e6fb; }
+body[data-page='build'] { min-height: 100vh; }
+body[data-page='build'] .oaw-build a.btn {
+  border: 0; border-radius: 999px; font-weight: 700; color: var(--accent-deep); text-decoration: none;
+  background: linear-gradient(180deg, #fff, #eef0ff);
+  box-shadow: 0 5px 0 var(--line), 0 12px 18px rgba(88, 102, 214, 0.18), inset 0 2px 0 #fff;
+}
+body[data-page='build'] footer, body[data-page='build'] footer a { color: var(--ink-soft); }
