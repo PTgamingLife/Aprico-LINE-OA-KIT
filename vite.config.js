@@ -15,6 +15,7 @@ export default defineConfig({
           'admin',
           'intro',
           'showcase',
+          'member',
         ].map((n) => [n, fileURLToPath(new URL(`./${n}.html`, import.meta.url))]),
       ),
     },

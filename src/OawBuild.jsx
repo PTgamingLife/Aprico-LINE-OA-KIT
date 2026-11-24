@@ -186,7 +186,7 @@ export default function OawBuild({ api, projectId }) {
             disabled={busy || !billing?.available}
             onClick={() => pay('month')}
           >
-            {billing?.quota?.paid ? '續訂 1 個月' : '月繳'} NT$370
+            {billing?.quota?.paid ? '續訂 1 個月' : '月繳'} NT$180
           </button>
           <button
             className="btn brand"
@@ -194,7 +194,7 @@ export default function OawBuild({ api, projectId }) {
             disabled={busy || !billing?.available}
             onClick={() => pay('year')}
           >
-            {billing?.quota?.paid ? '續訂 1 年' : '年繳'} NT$3,870（省 NT$570）
+            {billing?.quota?.paid ? '續訂 1 年' : '年繳'} NT$1,800（多送 2 個月）
           </button>
         </div>
         {billing?.quota?.paid && (
