@@ -7,6 +7,7 @@ import OawBuild from './OawBuild.jsx';
 import OawUpdate, { UPDATE_FLAG } from './OawUpdate.jsx';
 import OawSecurity, { SECURITY_FLAG } from './OawSecurity.jsx';
 import { launchGithub } from './github-launch.js';
+import { relogin, tokenExpired } from './relogin.js';
 import { githubNotice } from './github-result.ts';
 import BackgroundPicker from './BackgroundPicker.jsx';
 import { menuCellStyle } from './backgrounds.ts';
@@ -67,6 +68,9 @@ function App() {
     const endpoint = body.action.startsWith('github_')
       ? API.replace('line-oa-kit-studio', 'line-oa-kit-github')
       : API;
+    // An out-of-date LINE token is renewed before the call, never shown as an error.
+    const stale = () => sdk.current?.isLoggedIn?.() && relogin(sdk.current);
+    if (sdk.current?.isLoggedIn?.() && tokenExpired(sdk.current) && stale()) return new Promise(() => {});
     const payload = { ...body, idToken: sdk.current?.getIDToken() || undefined };
     if (body.action === 'github_begin') return launchGithub(endpoint, payload);
     const r = await fetch(endpoint, {
@@ -94,6 +98,7 @@ function App() {
       ),
     });
     const data = await r.json();
+    if (r.status === 401 && stale()) return new Promise(() => {});
     if (!r.ok)
       throw Object.assign(Error(data.error || '暫時無法連線'), {
         code: data.code,
@@ -603,34 +608,15 @@ function App() {
               <div>
                 <span className="eyebrow">YOUR BUILD CENTER</span>
                 <h1>建置中心</h1>
-                <p>六個步驟，在你自己的帳號裡建好官方帳號。</p>
+                <p>一步一步，在你自己的帳號裡打造專屬的 AI 秘書。</p>
               </div>
               <a className="link" href="./member.html">← 回會員中心</a>
             </section>
             <div className="build-layout">
-              <section className="card project-picker">
+              <section className="card project-picker" hidden={!loading && projects.length > 0}>
                 {loading ? (
                   <p>正在載入你的專案…</p>
-                ) : projects.length ? (
-                  <details>
-                    <summary>目前專案：{draft.name || '未命名專案'} · 切換其他專案</summary>
-                    <div className="project-picker-list">
-                      {projects.map((p) => (
-                        <button
-                          className={`project ${current?.id === p.id ? 'selected' : ''}`}
-                          key={p.id}
-                          onClick={() => changeProject(p.id)}
-                        >
-                          <strong>{p.config.name || '未命名專案'}</strong>
-                          <span>
-                            {p.config.oaName || '尚未填寫 OA 名稱'} · {p.config.grid} 格
-                          </span>
-                          <small>最後保存 {new Date(p.updated_at).toLocaleString('zh-TW')}</small>
-                        </button>
-                      ))}
-                    </div>
-                  </details>
-                ) : (
+                ) : projects.length ? null : (
                   <div className="empty">
                     <span>✧</span>
                     <h3>{user ? '正在準備你的專案…' : '請先登入 LINE'}</h3>

@@ -19,11 +19,25 @@ Deno.serve(async (req: Request) => {
     'Access-Control-Allow-Headers': 'content-type',
     'Access-Control-Allow-Methods': 'POST,OPTIONS',
     'Cache-Control': 'no-store',
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
     Vary: 'Origin',
   };
+  // 連接 GitHub is a full-page form post: a failure there goes back to the build page with a
+  // reason, never a bare JSON page.
+  let formPost = false;
   const response = (v: unknown, status = 200) =>
-    new Response(JSON.stringify(v), { status, headers });
+    formPost && status >= 400
+      ? new Response(null, {
+          status: 303,
+          headers: {
+            Location: `${githubReturn}?github=failed&reason=${
+              status === 401 ? 'login_expired' : status === 403 ? 'not_subscribed' : 'begin_failed'
+            }`,
+            'Cache-Control': 'no-store',
+            'Referrer-Policy': 'no-referrer',
+          },
+        })
+      : new Response(JSON.stringify(v), { status, headers });
   const db = () =>
     createClient(env('SUPABASE_URL')!, env('SUPABASE_SERVICE_ROLE_KEY')!, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -50,6 +64,7 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers });
     if (req.method !== 'POST') return response({ error: 'Method not allowed' }, 405);
     let b;
+    formPost = Boolean(req.headers.get('content-type')?.startsWith('application/x-www-form-urlencoded'));
     try {
       const raw = new TextDecoder().decode(await boundedBody(req, 20000));
       b = JSON.parse(
@@ -101,7 +116,11 @@ Deno.serve(async (req: Request) => {
       .eq('line_subject', identity.sub)
       .maybeSingle();
     if (access.error) return response({ error: '讀取開通狀態失敗' }, 503);
-    if (!access.data) return response({ error: '請先開通此專案' }, 403);
+    if (!access.data) {
+      // 秘書版 members pay a subscription instead of opening one project.
+      const { data: quota } = await client.rpc('line_oa_kit_quota_status', { p_subject: identity.sub });
+      if (quota?.paid !== true) return response({ error: '請先訂閱月費' }, 403);
+    }
     return await githubAction(b, client, identity.sub, p.data, response, env);
   } catch {
     return response({ error: 'GitHub 連線暫時無法完成，請稍後重試' }, 503);
