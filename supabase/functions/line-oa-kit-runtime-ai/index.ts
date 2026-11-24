@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import { runtimeAI } from '../_shared/runtime-ai.ts';
 import { oawApi } from '../_shared/oaw-api.ts';
+import { reportDigest } from '../_shared/aprico-member.ts';
 import { oawConnect } from '../_shared/oaw-connect.ts';
 import { healthScan } from '../_shared/oaw-health.ts';
 import { billingReminders } from '../_shared/oaw-billing.ts';
@@ -20,6 +21,17 @@ Deno.serve((req) => {
   if (route === 'health-scan') return healthScan(req, db, key);
   if (route === 'billing-reminders')
     return billingReminders(req, db, (to, messages) =>
+      fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${Deno.env.get('LINE_OA_KIT_MESSAGING_ACCESS_TOKEN') || ''}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ to, messages }),
+      }),
+    );
+  if (route === 'report-digest')
+    return reportDigest(req, db, key, Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID') || '', (to, messages) =>
       fetch('https://api.line.me/v2/bot/message/push', {
         method: 'POST',
         headers: {

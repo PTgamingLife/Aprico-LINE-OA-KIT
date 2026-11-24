@@ -7,14 +7,11 @@ export default defineConfig({
       input: Object.fromEntries(
         [
           'index',
-          'design',
           'build',
-          'trial',
-          'games',
-          'learning',
           'admin',
           'intro',
           'showcase',
+          'member',
         ].map((n) => [n, fileURLToPath(new URL(`./${n}.html`, import.meta.url))]),
       ),
     },

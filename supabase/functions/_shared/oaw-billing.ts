@@ -2,15 +2,17 @@
 // renewal reminders. Same store settings as the build payment (linepay-client.ts); grants
 // happen only in line_oa_kit_quota_order_settle, once, and only for production payments.
 import { checkoutUrl, linePay, payConfig, verifiedPayment } from './linepay-client.ts';
+import { priceFor } from './aprico-member.ts';
 
 export const BILLING_ACTIONS = ['sub_status', 'sub_create', 'sub_confirm'];
 export const PRODUCTS: Record<string, { amount: number; name: string }> = {
-  month: { amount: 370, name: 'Aprico AI 秘書月費（1 個月）' },
-  year: { amount: 3870, name: 'Aprico AI 秘書年費（12 個月）' },
+  month: { amount: 180, name: 'Aprico AI 秘書月費（1 個月）' },
+  year: { amount: 1800, name: 'Aprico AI 秘書年費（12 個月）' },
   topup30: { amount: 30, name: 'Aprico AI 秘書加值 NT$30' },
   topup50: { amount: 50, name: 'Aprico AI 秘書加值 NT$50' },
 };
 const BUILD_PAGE = 'https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/build.html';
+const MEMBER_PAGE = 'https://ptgaminglife.github.io/Aprico-LINE-OA-KIT/member.html';
 export const RENEW_URL = 'https://liff.line.me/2012197506-Vmb4O5iT/build.html?renew=1';
 const table = 'line_oa_kit_quota_orders';
 type Respond = (data: unknown, status?: number) => Response;
@@ -54,8 +56,14 @@ export async function billingAction(
   if (!config.enabled) return respond({ error: 'LINE Pay 尚未開放，請聯絡 Aprico' }, 503);
 
   if (b.action === 'sub_create') {
-    const product = PRODUCTS[b.product];
-    if (!product) return respond({ error: '方案不存在' }, 400);
+    const listed = PRODUCTS[b.product];
+    if (!listed) return respond({ error: '方案不存在' }, 400);
+    // Membership prices carry the referral discount (3 friends 10% off, 5 friends 20% off).
+    let product = listed;
+    if (b.product === 'month' || b.product === 'year') {
+      const { data: me } = await db.rpc('line_oa_kit_sec_user', { p_user: subject });
+      product = { ...listed, amount: priceFor(b.product, Number(me?.refs) || 0) };
+    }
     if (b.product.startsWith('topup') && !status.paid)
       return respond({ error: '加值需要先有訂閱', code: 'subscription_required' }, 409);
     const { data: order, error } = await db
@@ -69,7 +77,8 @@ export async function billingAction(
       .select('*')
       .single();
     if (error) return respond({ error: '無法建立訂單，請稍後再試' }, 503);
-    const back = new URL(BUILD_PAGE);
+    // The member centre sends returnTo: 'member' so LINE Pay comes back to it.
+    const back = new URL(b.returnTo === 'member' ? MEMBER_PAGE : BUILD_PAGE);
     back.searchParams.set('pay', 'sub');
     back.searchParams.set('order', order.id);
     const cancel = new URL(back);

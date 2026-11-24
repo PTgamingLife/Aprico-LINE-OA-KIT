@@ -12,7 +12,8 @@ export function quotaHoldUsd(bytes: number, maxOutputTokens: number) {
   return Math.min(0.1, Math.ceil((usd + 0.001) * 1000) / 1000);
 }
 
-async function claudeText(
+/** One Claude call with no metering; callers must apply their own limit first. */
+export async function claudeText(
   apiKey: string,
   request: {
     instructions: string;

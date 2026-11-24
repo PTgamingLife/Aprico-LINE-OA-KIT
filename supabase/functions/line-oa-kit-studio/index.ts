@@ -1,4 +1,5 @@
 import { BILLING_ACTIONS, billingAction } from '../_shared/oaw-billing.ts';
+import { MEMBER_ACTIONS, memberAction } from '../_shared/aprico-member.ts';
 import { OAW_ACTIONS, oawBuildAction } from '../_shared/oaw-build.ts';
 import { UPDATE_ACTIONS, oawUpdateAction } from '../_shared/oaw-update.ts';
 import { SECURITY_ACTIONS, oawSecurityAction } from '../_shared/oaw-security.ts';
@@ -139,6 +140,7 @@ Deno.serve(async (req: Request) => {
         ...UPDATE_ACTIONS,
         ...SECURITY_ACTIONS,
         ...BILLING_ACTIONS,
+        ...MEMBER_ACTIONS,
       ].includes(b.action)
     )
       return response({ error: '不支援的操作' }, 400);
@@ -180,6 +182,7 @@ Deno.serve(async (req: Request) => {
       );
     if (BILLING_ACTIONS.includes(b.action))
       return await billingAction(b, db, identity.sub, response, (k) => Deno.env.get(k));
+    if (MEMBER_ACTIONS.includes(b.action)) return await memberAction(b, db, identity.sub, response);
     if (['learning_list', 'learning_complete', 'learning_quiz'].includes(b.action))
       return await learningAction(b, db, identity.sub, response);
     if (['trial_apply', 'trial_config', 'trial_exit'].includes(b.action))

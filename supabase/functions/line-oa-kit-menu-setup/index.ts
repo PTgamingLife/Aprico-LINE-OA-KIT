@@ -7,6 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.116.0';
 import {
   BUILD_ALIAS,
   centerMenu,
+  secretaryMenu,
   CENTER_LEARNING,
   SHOWCASE_ALIAS,
   showcaseMenu,
@@ -59,6 +60,46 @@ Deno.serve(async (req) => {
     const bot = await call('/info');
     if (bot.basicId !== '@228srwlt') throw Error('wrong_oa');
     const { richmenus: before = [] } = await call('/richmenu/list');
+
+    // New Aprico OA (APRICO_SECRETARY_ENABLED): one four-cell menu for everyone. People who
+    // had the build menu linked are unlinked so they see it too; older menus are removed.
+    if (Deno.env.get('APRICO_SECRETARY_ENABLED') === 'true') {
+      const png = new Uint8Array(await (await fetch(PAGES + 'secretary.png')).arrayBuffer());
+      const view = new DataView(png.buffer);
+      if (png[0] !== 0x89 || view.getUint32(16) !== 1200 || view.getUint32(20) !== 405)
+        throw Error('secretary.png is not a 1200x405 PNG');
+      const { richMenuId } = await call('/richmenu', 'POST', secretaryMenu());
+      const up = await fetch(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'image/png' },
+        body: png,
+      });
+      if (!up.ok) throw Error(`upload secretary → ${up.status}`);
+      steps.menu = richMenuId;
+      await call(`/user/all/richmenu/${richMenuId}`, 'POST');
+      const [designs, subs] = await Promise.all([
+        db.from('line_oa_kit_designs').select('line_subject').limit(5000),
+        db.from('line_oa_kit_subscriptions').select('line_subject').limit(5000),
+      ]);
+      const linked = [
+        ...new Set(
+          [...(designs.data ?? []), ...(subs.data ?? [])]
+            .map((r: any) => r.line_subject)
+            .filter((u: string) => /^U[0-9a-f]{32}$/.test(u)),
+        ),
+      ];
+      for (let i = 0; i < linked.length; i += 500)
+        await call('/richmenu/bulk/unlink', 'POST', { userIds: linked.slice(i, i + 500) });
+      steps.unlinked = linked.length;
+      let gone = 0;
+      for (const m of before)
+        if (m.richMenuId !== richMenuId) {
+          await call(`/richmenu/${m.richMenuId}`, 'DELETE').catch(() => null);
+          gone++;
+        }
+      steps.removedOld = gone;
+      return Response.json({ ok: true, steps });
+    }
 
     const made: Record<string, string> = {};
     for (const [key, menu] of [

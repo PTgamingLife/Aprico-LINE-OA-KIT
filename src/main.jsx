@@ -126,6 +126,13 @@ function App() {
         if (sdk.current.isLoggedIn()) {
           const data = await api({ action: 'list' });
           if (!live) return;
+          // New flow: a member has no design step, so the build page makes their project itself.
+          if (route === 'build' && !data.projects.length) {
+            const made = { id: crypto.randomUUID(), revision: 0 };
+            const config = validateDraft({ ...emptyDraft(), name: '我的 AI 秘書' });
+            const saved = await api({ action: 'save', ...made, config });
+            data.projects = [{ ...saved.project, config }];
+          }
           setUser(data.displayName);
           setProjects(data.projects);
           const params = new URLSearchParams(location.search),
@@ -333,7 +340,8 @@ function App() {
           {loading ? '正在完成登入…' : user ? `${user} · 登出` : 'LINE 登入'}
         </button>
       </header>
-      <nav aria-label="主要分頁">
+{route === 'design' && (
+              <nav aria-label="主要分頁">
         <button
           aria-current={route === 'design' ? 'page' : undefined}
           onClick={() => route !== 'design' && navigate('design.html')}
@@ -347,6 +355,7 @@ function App() {
           ② 建置中心
         </button>
       </nav>
+      )}
       {status && (
         <div role="status" className={`notice ${error ? 'error' : ''}`}>
           {status}
@@ -595,7 +604,7 @@ function App() {
                 <h1>建置中心</h1>
                 <p>六個步驟，在你自己的帳號裡建好官方帳號。</p>
               </div>
-              <button onClick={() => navigate('design.html')}>修改我的設計 →</button>
+              <a className="link" href="./member.html">← 回會員中心</a>
             </section>
             <div className="build-layout">
               <section className="card project-picker">
@@ -623,18 +632,17 @@ function App() {
                 ) : (
                   <div className="empty">
                     <span>✧</span>
-                    <h3>{user ? '從第一個設計開始' : '登入，找回你的設計'}</h3>
+                    <h3>{user ? '正在準備你的專案…' : '請先登入 LINE'}</h3>
                     <p>
                       {user
-                        ? '到設計頁點選功能格，打造你的專屬互動。'
-                        : '使用同一個 LINE 帳號登入，即可查看已保存的專案。'}
+                        ? '稍等一下，或重新整理這一頁。'
+                        : '使用你加 Aprico 好友的同一個 LINE 帳號登入。'}
                     </p>
-                    <button
-                      className="primary"
-                      onClick={() => (user ? navigate('design.html') : login())}
-                    >
-                      {user ? '開始設計' : '使用 LINE 登入'}
-                    </button>
+                    {!user && (
+                      <button className="primary" onClick={() => login()}>
+                        使用 LINE 登入
+                      </button>
+                    )}
                   </div>
                 )}
               </section>
