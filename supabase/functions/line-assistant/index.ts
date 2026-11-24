@@ -363,7 +363,8 @@ Deno.serve(async (req) => {
             });
           if (await lockGateway(e, { authenticated: trialAuthenticated, db: trialDb, reply }))
             return;
-          if (await menuGateway(e, { authenticated: trialAuthenticated, token: trialToken, reply }))
+          // 秘書版 has one fixed menu: the old 展示中心／建置中心 switch is not offered.
+          if (Deno.env.get('APRICO_SECRETARY_ENABLED') !== 'true' && await menuGateway(e, { authenticated: trialAuthenticated, token: trialToken, reply }))
             return;
           if (await connectGateway(e, { authenticated: trialAuthenticated, db: trialDb, reply }))
             return;

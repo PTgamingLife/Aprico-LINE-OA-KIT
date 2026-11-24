@@ -27,21 +27,21 @@ const card = (title: string, body: string, button?: Record<string, unknown>) => 
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#E7C5A8',
-      contents: [{ type: 'text', text: title, weight: 'bold', color: '#4A3B32' }],
+      backgroundColor: '#E4E8FF',
+      contents: [{ type: 'text', text: title, weight: 'bold', color: '#2B2A4A' }],
     },
     body: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: '#FAF7F2',
-      contents: [{ type: 'text', text: body, wrap: true, size: 'sm', color: '#4A3B32' }],
+      backgroundColor: '#FFFFFF',
+      contents: [{ type: 'text', text: body, wrap: true, size: 'sm', color: '#2B2A4A' }],
     },
     ...(button
       ? {
           footer: {
             type: 'box',
             layout: 'vertical',
-            contents: [{ type: 'button', style: 'primary', color: '#4A3B32', action: button }],
+            contents: [{ type: 'button', style: 'primary', color: '#5866D6', action: button }],
           },
         }
       : {}),

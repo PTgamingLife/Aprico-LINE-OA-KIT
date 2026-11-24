@@ -248,14 +248,14 @@ export function reminderCard(kind: 'soon' | 'due', paidUntil: string) {
       header: {
         type: 'box',
         layout: 'vertical',
-        backgroundColor: '#E7C5A8',
-        contents: [{ type: 'text', text: title, weight: 'bold', color: '#4A3B32' }],
+        backgroundColor: '#E4E8FF',
+        contents: [{ type: 'text', text: title, weight: 'bold', color: '#2B2A4A' }],
       },
       body: {
         type: 'box',
         layout: 'vertical',
-        backgroundColor: '#FAF7F2',
-        contents: [{ type: 'text', text: body, wrap: true, size: 'sm', color: '#4A3B32' }],
+        backgroundColor: '#FFFFFF',
+        contents: [{ type: 'text', text: body, wrap: true, size: 'sm', color: '#2B2A4A' }],
       },
       footer: {
         type: 'box',
@@ -264,7 +264,7 @@ export function reminderCard(kind: 'soon' | 'due', paidUntil: string) {
           {
             type: 'button',
             style: 'primary',
-            color: '#4A3B32',
+            color: '#5866D6',
             action: { type: 'uri', label: '續訂', uri: RENEW_URL },
           },
         ],
