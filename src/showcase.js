@@ -1,5 +1,6 @@
 // 「AI 秘書能做什麼」: what the secretary edition does. Two actions: go back to the chat to
 // try it (inside LINE the page simply closes), or open the member centre.
+import './fresh.js';
 const LIFF_ID = '2012197506-Vmb4O5iT';
 const OA_ADD = 'https://line.me/R/ti/p/@228srwlt';
 
