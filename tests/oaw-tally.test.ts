@@ -36,7 +36,26 @@ test('tally output: unknown speakers, items and lines are dropped', () => {
     input,
   );
   assert.equal(out?.entries.length, 3);
-  assert.deepEqual(out?.entries[2], { who: 'M1', item: '雞腿', qty: 0, note: '', line: 3 });
+  assert.deepEqual(out?.entries[2], { who: 'M1', item: '雞腿', qty: 0, note: '', line: 3, values: [] });
   assert.equal(out?.unclear.length, 1);
   assert.equal(tallyOutput({}, input), null);
+});
+
+test('measures: one estimate per requested measure, bad numbers become 0', () => {
+  const lines = [{ who: 'M1', text: '午餐吃雞腿便當' }];
+  assert.equal(tallyInput({ subject: '飲食', lines, measures: ['a', 'b', 'c', 'd'] }), null);
+  const input = tallyInput({ subject: '飲食', lines, measures: ['熱量 kcal', '蛋白質 g'] })!;
+  assert.deepEqual((input as any).measures, ['熱量 kcal', '蛋白質 g']);
+  const out = tallyOutput(
+    {
+      entries: [
+        { who: 'M1', item: '雞腿便當', qty: 1, note: '', line: 1, values: [780.26, 'lots', 99] },
+        { who: 'M1', item: '豆漿', qty: 1, note: '', line: 1, values: [-5] },
+      ],
+      unclear: [],
+    },
+    input,
+  )!;
+  assert.deepEqual(out.entries[0].values, [780.3, 0]); // extra values dropped, text becomes 0
+  assert.deepEqual(out.entries[1].values, [0, 0]); // negative and missing become 0
 });
