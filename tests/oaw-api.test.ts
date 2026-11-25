@@ -96,15 +96,14 @@ test('every OAW route requires a valid project key', async () => {
 });
 
 test('status reports the subscription quota as percentages', async () => {
-  assert.deepEqual(await (await oawApi(req('status', {}), fixture().db, 'k')).json(), {
-    paid: false,
-    locked: false,
-    plan: 'secretary',
-  });
-  assert.deepEqual(
-    await (await oawApi(req('status', {}), fixture([{ project_id: projectId }]).db, 'k')).json(),
-    { paid: true, percentLeft: 63, extraTwdLeft: 20, locked: false, plan: 'secretary' },
-  );
+  // `latest` is the newest released template version (shown on the app's settings page).
+  const { latest, ...unpaid } = await (await oawApi(req('status', {}), fixture().db, 'k')).json();
+  assert.match(latest, /^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/);
+  assert.deepEqual(unpaid, { paid: false, locked: false, plan: 'secretary' });
+  const { latest: _, ...paid } = await (
+    await oawApi(req('status', {}), fixture([{ project_id: projectId }]).db, 'k')
+  ).json();
+  assert.deepEqual(paid, { paid: true, percentLeft: 63, extraTwdLeft: 20, locked: false, plan: 'secretary' });
 });
 
 test('status reports the emergency lock', async () => {

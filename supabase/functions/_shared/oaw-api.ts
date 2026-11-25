@@ -7,6 +7,7 @@
 //   /digest  → { events, expenses, todos, life, summary }  metered
 //   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
+import RELEASE from './oaw-release.json' with { type: 'json' };
 import { meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
 import { isNavigator, oawUnlock } from './oaw-navigator.ts';
@@ -176,6 +177,8 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
     return respond({
       ...(await oawQuota(db, grant)),
       locked: Boolean(lock.data),
+      // The newest released version, so the app can tell its owner when an update is waiting.
+      latest: RELEASE.version,
       plan: (await isNavigator(db, grant.project_id)) ? 'navigator' : 'secretary',
     });
   }

@@ -21,6 +21,10 @@ export const PROTECTED = [
 ];
 
 const { version, notes } = JSON.parse(readFileSync(notesFile, 'utf8'));
+// The template tells each app its own version through liff/version.json; it must be this one.
+const shipped = JSON.parse(readFileSync(`${dir}/liff/version.json`, 'utf8')).version;
+if (shipped !== version)
+  throw Error(`liff/version.json in the template says ${shipped}, but this release is ${version}`);
 if (!/^\d{4}\.\d{2}\.\d{2}(\.\d+)?$/.test(version) || !Array.isArray(notes) || !notes.length)
   throw Error('notes.json needs version YYYY.MM.DD and a non-empty notes list');
 const ref = git('rev-parse', 'origin/main').trim();
