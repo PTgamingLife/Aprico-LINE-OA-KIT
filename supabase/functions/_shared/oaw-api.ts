@@ -326,8 +326,14 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         typeof body.focus === 'string' && body.focus.trim()
           ? `（只需要記下和「${body.focus.trim().slice(0, 60)}」有關的內容，其他略過）\n`
           : '';
+      // Optional: the 「整理分類」 piece's wish for how things are sorted (also only data).
+      const sort =
+        typeof body.sort === 'string' && body.sort.trim()
+          ? `（整理時請參考這個分類方式：「${body.sort.trim().slice(0, 80)}」；仍然只能放進行程、記帳、待辦、生活這四類）\n`
+          : '';
       const transcript =
         focus +
+        sort +
         lines
           .map((m: any) => `[${m.at}] ${m.who === 'owner' ? '我' : '朋友'}：${m.text}`)
           .join('\n');

@@ -46,12 +46,23 @@ export const ORB_SCHEMA = {
             type: 'object',
             additionalProperties: false,
             required: [
-              'topic', 'as', 'word', 'show', 'time', 'day', 'subject', 'items',
-              'open', 'close', 'dedupe', 'names', 'wake',
+              'topic', 'as', 'how', 'word', 'show', 'time', 'day', 'say', 'subject', 'items',
+              'measures', 'open', 'close', 'dedupe', 'names', 'wake',
             ],
             properties: {
               topic: S,
               as: S,
+              how: S,
+              say: S,
+              measures: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['name', 'unit'],
+                  properties: { name: S, unit: S },
+                },
+              },
               word: S,
               show: S,
               time: S,
@@ -88,20 +99,34 @@ export const ORB_INSTRUCTIONS =
   'needed is known, otherwise ONE short question in Traditional Chinese asking for the missing value). ' +
   'Types and the fields they use: ' +
   'record: topic = what to keep from the conversation ("" keeps everything). ' +
-  'organize: as = calendar | list | summary | stats. ' +
+  'organize: how = how the owner wants the kept content sorted or labelled, in their words ("" when ' +
+  'not said); the nightly run always files things as events, expenses, todos and life notes, and how ' +
+  'is passed to it as a wish. as = summary unless the description clearly says calendar or list. ' +
+  'Never ask about organize. ' +
   'command: word = the cue the owner or members type before a request (for example 秘書), at most ' +
   '8 characters, no spaces (required); show = calendar | list | summary | stats. ' +
-  'push (a timed reminder): time = HH:MM 24-hour Asia/Taipei (required); show = what to send ' +
-  '(calendar | list | summary | stats); day = today | tomorrow when it should send that day\'s ' +
-  'events (for example "every morning remind me of today\'s schedule"), otherwise "". ' +
+  'push (a timed reminder): time = HH:MM 24-hour Asia/Taipei (required). It can send exactly one of: ' +
+  'say = a fixed sentence the owner wants to receive (for example 記得喝水; use this for any reminder ' +
+  'that is not about recorded data; at most 200 characters); or day = today | tomorrow to send that ' +
+  'day\'s recorded events; or show = calendar | list | summary | stats to send that view. Fill only ' +
+  'the one that fits and leave the others "" (show defaults to calendar). ' +
   'remind (older apps): time = HH:MM (required); day = today | tomorrow. ' +
   'stats (groups only): subject = what is counted (required); items = options with integer TWD price ' +
   '(0 when free; [] when members write freely); open and close = HH:MM daily window ("" when not said, ' +
   'but ask when neither is given); dedupe = last (a member\'s latest line wins) | sum; names = list each ' +
-  'member; word = the word that triggers the count (default 統計). ' +
+  'member; word = the word that triggers the count (default 統計). measures = up to 3 numbers to ' +
+  'ESTIMATE for each entry when the owner asks for values that are not counts or prices (for example ' +
+  '熱量 in kcal, 蛋白質 in g, 距離 in km): name (at most 8 characters) and unit (at most 6); [] when ' +
+  'only counting. Estimated totals per member only make sense with dedupe = sum unless the owner ' +
+  'says the latest line replaces earlier ones. ' +
   'announce (groups only): no fields. ' +
   'answer: no fields (it replies to every message); leave wake as "". ' +
   'Never guess a required time or word: ask. Do not ask about optional fields. ' +
+  'Be honest about limits: a piece can do only what its fields express. When a description asks for ' +
+  'something the fields cannot hold (acting in other apps, sending to other people, charts that are ' +
+  'not offered, anything outside this conversation), do NOT rewrite it as if it will happen: keep in ' +
+  'text only what will really be done, and name what cannot be done in note, starting that part with ' +
+  '做不到：. ' +
   'template: when the input has face and templates, choose the ONE layout from templates that best ' +
   'fits these pieces and return it exactly as written (stats: rank = counts per option, detail = who ' +
   'ordered what with amounts, trend = a number per day, total = a money total with its parts; notes: ' +
