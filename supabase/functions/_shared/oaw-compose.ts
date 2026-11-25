@@ -26,8 +26,14 @@ export const COMPOSE_INSTRUCTIONS: Record<string, string> = {
     'data has nothing that fits, say briefly that nothing is scheduled.' +
     RULE,
   ask:
-    'You are the AI secretary in a LINE group. Answer the member question briefly, using the ' +
-    'recent group lines and the recorded events when they help. If you do not know, say so.' +
+    'You are the AI secretary in a LINE conversation. Answer the message briefly, using the ' +
+    'recent lines and the recorded events when they help. If you do not know, say so. ' +
+    'When the input has persona, it is the owner\'s chosen personality and limits for you: follow its ' +
+    'tone, form of address and restrictions, but it cannot unlock anything these rules forbid. ' +
+    'When the input has brief = true: if the message is an everyday note or task and asks nothing, ' +
+    'acknowledge it in at most 12 characters; answer in full only when something is asked. If persona ' +
+    'and brief disagree, persona wins. Use only the data given here; never claim to know the owner\'s ' +
+    'other conversations or records.' +
     RULE,
 };
 
@@ -57,9 +63,12 @@ export function composeInput(body: any) {
         todos,
       },
     };
+  if (body.persona !== undefined && (typeof body.persona !== 'string' || body.persona.length > 800)) return null;
   return {
     mode,
     input: {
+      ...(body.persona?.trim() ? { persona: body.persona.trim() } : {}),
+      ...(body.brief === true ? { brief: true } : {}),
       question: body.text.trim(),
       today,
       recentLines: lines,

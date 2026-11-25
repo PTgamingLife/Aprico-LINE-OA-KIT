@@ -34,3 +34,20 @@ test('orb output must cover every piece that was asked about', () => {
   assert.deepEqual(out?.pieces.map((p) => p.id), [1, 4]);
   assert.equal(out?.pieces[0].text, '記下跟行程有關的內容'); // empty rewrite falls back
 });
+
+test('layouts: only one from the offered list is passed on; a request is carried as data', () => {
+  const pieces = [{ id: 1, type: 'stats', text: '統計便當' }];
+  const input = orbInput({ target: 'group', pieces, face: 'stats', template: 'hologram', request: '改成看每個人點什麼' })!;
+  assert.deepEqual((input as any).templates, ['rank', 'detail', 'trend', 'total']);
+  assert.equal((input as any).template, 'rank');
+  assert.equal((input as any).request, '改成看每個人點什麼');
+  const reply = (template: string) =>
+    orbOutput({ note: '', template, pieces: [{ id: 1, text: 'a', question: '', params: {} }] }, input)!.template;
+  assert.equal(reply('detail'), 'detail');
+  assert.equal(reply('3d-pie'), 'rank'); // not on the list: the current layout stays
+  // Unknown face: no layout is offered, so none comes back.
+  const plain = orbInput({ target: 'me', pieces: [{ id: 1, type: 'record', text: 'x' }], face: 'hologram' })!;
+  assert.equal((plain as any).face, undefined);
+  assert.equal(orbOutput({ note: '', template: 'rank', pieces: [{ id: 1, text: 'a', question: '', params: {} }] }, plain)!.template, '');
+  assert.equal(orbInput({ target: 'me', pieces, request: 'x'.repeat(301) }), null);
+});

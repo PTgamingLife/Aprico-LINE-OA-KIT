@@ -28,3 +28,11 @@ test('compose output is trimmed and must not be empty', () => {
   assert.equal(composeOutput({}), null);
   assert.equal(composeOutput({ text: 'x'.repeat(2000) })?.text.length, 1000);
 });
+
+test('ask carries the owner persona and the brief flag as data; an oversized persona is refused', () => {
+  const c = composeInput({ mode: 'ask', text: '明天幾點開會', persona: '可愛、調皮', brief: true })!;
+  assert.equal((c.input as any).persona, '可愛、調皮');
+  assert.equal((c.input as any).brief, true);
+  assert.equal((composeInput({ mode: 'ask', text: 'x' })!.input as any).persona, undefined);
+  assert.equal(composeInput({ mode: 'ask', text: 'x', persona: 'x'.repeat(801) }), null);
+});
