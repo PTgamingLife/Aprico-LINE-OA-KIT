@@ -51,3 +51,33 @@ test('layouts: only one from the offered list is passed on; a request is carried
   assert.equal(orbOutput({ note: '', template: 'rank', pieces: [{ id: 1, text: 'a', question: '', params: {} }] }, plain)!.template, '');
   assert.equal(orbInput({ target: 'me', pieces, request: 'x'.repeat(301) }), null);
 });
+
+test('proposals: an empty orb may ask; suggestions are limited to known pieces, drops to real ids', () => {
+  assert.equal(orbInput({ target: 'group', pieces: [] }), null);
+  const empty = orbInput({ target: 'group', pieces: [], request: '幫我統計午餐群的便當' })!;
+  assert.deepEqual(empty.pieces, []);
+  const out = orbOutput(
+    {
+      note: '會統計便當。',
+      template: '',
+      face: 'stats',
+      pieces: [],
+      suggest: [
+        { type: 'record', text: '記下大家要訂什麼' },
+        { type: 'stats', text: '統計便當，11:00 截止' },
+        { type: 'rm -rf', text: 'x' },
+        { type: 'push', text: '   ' },
+      ],
+      drop: [7],
+    },
+    empty,
+  )!;
+  assert.deepEqual(out.suggest.map((s) => s.type), ['record', 'stats']);
+  assert.deepEqual(out.drop, []);
+  assert.equal(out.face, 'stats');
+  // An orb that already has a face keeps it: the model cannot switch it by itself.
+  const has = orbInput({ target: 'me', face: 'calendar', pieces: [{ id: 1, type: 'record', text: 'x' }], request: '加提醒' })!;
+  const o2 = orbOutput({ note: '', template: 'month', face: 'notes', suggest: [], drop: [1, 9], pieces: [{ id: 1, text: 'x', question: '', params: {} }] }, has)!;
+  assert.equal(o2.face, '');
+  assert.deepEqual(o2.drop, [1]);
+});
