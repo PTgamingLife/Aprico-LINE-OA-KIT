@@ -44,46 +44,23 @@ export function cleanKey(name: string, value: string) {
 
 const empty = { label: '', action: 'message', content: '', format: 'text' };
 
-/** Initial OA settings from the two answers; the owner refines them later by chatting. */
+/** Initial OA settings: the name the member chose, and nothing a stranger could be shown. */
 export function initialConfig(answers: { template: string; oaName: string; goal: string }) {
   const oaName =
     String(answers.oaName ?? '')
       .trim()
       .slice(0, 40) || '我的官方帳號';
-  const goal = String(answers.goal ?? '')
-    .trim()
-    .slice(0, 200);
   const health = answers.template === 'health';
+  // 秘書版 is a private secretary: no customer-facing menu texts or welcome message. (The
+  // 領航者版 fills these in later from its 介面設計中心.)
   return {
     oaName,
     grid: 4,
     theme: 0,
-    welcome: `謝謝你加入「${oaName}」！${goal ? goal + '\n' : ''}點下方選單就能開始使用。`.slice(
-      0,
-      500,
-    ),
-    failure: '這個問題我還不會回答，請稍後由專人回覆你。',
+    welcome: '',
+    failure: '這個問題我還不會回答。',
     secretary: !health,
-    cells: [
-      { label: '會員卡', action: 'full', content: '', format: 'text' },
-      {
-        label: '關於我們',
-        action: 'message',
-        content: goal || '這裡可以介紹你的品牌與服務。',
-        format: 'card',
-      },
-      { label: '營業時間', action: 'message', content: '週一至週五 10:00–18:00', format: 'text' },
-      {
-        label: '聯絡我們',
-        action: 'message',
-        content: '請直接留言，我們會盡快回覆你。',
-        format: 'text',
-      },
-      empty,
-      empty,
-      empty,
-      empty,
-    ],
+    cells: [empty, empty, empty, empty, empty, empty, empty, empty],
   };
 }
 

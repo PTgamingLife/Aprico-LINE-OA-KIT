@@ -15,7 +15,10 @@ test('the two answers become a valid starting config', () => {
   for (const template of ['general', 'health']) {
     const c = initialConfig({ template, oaName: '小美的甜點店', goal: '方便預約' });
     assert.ok(validOawConfig(c), template);
-    assert.match(c.welcome, /小美的甜點店/);
+    assert.equal(c.oaName, '小美的甜點店');
+    // A private secretary starts with no welcome message and no menu texts for strangers.
+    assert.equal(c.welcome, '');
+    assert.ok(c.cells.every((cell: any) => !cell.label && !cell.content));
   }
   assert.ok(
     validOawConfig(

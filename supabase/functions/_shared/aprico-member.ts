@@ -61,6 +61,7 @@ export async function memberAction(b: any, db: any, subject: string, respond: Re
         .from('line_oa_kit_sec_events')
         .select('day,time,title')
         .eq('line_user_id', subject)
+        .eq('kind', 'event')
         .gte('day', new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10))
         .order('day', { ascending: true })
         .order('time', { ascending: true })
