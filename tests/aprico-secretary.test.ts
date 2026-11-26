@@ -79,20 +79,73 @@ test('events from the AI are validated before they are saved', () => {
   assert.equal(eventLine(e[0]), '11/27（五） 15:00 開會');
 });
 
-test('a message is answered, saved and only then counted; the last two free ones are announced', async () => {
-  const f = fixture([{ allowed: true, kind: 'free', left: 3 }, { allowed: true, kind: 'free', left: 2 }]);
+const turn = (over: object) => ({ kind: 'note', events: [], expenses: [], todos: [], remind: { time: '', text: '' }, reply: '好的', ...over });
+
+test('a message is answered, saved and only then counted; the tour says which step is next', async () => {
+  const f = fixture([{ allowed: true, kind: 'free', left: 5 }, { allowed: true, kind: 'free', left: 4 }]);
   const ok = await secretaryGateway(
     msg('週五下午三點開會'),
-    f.deps(ai({ events: [{ date: '2026-11-27', time: '15:00', title: '開會' }], reply: '好的' })),
+    f.deps(ai(turn({ kind: 'event', events: [{ date: '2026-11-27', time: '15:00', title: '開會' }] }))),
   );
   assert.equal(ok, true);
-  assert.deepEqual(f.saved, [{ line_user_id: U, day: '2026-11-27', time: '15:00', title: '開會' }]);
+  assert.deepEqual(f.saved, [{ line_user_id: U, kind: 'event', day: '2026-11-27', time: '15:00', title: '開會', amount: null }]);
   assert.deepEqual(f.calls.map((c) => [c[0], c[1].p_commit]), [
     ['line_oa_kit_sec_take', false],
     ['line_oa_kit_sec_take', true],
   ]);
-  assert.match(JSON.stringify(f.sent[0]), /已記下/);
-  assert.match(JSON.stringify(f.sent[0]), /還剩 2 則/);
+  const sent = JSON.stringify(f.sent);
+  assert.match(sent, /已記下行程/);
+  assert.match(sent, /這是「記行程」功能/);
+  assert.match(sent, /下一步（2\/5）：我也會幫你記帳/);
+  assert.match(sent, /午餐 120、計程車 250/); // the chip for step 2
+  assert.equal(f.sent.length, 1);
+});
+
+test('the five steps: each kind is saved for what it is, and the fifth ends with a summary', async () => {
+  // Step 2, expense: today's total includes what was saved earlier today.
+  const e = fixture([{ allowed: true, kind: 'free', left: 4 }, { allowed: true, kind: 'free', left: 3 }]);
+  e.saved.push({ line_user_id: U, kind: 'expense', day: '2026-11-24', time: '', title: '早餐', amount: 60 });
+  await secretaryGateway(msg('午餐 120、計程車 250'), e.deps(ai(turn({ expenses: [{ title: '午餐', amount: 120 }, { title: '計程車', amount: 250 }] }))));
+  assert.deepEqual(e.saved.slice(1).map((r) => [r.kind, r.title, r.amount]), [['expense', '午餐', 120], ['expense', '計程車', 250]]);
+  assert.match(JSON.stringify(e.sent), /今天合計 NT\$430/);
+  assert.match(JSON.stringify(e.sent), /下一步（3\/5）/);
+  // Step 4, reminder: shown as a demonstration and said to be one.
+  const r = fixture([{ allowed: true, kind: 'free', left: 2 }, { allowed: true, kind: 'free', left: 1 }]);
+  await secretaryGateway(msg('每天早上八點提醒我喝水'), r.deps(ai(turn({ remind: { time: '08:00', text: '喝水' } }))));
+  assert.deepEqual([r.saved[0].kind, r.saved[0].time, r.saved[0].title], ['remind', '08:00', '喝水']);
+  assert.match(JSON.stringify(r.sent), /不會真的傳提醒/);
+  // Off script: step 3 expects a todo but a calendar entry arrives; it is still kept.
+  const o = fixture([{ allowed: true, kind: 'free', left: 3 }, { allowed: true, kind: 'free', left: 2 }]);
+  await secretaryGateway(msg('明天九點看牙醫'), o.deps(ai(turn({ events: [{ date: '2026-11-25', time: '09:00', title: '看牙醫' }] }))));
+  assert.equal(o.saved[0].kind, 'event');
+  assert.match(JSON.stringify(o.sent), /這一步原本想讓你試試「待辦清單」/);
+  // Step 5, a question: answered from records, nothing saved, then the summary card.
+  const q = fixture([{ allowed: true, kind: 'free', left: 1 }, { allowed: true, kind: 'free', left: 0 }]);
+  let seen = '';
+  await secretaryGateway(
+    msg('我這週有什麼事？'),
+    q.deps(async (_u: any, init: any) => ((seen = String(init.body)), ai(turn({ kind: 'ask', reply: '週五 15:00 開會。' }))())),
+  );
+  assert.match(seen, /records/);
+  assert.equal(q.saved.length, 0);
+  assert.equal(q.sent.length, 2);
+  assert.match(JSON.stringify(q.sent[0]), /秘書的回答/);
+  assert.match(JSON.stringify(q.sent[1]), /五項功能都試過了/);
+  assert.match(JSON.stringify(q.sent[1]), /member\.html/);
+  // Members are not on the tour.
+  const m = fixture([{ allowed: true, kind: 'member', left: 19 }, { allowed: true, kind: 'member', left: 18 }]);
+  await secretaryGateway(msg('記得繳停車費'), m.deps(ai(turn({ todos: ['繳停車費'] }))));
+  assert.doesNotMatch(JSON.stringify(m.sent), /下一步|這是「/);
+});
+
+test('the AI reply is validated: bad amounts, times and kinds never reach the database', async () => {
+  const { cleanTurn, rowsOf } = await import('../supabase/functions/_shared/aprico-tour.ts');
+  const t = cleanTurn({ kind: 'event', events: [], expenses: [{ title: '午餐', amount: -5 }, { title: '', amount: 10 }, { title: '晚餐', amount: 200 }], todos: [], remind: { time: '25:00', text: 'x' }, reply: 'ok' });
+  assert.equal(t.kind, 'expense'); // what was found decides, not what the AI claims
+  assert.deepEqual(t.expenses, [{ title: '晚餐', amount: 200 }]);
+  assert.equal(t.remind, null);
+  assert.equal(cleanTurn({ kind: 'drop tables', reply: 'x' }).kind, 'note');
+  assert.deepEqual(rowsOf(cleanTurn({ kind: 'ask', reply: 'x' }), U, '2026-11-24'), []);
 });
 
 test('when the AI fails nothing is counted; when the allowance is used up the AI is not called', async () => {
