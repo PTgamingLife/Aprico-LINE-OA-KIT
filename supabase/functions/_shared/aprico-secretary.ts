@@ -12,6 +12,8 @@ type Deps = {
   authenticated: boolean;
   db: any;
   aiKey: string;
+  /** The operator's own LINE user id: may replay the tour with 「測試導覽」. */
+  operator?: string;
   reply: (token: string, messages: any[]) => Promise<unknown>;
   push?: (to: string, messages: any[]) => Promise<unknown>;
   fetcher?: typeof fetch;
@@ -128,6 +130,20 @@ export async function secretaryGateway(event: any, deps: Deps) {
     );
     return true;
   }
+  // The operator can replay the tour on their own account: 「測試導覽」 makes the next five
+  // messages behave like a new friend's, without touching the subscription or the allowance.
+  const operator = !!deps.operator && userId === deps.operator;
+  if (operator && text === '測試導覽') {
+    await deps.db.rpc('line_oa_kit_sec_user', { p_user: userId });
+    await deps.db.from('line_oa_kit_sec_users').update({ tour_test: TOUR.length }).eq('line_user_id', userId);
+    await reply(greeting());
+    return true;
+  }
+  let testing = 0;
+  if (operator) {
+    const { data: me } = await deps.db.from('line_oa_kit_sec_users').select('tour_test').eq('line_user_id', userId).limit(1).maybeSingle();
+    testing = Math.max(0, Math.min(TOUR.length, Number(me?.tour_test) || 0));
+  }
   const code = refCode(text);
   if (code) {
     const { data } = await deps.db.rpc('line_oa_kit_sec_refer', { p_user: userId, p_code: code });
@@ -161,7 +177,9 @@ export async function secretaryGateway(event: any, deps: Deps) {
   }
 
   // Someone whose own OA is connected: their secretary lives there now.
-  const { data: own } = await deps.db
+  const { data: own } = testing
+    ? { data: null }
+    : await deps.db
     .from('line_oa_kit_runtime_keys')
     .select('project_id')
     .eq('line_subject', userId)
@@ -179,7 +197,9 @@ export async function secretaryGateway(event: any, deps: Deps) {
     return true;
   }
   // Check the allowance first, call the AI, and only count the message once it was answered.
-  const peek = (await deps.db.rpc('line_oa_kit_sec_take', { p_user: userId, p_commit: false })).data;
+  const peek = testing
+    ? { allowed: true, kind: 'free', left: testing }
+    : (await deps.db.rpc('line_oa_kit_sec_take', { p_user: userId, p_commit: false })).data;
   if (!peek?.allowed) {
     await reply(limitCard(peek ?? { kind: 'busy' }));
     return true;
@@ -216,7 +236,11 @@ export async function secretaryGateway(event: any, deps: Deps) {
     await reply(card('秘書暫時沒聽清楚', '請再傳一次。這一則不會扣免費次數。'));
     return true;
   }
-  const take = (await deps.db.rpc('line_oa_kit_sec_take', { p_user: userId, p_commit: true })).data;
+  let take: any;
+  if (testing) {
+    await deps.db.from('line_oa_kit_sec_users').update({ tour_test: testing - 1 }).eq('line_user_id', userId);
+    take = { allowed: true, kind: 'free', left: testing - 1 };
+  } else take = (await deps.db.rpc('line_oa_kit_sec_take', { p_user: userId, p_commit: true })).data;
   const turn = cleanTurn(out);
   // Earlier expenses of today (counted before this message's own rows are added).
   const spent = records.filter((x) => x.kind === 'expense' && x.day === today).reduce((n, x) => n + (x.amount ?? 0), 0);

@@ -187,3 +187,39 @@ test('a member whose own OA is connected is sent there instead of using the shar
   assert.equal(f.calls.length, 0);
   assert.match(JSON.stringify(f.sent[0]), /你自己的官方帳號/);
 });
+
+test('the operator replays the tour with 「測試導覽」: no allowance used, own OA not in the way', async () => {
+  // A member with their own OA connected, like the operator's main account.
+  const f = fixture([], undefined, true);
+  let tour = 0;
+  const from = f.db.from;
+  (f.db as any).from = (table: string) => {
+    const q: any = from();
+    if (table !== 'line_oa_kit_sec_users') return q;
+    q.maybeSingle = async () => ({ data: { tour_test: tour } });
+    q.update = (v: any) => ((tour = v.tour_test), q);
+    return q;
+  };
+  const deps = (fetcher?: any) => ({ ...f.deps(fetcher), operator: U });
+  await secretaryGateway(msg('測試導覽'), deps());
+  assert.equal(tour, 5);
+  assert.match(JSON.stringify(f.sent), /第一步（1\/5）/);
+  f.sent.length = 0;
+  await secretaryGateway(msg('週五下午三點開會'), deps(ai(turn({ events: [{ date: '2026-11-27', time: '15:00', title: '開會' }] }))));
+  assert.equal(tour, 4);
+  assert.match(JSON.stringify(f.sent), /下一步（2\/5）/);
+  assert.equal(f.calls.filter((c) => c[0] === 'line_oa_kit_sec_take').length, 0);
+  // The last step ends the replay; afterwards the account is itself again.
+  tour = 1;
+  f.sent.length = 0;
+  await secretaryGateway(msg('我這週有什麼事？'), deps(ai(turn({ kind: 'ask', reply: '週五開會。' }))));
+  assert.equal(tour, 0);
+  assert.match(JSON.stringify(f.sent), /五項功能都試過了/);
+  f.sent.length = 0;
+  await secretaryGateway(msg('明天開會'), deps());
+  assert.match(JSON.stringify(f.sent), /你自己的官方帳號/);
+  // Anyone else typing the words is an ordinary message.
+  const g = fixture([{ allowed: false, kind: 'free', left: 0 }]);
+  await secretaryGateway(msg('測試導覽'), { ...g.deps(), operator: 'U' + 'c'.repeat(32) });
+  assert.match(JSON.stringify(g.sent), /免費 5 則用完了/);
+});

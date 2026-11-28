@@ -376,6 +376,7 @@ Deno.serve(async (req) => {
               authenticated: trialAuthenticated,
               db: trialDb,
               aiKey: Deno.env.get('ANTHROPIC_API_KEY') || '',
+              operator: Deno.env.get('LINE_OA_KIT_OWNER_LINE_USER_ID') || '',
               reply,
               push: (to, messages) =>
                 trialLine(trialToken)('/v2/bot/message/push', 'POST', { to, messages }),
