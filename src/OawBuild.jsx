@@ -9,7 +9,7 @@ import {
   setupTrouble,
 } from './oaw-build-model.ts';
 import { GUIDES } from './build-guides.js';
-import { Guide, Intro, INTRO_KEY, Step } from './BuildGuide.jsx';
+import { Guide, Intro, INTRO_KEY, PromoCode, Step } from './BuildGuide.jsx';
 import { seal } from './seal.js';
 import './oaw-build.css';
 import './build-sky.css';
@@ -236,12 +236,11 @@ export default function OawBuild({ api, projectId, projectName = '' }) {
             </button>
           </div>
         )}
+        <PromoCode api={api} onDone={refresh} />
         {billing && !billing.available && (
           <p className="oaw-note">LINE Pay 暫時無法使用，請聯絡 Aprico。</p>
         )}
-        {billing?.mode === 'sandbox' && (
-          <p className="oaw-note">目前是 LINE Pay 測試模式，付款不會開通。</p>
-        )}
+        {billing?.mode === 'sandbox' && <p className="oaw-note">目前是 LINE Pay 測試模式，付款不會開通。</p>}
       </Step>
       {gate === 'ready' && !billingOpen && (
         <button type="button" className="link" onClick={() => setBillingOpen(true)}>
