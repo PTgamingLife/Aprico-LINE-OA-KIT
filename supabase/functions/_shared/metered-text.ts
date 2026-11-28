@@ -20,6 +20,8 @@ export async function claudeText(
     input: string;
     schema?: Record<string, unknown>;
     images?: { type: string; data: string }[];
+    /** A long input with a long answer (e.g. chat analysis): wait up to 90 s. */
+    slow?: boolean;
   },
   maxTokens: number,
   fetcher: typeof fetch,
@@ -33,7 +35,7 @@ export async function claudeText(
     },
     redirect: 'error',
     // Photo reports write ~2000 tokens; text calls stay short.
-    signal: AbortSignal.timeout(request.images?.length ? 90000 : 30000),
+    signal: AbortSignal.timeout(request.images?.length || request.slow ? 90000 : 30000),
     body: JSON.stringify({
       model: QUOTA_MODEL,
       max_tokens: maxTokens,
@@ -111,11 +113,14 @@ export async function meteredText(
     billing?: 'points' | 'quota';
     // Quota (Claude) calls only: base64 JPEG/PNG images sent before the text.
     images?: { type: string; data: string }[];
+    slow?: boolean;
+    /** Input size limit in bytes (default 12000). */
+    maxInputBytes?: number;
   },
   fetcher: typeof fetch = fetch,
 ) {
   if (!apiKey) throw Error('platform_ai_unavailable');
-  if (new TextEncoder().encode(request.input).length > 12000) throw Error('ai_input_too_large');
+  if (new TextEncoder().encode(request.input).length > (request.maxInputBytes ?? 12000)) throw Error('ai_input_too_large');
   const quota = request.billing === 'quota';
   const maxTokens = Math.min(request.maxOutputTokens ?? 400, 3000);
   const maxUsd = quota
