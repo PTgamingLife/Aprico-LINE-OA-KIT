@@ -5,6 +5,7 @@
 //   /unlock  → { plan }  redeem a one-time 領航者 code for this project
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
+//   /voice   → { say, ops, answer, done }  one turn of the spoken briefing; metered
 //   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import RELEASE from './oaw-release.json' with { type: 'json' };
@@ -14,6 +15,7 @@ import { isNavigator, oawUnlock } from './oaw-navigator.ts';
 import { TALLY_INSTRUCTIONS, TALLY_SCHEMA, tallyInput, tallyOutput } from './oaw-tally.ts';
 import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
 import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
+import { VOICE_INSTRUCTIONS, VOICE_SCHEMA, voiceInput, voiceOutput } from './oaw-voice.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
 const MAX_BODY = 16000;
@@ -285,6 +287,16 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
         input,
       );
       if (!out) return respond({ error: 'tally_invalid' }, 502);
+      return respond(out);
+    }
+    if (route === 'voice') {
+      const v = requestIdOk(body.requestId) ? voiceInput(body) : null;
+      if (!v) return respond({ error: 'invalid_input' }, 400);
+      const out = voiceOutput(
+        JSON.parse(await meter('voice', JSON.stringify(v.input), VOICE_INSTRUCTIONS, VOICE_SCHEMA, 'oaw_voice')),
+        v,
+      );
+      if (!out) return respond({ error: 'voice_invalid' }, 502);
       return respond(out);
     }
     if (route === 'compose') {
