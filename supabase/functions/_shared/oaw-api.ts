@@ -5,16 +5,18 @@
 //   /unlock  → { plan }  redeem a one-time 領航者 code for this project
 //   /design  → { summary, config }              metered, billed to the owner
 //   /digest  → { events, expenses, todos, life, summary }  metered
+//   /fit     → { summary, items, free }  suggestions from exported chats; first run free, then metered
 //   /voice   → { say, ops, answer, done }  one turn of the spoken briefing; metered
 //   /compose → { text }  group announcement polish/write, group questions; metered
 // Nothing the app sends is stored here except the usage row written by metering.
 import RELEASE from './oaw-release.json' with { type: 'json' };
-import { meteredText } from './metered-text.ts';
+import { claudeText, meteredText } from './metered-text.ts';
 import { oawLinks } from './oaw-links.ts';
 import { isNavigator, oawUnlock } from './oaw-navigator.ts';
 import { TALLY_INSTRUCTIONS, TALLY_SCHEMA, tallyInput, tallyOutput } from './oaw-tally.ts';
 import { ORB_INSTRUCTIONS, ORB_SCHEMA, orbInput, orbOutput } from './oaw-orb.ts';
 import { COMPOSE_INSTRUCTIONS, COMPOSE_SCHEMA, composeInput, composeOutput } from './oaw-compose.ts';
+import { FIT_INSTRUCTIONS, FIT_SCHEMA, fitInput, fitOutput } from './oaw-fit.ts';
 import { VOICE_INSTRUCTIONS, VOICE_SCHEMA, voiceInput, voiceOutput } from './oaw-voice.ts';
 import { runtimeKeyDigest } from './runtime-ai.ts';
 
@@ -37,9 +39,9 @@ export async function oawGrant(req: Request, db: any): Promise<Grant | Response>
   return data;
 }
 
-async function readJson(req: Request) {
+async function readJson(req: Request, max = MAX_BODY) {
   const raw = await req.text();
-  if (new TextEncoder().encode(raw).length > MAX_BODY) throw Error('input_too_large');
+  if (new TextEncoder().encode(raw).length > max) throw Error('input_too_large');
   try {
     return JSON.parse(raw);
   } catch {
@@ -159,7 +161,8 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
   if (grant instanceof Response) return grant;
   let body: any;
   try {
-    body = await readJson(req);
+    // 「適合功能」 carries up to three chat excerpts.
+    body = await readJson(req, route === 'fit' ? 64000 : MAX_BODY);
   } catch (e) {
     const code = (e as Error).message;
     return respond({ error: code }, code === 'input_too_large' ? 413 : 400);
@@ -288,6 +291,44 @@ export async function oawApi(req: Request, db: any, aiKey: string, fetcher: type
       );
       if (!out) return respond({ error: 'tally_invalid' }, 502);
       return respond(out);
+    }
+    if (route === 'fit') {
+      const f = requestIdOk(body.requestId) ? fitInput(body) : null;
+      if (!f) return respond({ error: 'invalid_input' }, 400);
+      const input = JSON.stringify(f);
+      // The first analysis of an account is free; after that it is billed like any other call.
+      const used = await db.from('line_oa_kit_fit_uses').select('line_subject').eq('line_subject', grant.line_subject).maybeSingle();
+      if (used.error) return respond({ error: 'runtime_unavailable' }, 503);
+      let text: string;
+      if (used.data) {
+        text = await meteredText(
+          db,
+          aiKey,
+          {
+            id: `oaw-fit:${grant.project_id}:${body.requestId}`,
+            projectId: grant.project_id,
+            subject: grant.line_subject,
+            purpose: 'runtime',
+            feature: 'fit',
+            instructions: FIT_INSTRUCTIONS,
+            input,
+            schema: FIT_SCHEMA,
+            schemaName: 'oaw_fit',
+            maxOutputTokens: 2400,
+            billing: 'quota',
+            slow: true,
+            maxInputBytes: 60000,
+          },
+          fetcher,
+        );
+      } else {
+        const r: any = await claudeText(aiKey, { instructions: FIT_INSTRUCTIONS, input, schema: FIT_SCHEMA, slow: true }, 2400, fetcher);
+        text = r?.text ?? '';
+      }
+      const out = fitOutput(JSON.parse(text || 'null'));
+      if (!out) return respond({ error: 'fit_invalid' }, 502);
+      if (!used.data) await db.from('line_oa_kit_fit_uses').insert({ line_subject: grant.line_subject });
+      return respond({ ...out, free: !used.data });
     }
     if (route === 'voice') {
       const v = requestIdOk(body.requestId) ? voiceInput(body) : null;
