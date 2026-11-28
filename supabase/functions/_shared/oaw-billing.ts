@@ -4,7 +4,14 @@
 import { checkoutUrl, linePay, payConfig, verifiedPayment } from './linepay-client.ts';
 import { priceFor } from './aprico-member.ts';
 
-export const BILLING_ACTIONS = ['sub_status', 'sub_create', 'sub_confirm'];
+export const BILLING_ACTIONS = ['sub_status', 'sub_create', 'sub_confirm', 'sub_redeem'];
+const REDEEM_ERRORS: Record<string, string> = {
+  unknown: '找不到這組加值碼，請再確認一次。',
+  expired: '這組加值碼已經過期了。',
+  already: '你已經用過這組加值碼了。',
+  full: '這組加值碼的名額已經用完了。',
+  too_many: '今天試太多次了，請明天再試。',
+};
 export const PRODUCTS: Record<string, { amount: number; name: string }> = {
   month: { amount: 180, name: 'Aprico AI 秘書月費（1 個月）' },
   year: { amount: 1800, name: 'Aprico AI 秘書年費（12 個月）' },
@@ -52,6 +59,15 @@ export async function billingAction(
       order: publicOrder(last),
       products: PRODUCTS,
     });
+  }
+  // 加值碼: free months handed out by the operator. No payment, so it works without LINE Pay.
+  if (b.action === 'sub_redeem') {
+    const code = typeof b.code === 'string' ? b.code.trim() : '';
+    if (!code || code.length > 40) return respond({ error: REDEEM_ERRORS.unknown }, 400);
+    const { data, error } = await db.rpc('line_oa_kit_promo_redeem', { p_subject: subject, p_code: code });
+    if (error || !data?.ok)
+      return respond({ error: REDEEM_ERRORS[data?.error] ?? '加值碼暫時無法使用，請稍後再試。' }, error ? 503 : 400);
+    return respond({ ok: true, months: data.months, paidUntil: data.paidUntil });
   }
   if (!config.enabled) return respond({ error: 'LINE Pay 尚未開放，請聯絡 Aprico' }, 503);
 

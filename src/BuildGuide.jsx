@@ -85,3 +85,5 @@ export function Step({ n, title, done, open, children }) {
     </section>
   );
 }
+
+export { default as PromoCode } from './PromoCode.jsx';

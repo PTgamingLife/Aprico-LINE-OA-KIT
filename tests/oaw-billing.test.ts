@@ -55,6 +55,13 @@ function fakeDb({ paid = false, order = null as any } = {}) {
         return { data: paid ? { paid: true, percentLeft: 90 } : { paid: false } };
       if (name === 'line_oa_kit_quota_order_settle')
         return { data: { status: 'paid', paidUntil: '2027-11-13' } };
+      if (name === 'line_oa_kit_promo_redeem')
+        return {
+          data:
+            args.p_code === 'AIClass'
+              ? { ok: true, months: 1, paidUntil: '2026-12-28' }
+              : { error: args.p_code === 'Full' ? 'full' : 'unknown' },
+        };
       if (name === 'line_oa_kit_billing_due')
         return { data: [{ line_subject: subject, paid_until: '2026-12-12', kind: 'soon' }] };
       return { data: null };
@@ -173,4 +180,23 @@ test('reminders need a valid one-use tick and push one renewal card per row', as
   assert.deepEqual(await ok.json(), { ok: true, sent: 1 });
   assert.equal(pushed[0][0], subject);
   assert.match(reminderCard('due', '2026-12-12').altText, /今天/);
+});
+
+test('加值碼 opens a free month without LINE Pay; wrong, full and oversized codes are refused', async () => {
+  const db = fakeDb();
+  // LINE Pay is off here: the code still works.
+  const off = () => undefined;
+  const ok = await billingAction({ action: 'sub_redeem', code: ' AIClass ' }, db, subject, respond, off);
+  assert.deepEqual(await ok.json(), { ok: true, months: 1, paidUntil: '2026-12-28' });
+  assert.deepEqual(db.rpcs.at(-1), { name: 'line_oa_kit_promo_redeem', args: { p_subject: subject, p_code: 'AIClass' } });
+  const bad = await billingAction({ action: 'sub_redeem', code: 'nope' }, db, subject, respond, off);
+  assert.equal(bad.status, 400);
+  assert.match((await bad.json()).error, /找不到這組加值碼/);
+  const full = await billingAction({ action: 'sub_redeem', code: 'Full' }, db, subject, respond, off);
+  assert.match((await full.json()).error, /名額已經用完/);
+  const before = db.rpcs.length;
+  const long = await billingAction({ action: 'sub_redeem', code: 'x'.repeat(41) }, db, subject, respond, off);
+  assert.equal(long.status, 400);
+  assert.equal(db.rpcs.filter((r: any) => r.name === 'line_oa_kit_promo_redeem').length, 3);
+  assert.ok(db.rpcs.length >= before);
 });
